@@ -1,0 +1,348 @@
+#pragma kernel BoundaryPass
+
+Texture2D<float4> txState;
+Texture2D<float4> txBottom;
+Texture2D<float4> txWaves;
+
+int width;
+int height;
+float dt;
+float dx;
+float dy;
+float total_time;
+int reflect_x;
+int reflect_y;
+float PI;
+float BoundaryWidth;
+float seaLevel;
+int boundary_nx;
+int boundary_ny;
+int numberOfWaves;
+int west_boundary_type;
+int east_boundary_type;
+int south_boundary_type;
+int north_boundary_type;
+float boundary_g;
+
+RWTexture2D<float4> txNewState; // will store the updated state
+
+float4 WestBoundarySolid(int2 idx)
+{
+    // Hard-coded value for the argument shift
+    int shift = 4;
+    
+    // Mirror input texture coordinates
+    int2 real_idx = int2(shift - idx.x, idx.y);
+    
+    // Retrieve state from txState texture
+    float4 in_state_real = txState.Load(int3(real_idx, 0));
+    
+    // Return the output vector
+    return float4(in_state_real.r, -in_state_real.g, in_state_real.b, in_state_real.a);
+}
+
+float4 EastBoundarySolid(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, reflect_x
+    
+    // Mirror input texture coordinates
+    int2 real_idx = int2(reflect_x - idx.x, idx.y);
+    
+    // Retrieve state from txState texture
+    float4 in_state_real = txState.Load(int3(real_idx, 0));
+    
+    // Return the output vector
+    return float4(in_state_real.r, -in_state_real.g, in_state_real.b, in_state_real.a);
+}
+
+float4 SouthBoundarySolid(int2 idx)
+{
+    // Hard-coded value for the argument shift
+    int shift = 4;
+    
+    // Mirror input texture coordinates
+    int2 real_idx = int2(idx.x, shift - idx.y);
+    
+    // Retrieve state from txState texture
+    float4 in_state_real = txState.Load(int3(real_idx, 0));
+    
+    // Return the output vector
+    return float4(in_state_real.r, in_state_real.g, -in_state_real.b, in_state_real.a);
+}
+
+float4 NorthBoundarySolid(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, reflect_y
+    
+    // Mirror input texture coordinates
+    int2 real_idx = int2(idx.x, reflect_y - idx.y);
+    
+    // Retrieve state from txState texture
+    float4 in_state_real = txState.Load(int3(real_idx, 0));
+    
+    // Return the output vector
+    return float4(in_state_real.r, in_state_real.g, -in_state_real.b, in_state_real.a);
+}
+
+float4 WestBoundarySponge(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, PI, BoundaryWidth, seaLevel
+
+    // Compute gamma value
+    float gamma = pow(0.5 * (0.5 + 0.5 * cos(PI * (BoundaryWidth - float(idx.x) + 2.0) / (BoundaryWidth - 1.0))), 0.01);
+
+    // Retrieve new state from txState texture
+    float4 new_state = txState.Load(int3(idx, 0));
+
+    // Compute and return the output vector
+    return float4(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
+}
+
+float4 EastBoundarySponge(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, PI, BoundaryWidth, seaLevel, boundary_nx
+
+    // Compute gamma value
+    float gamma = pow(0.5 * (0.5 + 0.5 * cos(PI * (BoundaryWidth - float(boundary_nx - idx.x)) / (BoundaryWidth - 1.0))), 0.01);
+
+    // Retrieve new state from txState texture
+    float4 new_state = txState.Load(int3(idx, 0));
+
+    // Compute and return the output vector
+    return float4(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
+}
+
+float4 SouthBoundarySponge(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, PI, BoundaryWidth, seaLevel
+
+    // Compute gamma value
+    float gamma = pow(0.5 * (0.5 + 0.5 * cos(PI * (BoundaryWidth - float(idx.y) + 2.0) / (BoundaryWidth - 1.0))), 0.01);
+
+    // Retrieve new state from txState texture
+    float4 new_state = txState.Load(int3(idx, 0));
+
+    // Compute and return the output vector
+    return float4(new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
+}
+
+float4 NorthBoundarySponge(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, PI, BoundaryWidth, seaLevel, boundary_ny
+
+    // Compute gamma value
+    float gamma = pow(0.5 * (0.5 + 0.5 * cos(PI * (BoundaryWidth - float(boundary_ny - idx.y)) / (BoundaryWidth - 1.0))), 0.01);
+
+    // Retrieve new state from txState texture
+    float4 new_state = txState.Load(int3(idx, 0));
+
+    // Compute and return the output vector
+    return float4(new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
+}
+
+
+// Function to Compute the wavenumber using Eckart's approximation
+// Wavenumber: number of wavelengths per unit distance
+float calc_wavenumber_approx(float omega, float d)
+{
+    // Assume the global variable boundary_g is in the buffer calc_constants
+
+    // Compute the wavenumber using Eckart's approximation
+    float k = omega * omega / (boundary_g * sqrt(tanh(omega * omega * d / boundary_g)));
+    return k;
+}
+
+float3 sineWave(float x, float y, float t, float d, float amplitude, float period, float theta, float phase)
+{
+    // Assume the global variable PI is in the buffer calc_constants
+
+    float omega = 2.0 * PI / period;
+    float k = calc_wavenumber_approx(omega, d);
+    float c = omega / k;
+    float kx = cos(theta) * x * k;
+    float ky = sin(theta) * y * k;
+    float eta = amplitude * sin(omega * t - kx - ky + phase) * min(1.0, t / period); // ramp up waves over one period
+    float speed = boundary_g * eta / (c * k) * tanh(k * d);
+    float hu = speed * cos(theta);
+    float hv = speed * sin(theta);
+    return float3(eta, hu, hv);
+}
+
+float4 BoundarySineWave(int2 idx)
+{
+    // Retrieve global variables from calc_constants buffer, dx, dy, seaLevel, total_time, numberOfWaves
+
+    // Get the value of B_here and d_here from txBottom texture
+    float B_here = txBottom.Load(int3(idx, 0)).b;
+    float d_here = max(0.0, seaLevel - B_here);
+
+    // Compute x and y from texture coordinates
+    float x = float(idx.x) * dx;
+    float y = float(idx.y) * dy;
+
+    float3 result = float3(0.0, 0.0, 0.0);
+    if (d_here > 0.0001)
+    {
+        for (int iw = 0; iw < numberOfWaves; iw++)
+        {
+            // Retrieve wave parameters from irregularWaves buffer
+            float4 wave = txWaves.Load(int3(iw, 0, 0));
+
+            // Compute sine wave contribution
+            result += sineWave(x, y, total_time, d_here, wave.r, wave.g, wave.b, wave.a);
+        }
+    }
+
+    // Return the output vector
+    return float4(result.x + seaLevel+13., result.y, result.z, 0.0);
+}
+
+
+#pragma multi_compile THREADS_8x8 THREADS_16x16 THREADS_32x32
+
+#ifdef THREADS_8x8
+#define THREAD_X 8
+#define THREAD_Y 8
+#elif defined(THREADS_16x16)
+#define THREAD_X 16
+#define THREAD_Y 16
+#elif defined(THREADS_32x32)
+#define THREAD_X 32
+#define THREAD_Y 32
+#endif
+[numthreads(THREAD_X, THREAD_Y, 1)]
+void BoundaryPass(uint3 id : SV_DispatchThreadID) {
+    int2 idx = int2(id.xy);
+
+    float4 BCState = txState.Load(int3(idx, 0));
+
+//// Sponge Layers
+// west boundary
+    if (west_boundary_type == 1)
+    {
+        if (idx.x <= 2 + BoundaryWidth)
+        {
+            BCState = WestBoundarySponge(idx);
+        }
+    }
+// east boundary
+    if (east_boundary_type == 1)
+    {
+        if (idx.x >= width - BoundaryWidth - 1)
+        {
+            BCState = EastBoundarySponge(idx);
+        }
+    }
+// south boundary
+    if (south_boundary_type == 1)
+    {
+        if (idx.y <= 2 + BoundaryWidth)
+        {
+            BCState = SouthBoundarySponge(idx);
+        }
+    }
+// north boundary
+    if (north_boundary_type == 1)
+    {
+        if (idx.y >= height - BoundaryWidth - 1)
+        {
+            BCState = NorthBoundarySponge(idx);
+        }
+    }
+//// End Sponge Layers
+
+//// Solid Walls
+// west boundary
+    if (west_boundary_type <= 1)
+    {
+        if (idx.x <= 1)
+        {
+            BCState = WestBoundarySolid(idx);
+        }
+        else if (idx.x == 2)
+        {
+            BCState.y = 0.0;
+        }
+    }
+// east boundary
+    if (east_boundary_type <= 1)
+    {
+        if (idx.x >= width - 2)
+        {
+            BCState = EastBoundarySolid(idx);
+        }
+        else if (idx.x == width - 3)
+        {
+            BCState.y = 0.0;
+        }
+    }
+// south boundary
+    if (south_boundary_type <= 1)
+    {
+        if (idx.y <= 1)
+        {
+            BCState = SouthBoundarySolid(idx);
+        }
+        else if (idx.y == 2)
+        {
+            BCState.z = 0.0;
+        }
+    }
+// north boundary
+    if (north_boundary_type <= 1)
+    {
+        if (idx.y >= height - 2)
+        {
+            BCState = NorthBoundarySolid(idx);
+        }
+        else if (idx.y == height - 3)
+        {
+            BCState.z = 0.0;
+        }
+    }
+//// End Solid Walls
+
+//// Sine Waves
+// west boundary
+    if (west_boundary_type == 2)
+    {
+        if (idx.x <= 2)
+        {
+            BCState = BoundarySineWave(idx);
+        }
+    }
+// east boundary
+    if (east_boundary_type == 2)
+    {
+        if (idx.x >= width - 3)
+        {
+            BCState = BoundarySineWave(idx);
+        }
+    }
+// south boundary
+    if (south_boundary_type == 2)
+    {
+        if (idx.y <= 2)
+        {
+            BCState = BoundarySineWave(idx);
+        }
+    }
+// north boundary
+    if (north_boundary_type == 2)
+    {
+        if (idx.y >= height - 3)
+        {
+            BCState = BoundarySineWave(idx);
+        }
+    }
+
+// check for negative depths
+    float bottom = txBottom.Load(int3(idx, 0)).z;
+    float elev = BCState.x;
+    if (elev <= bottom)
+    {
+        BCState = float4(bottom, 0.0, 0.0, 0.0);
+    }
+
+    txNewState[id.xy] = BCState;
+}

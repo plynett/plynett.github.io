@@ -1,0 +1,143 @@
+#pragma kernel Pass2
+
+Texture2D<float4> txH; // Texture containing water height values from Pass1.
+Texture2D<float4> txU; // Texture containing x-component of the velocity from Pass1.
+Texture2D<float4> txV; // Texture containing y-component of the velocity from Pass1.
+Texture2D<float4> txBottom; // Texture containing depth(bathy) data (North Boundary, East Boundary, Center, land/swash/surf zone)
+Texture2D<float4> txC; // Texture containing reconstructed concentration field(in boundaries)
+
+int width; // Width of the computational domain
+int height; // Height of the computational domain
+float g; // Gravity acceleration
+float half_g;
+float dx;
+float dy;
+
+RWTexture2D<float4> txXFlux; // Texture storing computed flux in the x direction.
+RWTexture2D<float4> txYFlux; // Texture storing computed flux in the y direction.
+
+// Helper function to calculate numerical flux, an approximation of the rate of change across boundaries.
+float NumericalFlux(float aplus, float aminus, float Fplus, float Fminus, float Udifference)
+{
+    float numerical_flux;
+
+    if (aplus - aminus != 0.0)
+    {
+        numerical_flux = (aplus * Fminus - aminus * Fplus + aplus * aminus * Udifference) / (aplus - aminus);
+    }
+    else
+    {
+        numerical_flux = 0.0;
+    }
+
+    return numerical_flux;
+}
+
+void ScalarAntiDissipation(float uplus, float uminus, float aplus, float aminus, float epsilon, out float phi)
+{
+    float Fr;
+    if (aplus != 0 && aminus != 0)
+    {
+        if (abs(uplus) >= abs(uminus))
+        {
+            Fr = abs(uplus) / aplus;
+        }
+        else
+        {
+            Fr = abs(uminus) / aminus;
+        }
+        phi = (Fr + epsilon) / (Fr + 1);
+    }
+    else if (aplus == 0 || aminus == 0)
+    {
+        phi = epsilon;
+    }
+}
+
+
+[numthreads(16, 16, 1)]
+void Pass2 (uint3 id : SV_DispatchThreadID) {
+    // Convert the 3D thread ID to a 2D grid coordinate.
+    int2 idx = int2(id.xy);
+
+    // Handle boundary conditions
+    int2 rightIdx = min(idx + int2(1, 0), int2(width-1, height-1));
+    int2 upIdx = min(idx + int2(0, 1), int2(width-1, height-1));
+    int2 leftIdx = max(idx + int2(-1, 0), int2(0, 0));
+    int2 downIdx = max(idx + int2(0, -1), int2(0, 0));
+    
+    // Fetch the necessary data from the input textures
+    // Water height and velocities
+    float4 h_vec = txH.Load(int3(idx, 0));
+    float2 h_here = h_vec.xy;
+    
+    float hW_east = txH.Load(int3(rightIdx, 0)).w;
+    float hS_north = txH.Load(int3(upIdx, 0)).z;
+    
+    // Velocities in the x direction.
+    float2 u_here = txU.Load(int3(idx, 0)).xy;
+    float uW_east = txU.Load(int3(rightIdx, 0)).w;
+    float uS_north = txU.Load(int3(upIdx, 0)).z;
+    
+    // Velocities in the y direction.
+    float2 v_here = txV.Load(int3(idx, 0)).xy;
+    float vW_east = txV.Load(int3(rightIdx, 0)).w;
+    float vS_north = txV.Load(int3(upIdx, 0)).z;
+
+    // Compute wave speeds, which is based on water depth and gravity
+    float2 cNE = sqrt((g * h_here));
+    float cW = sqrt((g * hW_east));
+    float cS = sqrt((g * hS_north));
+
+    // Compute propagation speeds using wave speeds and velocities
+    float aplus = max(max(u_here.y + cNE.y, uW_east + cW), 0.0);
+    float aminus = min(min(u_here.y - cNE.y, uW_east - cW), 0.0);
+    float bplus = max(max(v_here.x + cNE.x, vS_north + cS), 0.0);
+    float bminus = min(min(v_here.x - cNE.x, vS_north - cS), 0.0);
+
+    // correction for "small" depth cells, fixes near-shoreline spurious waves
+    float B_here = txBottom.Load(int3(idx, 0)).z;
+    float B_south = txBottom.Load(int3(downIdx, 0)).z;
+    float B_north = txBottom.Load(int3(upIdx, 0)).z;
+    float B_west = txBottom.Load(int3(leftIdx, 0)).z;
+    float B_east = txBottom.Load(int3(rightIdx, 0)).z;
+    float dB = max(abs(B_south-B_here),max(abs(B_north-B_here),max(abs(B_west-B_here),abs(B_east-B_here))));
+
+    float near_dry = txBottom.Load(int3(idx, 0)).w;
+
+    // scalar concentration // SOON
+    float2 c_here = txC.Load(int3(idx, 0)).xy;
+    float cW_east = txC.Load(int3(rightIdx, 0)).w;
+    float cS_north = txC.Load(int3(upIdx, 0)).z;
+
+    float phix = 0.5;
+    float phiy = 0.5;
+
+    float minH = min(h_vec.w, min(h_vec.z, min(h_vec.y, h_vec.x)));
+    float mass_diff_x = (hW_east - h_here.y);
+    float mass_diff_y = (hS_north - h_here.x);
+    
+    if (minH * minH <= 3.0 * dx * dB)
+    { // when the depth is "small" turn off the difference term in the flux calc, as this does not behave correctly
+        mass_diff_x = 0.; // turn off smoothing, as this seems to create a false increase in eta near the shoreline
+        mass_diff_y = 0.;
+        phix = 1.0; // turn on smoothing to keep transport stable near shoreline
+        phiy = 1.0;
+    }
+
+    float4 xflux = float4(
+        NumericalFlux(aplus, aminus, hW_east * uW_east, h_here.y * u_here.y, mass_diff_x),
+        NumericalFlux(aplus, aminus, hW_east * uW_east * uW_east, h_here.y * u_here.y * u_here.y, hW_east * uW_east - h_here.y * u_here.y),
+        NumericalFlux(aplus, aminus, hW_east * uW_east * vW_east, h_here.y * u_here.y * v_here.y, hW_east * vW_east - h_here.y * v_here.y),
+        NumericalFlux(aplus, aminus, hW_east * uW_east * cW_east, h_here.g * u_here.g * c_here.g, phix * (hW_east * cW_east - h_here.g * c_here.g)));
+        
+    float4 yflux = float4(
+        NumericalFlux(bplus, bminus, hS_north * vS_north, h_here.x * v_here.x, mass_diff_y),
+        NumericalFlux(bplus, bminus, hS_north * uS_north * vS_north, h_here.x * u_here.x * v_here.x, hS_north * uS_north - h_here.x * u_here.x),
+        NumericalFlux(bplus, bminus, hS_north * vS_north * vS_north, h_here.x * v_here.x * v_here.x, hS_north * vS_north - h_here.x * v_here.x),
+        NumericalFlux(bplus, bminus, hS_north * cS_north * vS_north, h_here.x * c_here.x * v_here.x, phiy * (hS_north * cS_north - h_here.x * c_here.x)));
+
+    // Write the computed flux values to the output textures
+    txXFlux[id.xy] = xflux;
+    txYFlux[id.xy] = yflux;
+}

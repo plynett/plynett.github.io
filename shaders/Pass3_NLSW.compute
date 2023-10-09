@@ -1,0 +1,231 @@
+#pragma kernel Pass3_NLSW
+
+Texture2D<float4> txState;  // Current ocean state(Elevation, velocity in x, velocity in y and local total flow depth).
+Texture2D<float4> txBottom; // Depth(bathy) data (North Boundary, East Boundary, Center, land/swash/surf zone).
+Texture2D<float4> txH;  // Water height values from Pass1.
+Texture2D<float4> txXFlux;  // x-direction flux values from Pass2.
+Texture2D<float4> txYFlux;  // y-direction flux values from Pass2.
+Texture2D<float4> oldGradients; // Gradient values from previous time step.
+Texture2D<float4> oldOldGradients;  // Gradient values from the time step before the previous one.
+Texture2D<float4> predictedGradients;   // Predicted gradient values for the current time step.
+Texture2D<float4> F_G_star_oldOldGradients; // F* and G* from the time step before the previous one.
+Texture2D<float4> txstateUVstar;    // Intermediate state values after the predictor step? (ask Pat)
+Texture2D<float4> txShipPressure;
+
+int width;  // Width of the computational domain
+int height; // Height of the computational domain
+float dt;   // Time step for simulation
+float dx;   // Cell size in the x direction.
+float dy;   // Cell size in the y direction.
+float one_over_dx;  // Reciprocal of the grid cell size in x-direction
+float one_over_dy;  // Reciprocal of the grid cell size in y-direction
+float g_over_dx;    // Pre-computed gravity divided by dx
+float g_over_dy;    // Pre-computed gravity divided by dy
+int timeScheme;   // Time integration choices: 0: Euler, 1: 3rd-order A-B predictor, 2: A-B 4th-order predictor+corrector.
+float epsilon;  // Small constant to prevent division by zero
+int isManning;    // if ==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
+float g;    // Gravitational constant.
+float friction; // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
+int pred_or_corrector;    // Parameter to select predictor or corrector step in Predictor-Corrector scheme
+float Bcoef;    // Dispersion parameter
+float Bcoef_g;
+float one_over_d2x; // Reciprocal of dx^2
+float one_over_d3x; // Reciprocal of dx^3
+float one_over_d2y; // Reciprocal of dy^2
+float one_over_d3y; // Reciprocal of dy^3
+float one_over_dxdy; // Reciprocal of dx*dy
+float seaLevel; // Water level shift from given datum.
+
+RWTexture2D<float4> txNewState; // Updated state values
+RWTexture2D<float4> dU_by_dt; // Updated time derivatives of the state variables
+RWTexture2D<float4> F_G_star; // Updated F*, G* values
+RWTexture2D<float4> current_stateUVstar; // Updated intermediate state values after the predictor step
+
+// A function to calculate the friction term based on the momentum and depth.
+float FrictionCalc(float hu, float hv, float h) {
+    // Compute divide_by_h
+    float h2 = h * h;
+    float divide_by_h = 2.0 * h / sqrt(h2 + max(h2, epsilon));
+
+    // Compute f based on the value of isManning
+    float f;
+    if (isManning == 1) {
+        f = g * pow(friction, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
+    } else {
+        f = friction / 2.0;
+    }
+
+    // Compute final value of f
+    f = f * sqrt(hu * hu + hv * hv) * divide_by_h * divide_by_h;
+
+    // Return f
+    return f;
+}
+
+#pragma multi_compile THREADS_8x8 THREADS_16x16 THREADS_32x32
+
+#ifdef THREADS_8x8
+#define THREAD_X 8
+#define THREAD_Y 8
+#elif defined(THREADS_16x16)
+#define THREAD_X 16
+#define THREAD_Y 16
+#elif defined(THREADS_32x32)
+#define THREAD_X 32
+#define THREAD_Y 32
+#endif
+
+[numthreads(16, 16, 1)]
+void Pass3_NLSW(uint3 id : SV_DispatchThreadID) {
+
+    // Convert the 3D thread ID to a 2D grid coordinate
+    int2 idx = int2(id.xy);
+
+    // Initialize state, derivatives and fluxes
+    float4 zero = float4(0.0, 0.0, 0.0, 0.0);
+    txNewState[id.xy] = zero;
+    dU_by_dt[id.xy] = zero;
+    F_G_star[id.xy] = zero;
+    current_stateUVstar[id.xy] = zero;
+
+    // return if in imaginary grid points
+    if (idx.x >= width - 2 || idx.y >= height - 2) return;
+    if (idx.x <= 1 || idx.y <= 1) return;
+
+    // Handle boundary conditions
+    int2 leftIdx = idx + int2(-1, 0);
+    int2 rightIdx = idx + int2(1, 0);
+    int2 downIdx = idx + int2(0, -1);
+    int2 upIdx = idx + int2(0, 1);
+    int2 upleftIdx = idx + int2(-1, 1);
+    int2 uprightIdx = idx + int2(1, 1);
+    int2 downleftIdx = idx + int2(-1, -1);
+    int2 downrightIdx = idx + int2(1, -1);
+
+    // Load bathy and state data from textures
+    float B_here = txBottom.Load(int3(idx, 0)).z;
+
+    // Load values from txState using idx
+    float4 in_state_here = txState.Load(int3(idx, 0));
+    float4 in_state_here_UV = txstateUVstar.Load(int3(idx, 0));
+
+    float B_south = txBottom.Load(int3(downIdx, 0)).z;
+    float B_north = txBottom.Load(int3(upIdx, 0)).z;
+    float B_west = txBottom.Load(int3(leftIdx, 0)).z;
+    float B_east = txBottom.Load(int3(rightIdx, 0)).z;
+
+    // Calculate local h,w
+    float4 h_vec = txH.Load(int3(idx, 0));
+    float h_here = in_state_here.x - B_here;
+
+    float eta_west = txState.Load(int3(leftIdx, 0)).x;
+    float eta_east = txState.Load(int3(rightIdx, 0)).x;
+    float eta_south = txState.Load(int3(downIdx, 0)).x;
+    float eta_north = txState.Load(int3(upIdx, 0)).x;
+
+    float detadx = 0.5*(eta_east - eta_west) * one_over_dx;
+    float detady = 0.5*(eta_north - eta_south) * one_over_dy;
+
+    // correction for "small" depth cells, fixes near-shoreline spurious waves
+    float minH = min(h_vec.w, min(h_vec.z, min(h_vec.y, h_vec.x)));
+    float dB = max(abs(B_south - B_here), max(abs(B_north - B_here), max(abs(B_west - B_here), abs(B_east - B_here))));
+    float u_here = in_state_here.y;
+    float v_here = in_state_here.z;
+    float speed2_here = u_here * u_here + v_here * v_here;
+    if (minH * minH < 2.0 * dx * dB && speed2_here < 0.00001 * dB * g) { // when the depth is "small" & fluid is not moving, set the free surface slope to zero (stair-step analogy)
+        detady = 0;
+        detadx = 0;
+    }
+
+    // Load values from txXFlux and txYFlux using idx
+    float4 xflux_here = txXFlux.Load(int3(idx, 0));
+    float4 xflux_west = txXFlux.Load(int3(leftIdx, 0));
+    float4 yflux_here = txYFlux.Load(int3(idx, 0));
+    float4 yflux_south = txYFlux.Load(int3(downIdx, 0));
+
+    float friction_ = FrictionCalc(in_state_here.x, in_state_here.y, h_here);
+
+    // Calculate pressure stencil
+    float P_left = txShipPressure.Load(int3(leftIdx, 0)).x;
+    float P_right = txShipPressure.Load(int3(rightIdx, 0)).x;
+    float P_down = txShipPressure.Load(int3(downIdx, 0)).x;
+    float P_up = txShipPressure.Load(int3(upIdx, 0)).x;
+
+    float press_x = -0.5 * h_here * g_over_dx * (P_right - P_left);
+    float press_y = -0.5 * h_here * g_over_dy * (P_up - P_down);
+
+    // Calculate scalar transport additions
+    float C_state_here = txState.Load(int3(idx, 0)).w; // c at this cell (cell avgs, evaluated here)
+    float C_state_right = txState.Load(int3(rightIdx, 0)).w; // c at right cell (cell avgs, evaluated here)
+    float C_state_left = txState.Load(int3(leftIdx, 0)).w; // c at left cell (cell avgs, evaluated here)
+    float C_state_up = txState.Load(int3(upIdx, 0)).w; // w, hu and hv at up cell (cell avgs, evaluated here)
+    float C_state_down = txState.Load(int3(downIdx, 0)).w; // w, hu and hv at down cell (cell avgs, evaluated here)
+    float C_state_up_left = txState.Load(int3(upleftIdx, 0)).w;
+    float C_state_up_right = txState.Load(int3(uprightIdx, 0)).w;
+    float C_state_down_left = txState.Load(int3(downleftIdx, 0)).w;
+    float C_state_down_right = txState.Load(int3(downrightIdx, 0)).w;
+
+    float Dxx = 0.;
+    float Dxy = 0.;
+    float Dyy = 0.;
+
+    float hc_by_dx_dx = Dxx * one_over_d2x * (C_state_right - 2.0f * in_state_here.a + C_state_left); // SOON
+    float hc_by_dy_dy = Dyy * one_over_d2y * (C_state_up    - 2.0f * in_state_here.a + C_state_down); // SOON
+    float hc_by_dx_dy = 10.25f * Dxy * one_over_dxdy * (C_state_up_right - C_state_up_left - C_state_down_right + C_state_down_left); // SOON
+
+    float c_dissipation = -0.00 * C_state_here;
+
+    float4 source_term = float4(0.0, -g * h_here * detadx - in_state_here.y * friction_ + press_x, -g * h_here * detady - in_state_here.z * friction_ + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0f * hc_by_dx_dy + c_dissipation);
+
+    float4 d_by_dt = (xflux_west - xflux_here) * one_over_dx + (yflux_south - yflux_here) * one_over_dy + source_term;
+
+    // previous derivatives
+    float4 oldies = oldGradients.Load(int3(idx, 0));
+    float4 oldOldies = oldOldGradients.Load(int3(idx, 0));
+
+    float4 newState = float4(0., 0., 0., 0.);
+    if (timeScheme == 0)
+    { // if timeScheme is Euler:
+    //    wOut = in_state_here_UV.x + dt * d_by_dt.x;
+    //    huOut = in_state_here_UV.y + dt * d_by_dt.y;
+    //    hvOut = in_state_here_UV.z + dt * d_by_dt.z;
+    //    cOut = in_state_here_UV.w + dt * d_by_dt.w;
+        
+        newState = in_state_here_UV + dt * d_by_dt;
+    }
+    else if (pred_or_corrector == 1)
+    { // if time scheme is predictor
+     //   wOut = in_state_here_UV.x + dt / 12.0 * (23.0 * d_by_dt.x - 16.0 * oldies.x + 5.0 * oldOldies.x);
+     //   huOut = in_state_here_UV.y + dt / 12.0 * (23.0 * d_by_dt.y - 16.0 * oldies.y + 5.0 * oldOldies.y);
+     //   hvOut = in_state_here_UV.z + dt / 12.0 * (23.0 * d_by_dt.z - 16.0 * oldies.z + 5.0 * oldOldies.z);
+     //   cOut = in_state_here_UV.w + dt / 12.0 * (23.0 * d_by_dt.w - 16.0 * oldies.w + 5.0 * oldOldies.w);
+        
+        newState = in_state_here_UV + dt / 12.0 * (23.0 * d_by_dt - 16.0 * oldies + 5.0 * oldOldies);;
+    }
+    else if (pred_or_corrector == 2)
+    { // if time scheme is corrector
+        float4 predicted = predictedGradients.Load(int3(idx, 0));
+
+     //   wOut = in_state_here_UV.x + dt / 24.0 * (9.0 * d_by_dt.x + 19.0 * predicted.x - 5.0 * oldies.x + oldOldies.x);
+     //   huOut = in_state_here_UV.y + dt / 24.0 * (9.0 * d_by_dt.y + 19.0 * predicted.y - 5.0 * oldies.y + oldOldies.y);
+     //   hvOut = in_state_here_UV.z + dt / 24.0 * (9.0 * d_by_dt.z + 19.0 * predicted.z - 5.0 * oldies.z + oldOldies.z);
+     //   cOut = in_state_here_UV.w + dt / 24.0 * (9.0 * d_by_dt.w + 19.0 * predicted.w - 5.0 * oldies.w + oldOldies.w);
+     
+        newState = in_state_here_UV + dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
+        
+    }
+
+    // hack add for creating scalar "turbulence" at ship location
+ //   if (abs(P_left) > 0.01) {
+ //       newState.w = 1;
+//    }
+    if (id.x == 50 && id.y < 160 && id.y > 150)
+    {
+        newState.w = 1;
+    }
+
+    txNewState[id.xy] = newState;
+    dU_by_dt[id.xy] = float4(d_by_dt);
+    F_G_star[id.xy] = float4(0.0, 0.0, 0.0, 1.0);
+    current_stateUVstar[id.xy] = newState;
+}
