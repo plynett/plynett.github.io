@@ -1,29 +1,30 @@
 struct Globals {
-    width: u32;
-    height: u32;
-    dt: f32;
-    dx: f32;
-    dy: f32;
-    total_time: f32;
-    reflect_x: i32;
-    reflect_y: i32;
-    PI: f32;
-    BoundaryWidth: f32;
-    seaLevel: f32;
-    boundary_nx: i32;
-    boundary_ny: i32;
-    numberOfWaves: i32;
-    west_boundary_type: i32;
-    east_boundary_type: i32;
-    south_boundary_type: i32;
-    north_boundary_type: i32;
-    boundary_g: f32;
+    width: u32,
+    height: u32,
+    dt: f32,
+    dx: f32,
+    dy: f32,
+    total_time: f32,
+    reflect_x: i32,
+    reflect_y: i32,
+    PI: f32,
+    BoundaryWidth: f32,
+    seaLevel: f32,
+    boundary_nx: i32,
+    boundary_ny: i32,
+    numberOfWaves: i32,
+    west_boundary_type: i32,
+    east_boundary_type: i32,
+    south_boundary_type: i32,
+    north_boundary_type: i32,
+    boundary_g: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
-@group(0) @binding(1) var txState: texture_storage_2d<rgba32float>;
-@group(0) @binding(2) var txBottom: texture_storage_2d<rgba32float>;
-@group(0) @binding(3) var txWaves: texture_storage_2d<rgba32float>;
+@group(0) @binding(1) var txState: texture_2d<f32>;
+@group(0) @binding(2) var txBottom: texture_2d<f32>;
+@group(0) @binding(3) var txWaves: texture_2d<f32>;
+
 @group(0) @binding(4) var txNewState: texture_storage_2d<rgba32float, write>;
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
@@ -107,7 +108,7 @@ fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
             result = result + sineWave(x, y, globals.total_time, d_here, wave.r, wave.g, wave.b, wave.a);
         }
     }
-    return vec4<f32>(result.x + globals.seaLevel + 13.0, result.y, result.z, 0.0);
+    return vec4<f32>(result, 0.0);
 }
 
 @compute @workgroup_size(16, 16)
@@ -197,7 +198,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // Check for negative depths
     let bottom = textureLoad(txBottom, idx, 0).z;
     if (BCState.x <= bottom) {
-        BCState = vec4<f32>(bottom, 0.0, 0.0, 0.0);
+        BCState = vec4<f32>(0, 0.0, 0.0, 0.0);
     }
 
     textureStore(txNewState, idx, BCState);

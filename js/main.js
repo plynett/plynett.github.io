@@ -1,12 +1,13 @@
 ﻿// import source files
 import { calc_constants, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface } from './depth_loader.js';  // load depth surface file
-import { create_2D_Texture, createUniformBuffer } from './texture_creator.js';  // create texture function
-import { copyBathyDataToTexture, copyInitialConditionDataToTexture } from './set_bathy_IC_texture.js';  // fills in channels of txBottom
+import { loadDepthSurface, loadWaveData } from './File_Loader.js';  // load depth surface and wave data file
+import { create_2D_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup } from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
 import { create_Pass2_BindGroupLayout, create_Pass2_BindGroup } from './Handler_Pass2.js';  // group bindings for Pass2 shaders
 import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup } from './Handler_Pass3.js';  // group bindings for Pass3 shaders
+import { create_BoundaryPass_BindGroupLayout, create_BoundaryPass_BindGroup } from './Handler_BoundaryPass.js';  // group bindings for BoundaryPass shaders
 import { createComputePipeline, createRenderPipeline } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader } from './Run_Compute_Shader.js';
 
@@ -32,8 +33,11 @@ async function OrderedFunctions() {
     await init_sim_parameters(canvas);  // Ensure this completes first,canvas as input - update WIDTH and HEIGHT of canvas to match grid domain
 
     // Load depth surface file, place into 2D array bathy2D
-    let bathy2D = await loadDepthSurface(calc_constants);  // Start this only after the first function completes
-    return bathy2D;
+    let bathy2D = await loadDepthSurface('modified_bathy.txt', calc_constants);  // Start this only after the first function completes
+    // Load wave data file, place into waveArray 
+    let { numberOfWaves, waveData } = await loadWaveData('irrWaves.txt');  // Start this only after the first function completes
+    calc_constants.numberOfWaves = numberOfWaves; 
+    return { bathy2D, waveData };
 }
 
 // This is an asynchronous function to set up the WebGPU context and resources.
@@ -62,11 +66,10 @@ async function initializeWebGPUApp() {
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
     });
 
-    // load the simulation parameters, and the 2D depth surface.  "Ordered" as the sequence of how these files are loaded is important
-    let bathy2D = await OrderedFunctions();
+    // load the simulation parameters, the 2D depth surface, and the wave data.  "Ordered" as the sequence of how these files are loaded is important
+    let { bathy2D, waveData } = await OrderedFunctions();
 
     // Create buffers for storing uniform data. This buffer will be used to send parameter data to shaders.
-    const uniformBuffer = createUniformBuffer(device);
     const Pass1_uniformBuffer = createUniformBuffer(device);
     const Pass2_uniformBuffer = createUniformBuffer(device);
     const Pass3_uniformBuffer = createUniformBuffer(device);
@@ -114,11 +117,16 @@ async function initializeWebGPUApp() {
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const F_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    //const txWaves = create_1D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves);
 
 
     // fill in the bathy texture
     copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
+
+    // fill in the wave data texture
+    if (calc_constants.numberOfWaves > 0) {
+        copyWaveDataToTexture(calc_constants, waveData, device, txWaves);
+    }
 
     // create initial condition
     copyInitialConditionDataToTexture(calc_constants, device, txState);
@@ -185,6 +193,31 @@ async function initializeWebGPUApp() {
     Pass3_view.setFloat32(84, calc_constants.one_over_dxdy, true);           // f32
     Pass3_view.setFloat32(88, calc_constants.seaLevel, true);           // f32
 
+    // BoundaryPass Bindings & Uniforms Config
+    const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
+    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp);
+    const BoundaryPass_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
+    BoundaryPass_view.setUint32(0, calc_constants.WIDTH, true);          // u32
+    BoundaryPass_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
+    BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
+    BoundaryPass_view.setFloat32(12, calc_constants.dx, true);       // f32
+    BoundaryPass_view.setFloat32(16, calc_constants.dy, true);           // f32
+    BoundaryPass_view.setFloat32(20, 0.0, true);           // f32
+    BoundaryPass_view.setUint32(24, calc_constants.reflect_x, true);       // f32
+    BoundaryPass_view.setUint32(28, calc_constants.reflect_x, true);           // f32
+    BoundaryPass_view.setFloat32(32, calc_constants.PI, true);           // f32
+    BoundaryPass_view.setUint32(36, calc_constants.BoundaryWidth, true);       // f32
+    BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
+    BoundaryPass_view.setUint32(44, calc_constants.boundary_nx, true);           // f32
+    BoundaryPass_view.setUint32(48, calc_constants.boundary_nx, true);           // f32
+    BoundaryPass_view.setUint32(52, calc_constants.numberOfWaves, true);             // f32
+    BoundaryPass_view.setUint32(56, calc_constants.west_boundary_type, true);       // f32
+    BoundaryPass_view.setUint32(60, calc_constants.east_boundary_type, true);           // f32
+    BoundaryPass_view.setUint32(64, calc_constants.south_boundary_type, true);           // f32
+    BoundaryPass_view.setUint32(68, calc_constants.north_boundary_type, true);       // f32
+    BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
+
     // Render Bindings
     const renderBindGroupLayout = createRenderBindGroupLayout(device);
     const renderBindGroup = createRenderBindGroup(device, txState, txBottom, textureSampler);
@@ -196,6 +229,7 @@ async function initializeWebGPUApp() {
     const Pass3_ShaderCode = (calc_constants.NLSW_or_Bous == 0)
         ? await fetchShader('/shaders/Pass3_NLSW.wgsl')
         : await fetchShader('/shaders/Pass3_Bous.wgsl');
+    const BoundaryPass_ShaderCode = await fetchShader('/shaders/BoundaryPass.wgsl');
 
     const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
     const fragmentShaderCode = await fetchShader('/shaders/fragment.wgsl');
@@ -205,6 +239,7 @@ async function initializeWebGPUApp() {
     const Pass1_Pipeline = createComputePipeline(device, Pass1_ShaderCode, Pass1_BindGroupLayout);
     const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout);
     const Pass3_Pipeline = createComputePipeline(device, Pass3_ShaderCode, Pass3_BindGroupLayout);
+    const BoundaryPass_Pipeline = createComputePipeline(device, BoundaryPass_ShaderCode, BoundaryPass_BindGroupLayout);
 
     const renderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, renderBindGroupLayout);
     console.log("Pipelines set up.");
@@ -240,7 +275,7 @@ async function initializeWebGPUApp() {
     // Log that the buffers have been set up.
     console.log("Buffers set up.");
 
-    let time = 0;          // Initialize time, which might be used for animations or simulations.
+    let total_time = 0;          // Initialize time, which might be used for animations or simulations.
     let frame_count = 0;   // Counter to keep track of the number of rendered frames.
 
     console.log("Compute / Render loop starting.");
@@ -251,11 +286,16 @@ async function initializeWebGPUApp() {
         // Create a new command encoder for recording GPU commands.
         const commandEncoder = device.createCommandEncoder();
 
-        for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {
+         // loop through the compute shaders "render_step" times.  We use this approach
+         // instead of putting an "if" loop on the render step, as it appears that the opening and
+         // closing of the "commandEncoder" creates a significant slowdow in the computation, so
+         // this way we only open and close it once for each frame rendered, instead of once for each
+         // time step computed.  This allows for the maximum usage of the GPU
+        for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {  // loop through the compute shaders "render_step" time
 
             // Increment the frame counter and the simulation time.
             frame_count += 1;
-            time += calc_constants.dt;
+            total_time = frame_count * calc_constants.dt;  //simulation time
 
             // Pass1
             runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -273,6 +313,18 @@ async function initializeWebGPUApp() {
                 { texture: predictedGradients },  //dst
                 { width: calc_constants.WIDTH, height: calc_constants.HEIGHT, depthOrArrayLayers: 1 }
             );
+
+            // BoundaryPass
+            BoundaryPass_view.setFloat32(20, total_time, true);           // f32
+            runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+            // updated texture is stored in txtemp, but back into current_stateUVstar
+            commandEncoder.copyTextureToTexture(
+                { texture: txtemp },  //src
+                { texture: current_stateUVstar },  //dst
+                { width: calc_constants.WIDTH, height: calc_constants.HEIGHT, depthOrArrayLayers: 1 }
+            );
+
+            total_time = (frame_count + 1) * calc_constants.dt;
 
             if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
             {
@@ -293,6 +345,16 @@ async function initializeWebGPUApp() {
                 calc_constants.pred_or_corrector = 2;
                 Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
                 runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+
+                // BoundaryPass
+                BoundaryPass_view.setFloat32(20, total_time, true);           // f32
+                runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                // updated texture is stored in txtemp, but back into current_stateUVstar
+                commandEncoder.copyTextureToTexture(
+                    { texture: txtemp },  //src
+                    { texture: current_stateUVstar },  //dst
+                    { width: calc_constants.WIDTH, height: calc_constants.HEIGHT, depthOrArrayLayers: 1 }
+                );
             }
 
             // shift gradient textures
@@ -322,7 +384,7 @@ async function initializeWebGPUApp() {
             );
         }
 
-        console.log("Rendering data at time step: ", frame_count, " and time (min):", time / 60);
+     //   console.log("Rendering data at time step: ", frame_count, " and time (min):", time / 60);
         // Define the settings for the render pass.
         // The render target is the current swap chain texture.
         const renderPassDescriptor = {
@@ -351,12 +413,6 @@ async function initializeWebGPUApp() {
         // Submit the recorded commands to the GPU for execution.
         device.queue.submit([commandEncoder.finish()]);
 
-        // Schedule the next call to `frame`. 
-        // Instead of using `requestAnimationFrame`, 
-        // we're using `setTimeout` to immediately invoke the next frame.
-        // This can potentially make the loop run as fast as possible, 
-        // limited only by the time it takes to execute the function.
-       // setTimeout(frame, 0);
         requestAnimationFrame(frame);  // Call the next frame
     }
 

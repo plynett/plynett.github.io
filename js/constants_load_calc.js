@@ -59,7 +59,7 @@ async function loadConfig() {
         }
         loadedConfig = await response.json();
         calc_constants = { ...calc_constants, ...loadedConfig };
-        console.log(calc_constants);
+     //   console.log(calc_constants);
         console.log("config.json loaded successfully.");
     } catch (error) {
         console.error("Failed to load configuration:", error);
