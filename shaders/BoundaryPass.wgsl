@@ -113,7 +113,7 @@ fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    var idx: vec2<i32> = vec2<i32>(i32(id.x), i32(id.y));
+    let idx: vec2<i32> = vec2<i32>(i32(id.x), i32(id.y));
     var BCState: vec4<f32> = textureLoad(txState, idx, 0);
     
     // Sponge Layers

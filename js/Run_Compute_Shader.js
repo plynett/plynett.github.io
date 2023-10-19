@@ -1,6 +1,10 @@
 // Run_Compute_Shader.js
 
 export function runComputeShader(device, commandEncoder, uniformBuffer, uniforms, computePipeline, computeBindGroup, dispatchX, dispatchY) {
+
+    // Create a new command encoder for recording GPU commands.
+    commandEncoder = device.createCommandEncoder();
+
     // set uniforms buffer
     device.queue.writeBuffer(uniformBuffer, 0, uniforms);
 
@@ -16,6 +20,9 @@ export function runComputeShader(device, commandEncoder, uniformBuffer, uniforms
 
     // End the compute pass after recording all its commands.
     computePass.end();
+
+    // Submit the recorded commands to the GPU for execution.
+    device.queue.submit([commandEncoder.finish()]);
 }
 
 // Function to fetch shader code from a given URL.
@@ -26,4 +33,20 @@ export async function fetchShader(url) {
 
     // Once we get the response, retrieve the text from it.
     return await response.text();
+}
+
+export function runCopyTextures(device, commandEncoder, calc_constants, src_texture, dst_texture) {
+
+    // Create a new command encoder for recording GPU commands.
+    commandEncoder = device.createCommandEncoder();
+
+    // copy the textures
+    commandEncoder.copyTextureToTexture(
+        { texture: src_texture },  //src
+        { texture: dst_texture },  //dst
+        { width: calc_constants.WIDTH, height: calc_constants.HEIGHT, depthOrArrayLayers: 1 }
+    );
+
+    // Submit the recorded commands to the GPU for execution.
+    device.queue.submit([commandEncoder.finish()]);
 }

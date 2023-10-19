@@ -143,9 +143,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let C_state_down_left = textureLoad(txState, downleftIdx, 0).w;
     let C_state_down_right = textureLoad(txState, downrightIdx, 0).w;
 
-    let Dxx: f32 = 0.0;
-    let Dxy: f32 = 0.0;
-    let Dyy: f32 = 0.0;
+    let Dxx = 0.0;
+    let Dxy = 0.0;
+    let Dyy = 0.0;
 
     let hc_by_dx_dx = Dxx * globals.one_over_d2x * (C_state_right - 2.0 * in_state_here.a + C_state_left);
     let hc_by_dy_dy = Dyy * globals.one_over_d2y * (C_state_up - 2.0 * in_state_here.a + C_state_down);
@@ -177,8 +177,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
  //       newState.r = xflux_west.r;
  //   }
 
+ 
+    let F_G_vec = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+
     textureStore(txNewState, idx, newState);
-    textureStore(dU_by_dt, idx, vec4<f32>(d_by_dt));
-    textureStore(F_G_star, idx, vec4<f32>(0.0, 0.0, 0.0, 1.0));
+    textureStore(dU_by_dt, idx, d_by_dt);
+    textureStore(F_G_star, idx, F_G_vec);
     textureStore(current_stateUVstar, idx, newState);
 }

@@ -18,7 +18,7 @@ export function create_1D_Texture(device, width) {
 export function createUniformBuffer(device) {
     return device.createBuffer({
         size: 100,  // enough space for 25 variables
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
     });
 }
 

@@ -89,12 +89,13 @@ async function init_sim_parameters(canvas) {
     calc_constants.boundary_epsilon = calc_constants.epsilon;
     calc_constants.boundary_nx = calc_constants.WIDTH - 1;
     calc_constants.boundary_ny = calc_constants.HEIGHT - 1;
-    calc_constants.reflect_x = 2 * (calc_constants.WIDTH - 3);
-    calc_constants.reflect_y = 2 * (calc_constants.HEIGHT - 3);
+    calc_constants.reflect_x = 2 * (calc_constants.WIDTH - 1) - 2;
+    calc_constants.reflect_y = 2 * (calc_constants.HEIGHT - 1) - 2;
     calc_constants.BoundaryWidth = 25.0;
     calc_constants.boundary_g = calc_constants.g;
-    calc_constants.Px = Math.ceil(Math.log(calc_constants.WIDTH) / Math.LN2);
-    calc_constants.Py = Math.ceil(Math.log(calc_constants.HEIGHT) / Math.LN2);
+    calc_constants.Px = Math.ceil(Math.log(calc_constants.WIDTH)  / Math.log(2));
+    calc_constants.Py = Math.ceil(Math.log(calc_constants.HEIGHT) / Math.log(2));
+
     calc_constants.n_write_interval = Math.ceil(calc_constants.write_dt / calc_constants.dt);
     calc_constants.write_dt = calc_constants.n_write_interval * calc_constants.dt;
     calc_constants.n_writes = Math.floor((calc_constants.end_write_time - calc_constants.start_write_time) / calc_constants.write_dt) + 1;
@@ -109,7 +110,7 @@ async function init_sim_parameters(canvas) {
     calc_constants.ship_c2 = (-1.0 / (4.0 * Math.pow(calc_constants.ship_length / Math.PI, 2))) + (1.0 / (4.0 * Math.pow(calc_constants.ship_width / Math.PI, 2)));
     calc_constants.ship_c3a = 1.0 / (2.0 * Math.pow(calc_constants.ship_length / Math.PI, 2));
     calc_constants.ship_c3b = 1.0 / (2.0 * Math.pow(calc_constants.ship_width / Math.PI, 2));
-    calc_constants.render_step = 20;
+    calc_constants.render_step = 10;
 
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
     canvas.width = calc_constants.WIDTH;
