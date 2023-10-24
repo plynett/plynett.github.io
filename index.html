@@ -1,14 +1,232 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGPU App</title>
+    <title>Celeris-WebGPU</title>
+    <style>
+        /* Add internal CSS here (or you could link to an external stylesheet) */
+        #main-container {
+            display: flex;
+            justify-content: space-between; /* Adjust layout as per your design preference */
+            align-items: flex-start;
+            font-size: 14px; /* match the font size of your buttons */
+            font-family: Arial, sans-serif;
+        }
+
+        #webgpuCanvas {
+            /* Add any specific styles for your canvas */
+            max-width: auto; /* Adjust based on your design */
+            height: auto; /* Adjust based on your design */
+        }
+
+        #sidebar {
+            margin-left: 20px;
+            width: 20%; /* Adjust based on your design and content */
+            display: flex;
+            flex-direction: column; /* stack the children vertically */
+        }
+
+        #constants-container, #controls-container, #uploads-container, #downloads-container {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px; /* space between the two containers */
+            overflow-y: auto;
+            line-height: 0.7; /* This is a multiplier of the default line height. */
+        }
+
+        #controls-container {
+            /* Additional specific styles for the controls container if needed */
+            line-height: 1.2; /* This is a multiplier of the default line height. */
+        }
+
+        #uploads-container {
+            /* Additional specific styles for the controls container if needed */
+            line-height: 1.2; /* This is a multiplier of the default line height. */
+        }
+
+        #downloads-container {
+            /* Additional specific styles for the controls container if needed */
+            line-height: 1.2; /* This is a multiplier of the default line height. */
+        }
+        .custom-file-upload-button {
+            display: inline-block;
+            padding: 2px 2px;
+            cursor: pointer; /* the click hand cursor */
+            border: 1px solid #cccccc; /* typical button border color */
+            border-radius: 0px; /* slightly rounded corners */
+            text-align: center;
+            white-space: nowrap;
+            background-color: #f2f2f2; /* typical light-gray button color */
+            color: #333333; /* typical button text color */
+            font-size: 14px; /* match the font size of your buttons */
+            font-family: Arial, sans-serif;
+        }
+
+            .custom-file-upload-button:hover {
+                background-color: #e6e6e6; /* slightly darker background for hover */
+                border-color: #adadad; /* slightly darker border for hover */
+            }
+
+
+    </style>
 </head>
 <body>
-    <canvas id="webgpuCanvas"></canvas>
+    <div id="main-container">
+        <canvas id="webgpuCanvas"></canvas>
+        <div id="sidebar">
+            <div id="uploads-container">
+
+                <html4f>------------ Upload Simulation Parameters ------------</html4f>
+                <br />
+                <br /><input type="file" id="jsonFileInput" accept="application/json" style="display: none;" />
+                <label for="jsonFileInput" class="custom-file-upload-button">
+                    Choose JSON Config File
+                </label>
+
+            </div>
+            <div id="constants-container">
+                <!-- Constants will be dynamically filled in by JavaScript -->
+            </div>
+            <div id="controls-container">
+
+                <html4f>------------ Modify Simulation Parameters ------------</html4f>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.NLSW_or_Bous-->
+                <label for="nlsw-select">Simulation Type:</label>
+                <select id="nlsw-select" name="nlswValue">
+                    <option value="0">NLSW</option>
+                    <option value="1">Boussinesq</option>
+                </select>
+                <button id="nlsw-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.Theta-->
+                <label for="Theta-input">Theta value for MinMod, ranges from 1.0 (most dissipative, upwind differences) to 2.0 (least dissipative, centered differences) [default: 1.5]:</label>
+                <br />
+                <input type="number" id="Theta-input" name="ThetaValue" min="0">
+                <button id="theta-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.Courant_num-->
+                <label for="courant-input">Change Courant Number (0.1 or less for Explicit Scheme, 0.2 or less for Implicit Scheme):</label>
+                <br />
+                <input type="number" id="courant-input" name="courantValue" min="0">
+                <button id="courant-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.west_boundary_type-->
+                <label for="west_boundary_type-select">West Boundary Type: </label>
+                <select id="west_boundary_type-select" name="west_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <button id="west-boundary-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.east_boundary_type-->
+                <label for="east_boundary_type-select">East Boundary Type: </label>
+                <select id="east_boundary_type-select" name="east_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <button id="east-boundary-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.south_boundary_type-->
+                <label for="south_boundary_type-select">South Boundary Type: </label>
+                <select id="south_boundary_type-select" name="south_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <button id="south-boundary-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.north_boundary_type-->
+                <label for="north_boundary_type-select">North Boundary Type: </label>
+                <select id="north_boundary_type-select" name="north_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <button id="north-boundary-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.isManning-->
+                <label for="isManning-select">Bottom Friction Model: </label>
+                <select id="isManning-select" name="isManningValue">
+                    <option value="0">Quadratic Friction Drag</option>
+                    <option value="1">Mannings Equation</option>
+                </select>
+                <button id="isManning-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.friction-->
+                <label for="friction-input">Change Mannings n (typical value ~0.025) or Friction Factor (typical value ~0.002):</label>
+                <br />
+                <input type="number" id="friction-input" name="frictionValue" min="0">
+                <button id="friction-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.simPause-->
+                <label for="simPause-select">Pause / Resume Simulation:</label>
+                <select id="simPause-select" name="simPauseValue">
+                    <option value="-1">Resume</option>
+                    <option value="1">Pause</option>
+                </select>
+                <button id="simPause-button" type="button">Update</button>
+                <br />
+                <br />
+
+
+                <!-- Restart simulation-->
+                <button id="refresh-button">Restart Simulation</button>
+                <br />
+                <br />
+
+
+            </div>
+
+            <div id="downloads-container">
+
+                <html4f>------------ Download Model Parameters and Output ------------</html4f>
+                <br />
+                <br />
+                <!-- Download JSON button-->
+                <button id="download-button">Download Simulation Parameters JSON file</button>
+                <br />
+                <br />
+                <!-- Download texture button-->
+                <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
+                <br />
+                <br />
+                <!-- Download JPG button-->
+                <button id="downloadJPG-button">Download Current Wave Elevation Image (JPG)</button>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Wave solution scripts -->
     <script type="module" src="js/constants_load_calc.js"></script>
     <script type="module" src="js/File_Loader.js"></script>
+    <script type="module" src="js/File_Writer.js"></script>
     <script type="module" src="js/Create_Textures.js"></script>
     <script type="module" src="js/Copy_Data_to_Textures.js"></script>
     <script type="module" src="js/Handler_Render.js"></script>
@@ -22,5 +240,9 @@
     <script type="module" src="js/Run_Compute_Shader.js"></script>
     <script type="module" src="js/Run_Tridiag_Solver.js"></script>
     <script type="module" src="js/main.js"></script>
+
+    <!-- Script that handles the DOM manipulation, for adding sim parameters to the web page -->
+    <script type="module" src="js/display_parameters.js"></script>
+
 </body>
 </html>

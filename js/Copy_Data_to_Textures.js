@@ -35,9 +35,9 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
                 }
             }
 
-            if (y < 4 || x < 4 || y > calc_constants.HEIGHT - 3 || x > calc_constants.WIDTH - 3) {
-                paddedFlatData[paddedIndex + 3] = -99;
-            }
+     //       if (y < 4 || x < 4 || y > calc_constants.HEIGHT - 3 || x > calc_constants.WIDTH - 3) {
+     //           paddedFlatData[paddedIndex + 3] = -99;
+     //       }
         }
     }
 
@@ -61,6 +61,8 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+
+    return paddedFlatData;
 }
 
 function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
@@ -123,8 +125,8 @@ function copyInitialConditionDataToTexture(calc_constants, device, txState) {
         for (let x = 0; x < calc_constants.WIDTH; x++) {
 
              // Calculate the differences between the current coordinates and the center
-            let dx = x - calc_constants.WIDTH / 1.2;
-            let dy = y - calc_constants.HEIGHT / 4;
+            let dx = x - calc_constants.WIDTH / 10.;
+            let dy = y - calc_constants.HEIGHT / 3.;
             let sigma = 24.0;
 
             let eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma))
@@ -159,7 +161,7 @@ function copyInitialConditionDataToTexture(calc_constants, device, txState) {
 
 }
 
-function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx) {
+function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec) {
     // copy Tridiag coef into coefMatx
 
     // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
@@ -181,8 +183,9 @@ function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx) {
             
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
+            let neardry = bathy2Dvec[paddedIndex + 3];
 
-            if (x <= 2 || x >= calc_constants.WIDTH - 3 || bathy2D[x][y] > 0) { //also when near_dry
+            if (x <= 2 || x >= calc_constants.WIDTH - 3 || neardry < 0) { //also when near_dry
                 a = 0.0;
                 b = 1.0;
                 c = 0.0;
@@ -232,7 +235,7 @@ function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx) {
     device.queue.submit([commandEncoder.finish()]);
 }
 
-function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty) {
+function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, bathy2Dvec) {
     // copy Tridiag coef into coefMatx
 
     // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
@@ -243,7 +246,7 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty) {
     const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
     const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
 
-    let dy = calc_constants.dx;
+    let dy = calc_constants.dy;
     let Bcoef = calc_constants.Bcoef;
 
     for (let y = 0; y < calc_constants.HEIGHT; y++) {
@@ -254,8 +257,9 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty) {
 
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
+            let neardry = bathy2Dvec[paddedIndex + 3];
 
-            if (y <= 2 || y >= calc_constants.HEIGHT - 3 || bathy2D[x][y] > 0) { //also when near_dry
+            if (y <= 2 || y >= calc_constants.HEIGHT - 3 || neardry < 0) { //also when near_dry
                 a = 0.0;
                 b = 1.0;
                 c = 0.0;
@@ -270,7 +274,7 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty) {
                 d_dy = (depth_plus - depth_minus) / (2.0 * dy);
 
                 // Calculate coefficients based on the depth and its derivative
-                a = depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
+                a =  depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
                 b = 1.0 + 2.0 * (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
                 c = -depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
             }

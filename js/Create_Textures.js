@@ -7,6 +7,14 @@ export function create_2D_Texture(device, width, height) {
     });
 }
 
+export function create_2D_Image_Texture(device, width, height) {
+    return device.createTexture({
+        size: [width, height, 1],
+        format: 'bgra8unorm',
+        usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
+    });
+}
+
 export function create_1D_Texture(device, width) {
     return device.createTexture({
         size: [width, 1, 1],

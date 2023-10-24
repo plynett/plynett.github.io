@@ -34,14 +34,15 @@ struct Globals {
 @group(0) @binding(6) var oldGradients: texture_2d<f32>;
 @group(0) @binding(7) var oldOldGradients: texture_2d<f32>;
 @group(0) @binding(8) var predictedGradients: texture_2d<f32>;
-@group(0) @binding(9) var F_G_star_oldOldGradients: texture_2d<f32>;
-@group(0) @binding(10) var txstateUVstar: texture_2d<f32>;
-@group(0) @binding(11) var txShipPressure: texture_2d<f32>;
+@group(0) @binding(9) var F_G_star_oldGradients: texture_2d<f32>;
+@group(0) @binding(10) var F_G_star_oldOldGradients: texture_2d<f32>;
+@group(0) @binding(11) var txstateUVstar: texture_2d<f32>;
+@group(0) @binding(12) var txShipPressure: texture_2d<f32>;
 
-@group(0) @binding(12) var txNewState: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(13) var dU_by_dt: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(14) var F_G_star: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(15) var current_stateUVstar: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(13) var txNewState: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(14) var dU_by_dt: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(15) var F_G_star: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;
 
 
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
@@ -65,7 +66,7 @@ fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
 
-    if (idx.x >= i32(globals.width) - 2 || idx.y >= i32(globals.height) - 2 || idx.x <= 1 || idx.y <= 1) {
+    if (idx.x >= i32(globals.width) - 1 || idx.y >= i32(globals.height) - 1 || idx.x <= 0 || idx.y <= 0) {
         let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         textureStore(txNewState, idx, zero);
         textureStore(dU_by_dt, idx, zero);
@@ -183,8 +184,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let eta_down_right = in_state_down_right.x - globals.seaLevel;
 
     // replace with 4th order when dispersion is included
-    //    let detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right + eta_right_right) * globals.one_over_dx;
-    //    let detady = 1.0 / 12.0 * (eta_down_down - 8.0 * eta_down + 8.0 * eta_up + eta_up_up) * globals.one_over_dy;
+        let detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right + eta_right_right) * globals.one_over_dx;
+        let detady = 1.0 / 12.0 * (eta_down_down - 8.0 * eta_down + 8.0 * eta_up + eta_up_up) * globals.one_over_dy;
 
         let v_up = in_state_up.z;
         let v_down = in_state_down.z;
@@ -210,15 +211,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let eta_by_dx_dx = globals.one_over_d2x * (eta_right - 2.0 * eta_here + eta_left);
         let eta_by_dy_dy = globals.one_over_d2y * (eta_up - 2.0 * eta_here + eta_down);
         
-        F_star = (1.0 / 6.0) * d_here * (dd_by_dx * (0.5 * globals.one_over_dy) * (v_up - v_down) + dd_by_dy * (0.5 * globals.one_over_dx) * (v_right - v_left)) + (globals.Bcoef + 1.0 / 3.0) * d2_here * (globals.one_over_dxdy / 4.0) * (v_up_right - v_down_right - v_up_left + v_down_left);
 
-        G_star = (1.0 / 6.0) * d_here * (dd_by_dx * (0.5 * globals.one_over_dy) * (u_up - u_down) + dd_by_dy * (0.5 * globals.one_over_dx) * (u_right - u_left)) + (globals.Bcoef + 1.0 / 3.0) * d2_here * (globals.one_over_dxdy / 4.0) * (u_up_right - u_down_right - u_up_left + u_down_left);
+        F_star = (1.0 / 6.0) * d_here * 
+            (dd_by_dx * (0.5 * globals.one_over_dy) * (v_up - v_down) + 
+            dd_by_dy * (0.5 * globals.one_over_dx) * (v_right - v_left)) + 
+            (globals.Bcoef + 1.0 / 3.0) * d2_here * (globals.one_over_dxdy * 0.25) * 
+            (v_up_right- v_down_right - v_up_left + v_down_left);
+
+        G_star = (1.0 / 6.0) * d_here * 
+            (dd_by_dx * (0.5 * globals.one_over_dy) * (u_up - u_down) + 
+            dd_by_dy * (0.5 * globals.one_over_dx) * (u_right - u_left)) + 
+            (globals.Bcoef + 1.0 / 3.0) * d2_here * (globals.one_over_dxdy * 0.25) * 
+            (u_up_right - u_down_right - u_up_left + u_down_left);
+
         
         Psi1x = globals.Bcoef_g * d3_here * ((eta_right_right - 2.0 * eta_right + 2.0 * eta_left - eta_left_left) * (0.5 * globals.one_over_d3x) + (eta_up_right - eta_up_left - 2.0 * eta_right + 2.0 * eta_left + eta_down_right - eta_down_left) * (0.5 * globals.one_over_dx * globals.one_over_d2y));
-        Psi2x = globals.Bcoef_g * d2_here * (dd_by_dx * (2.0 * eta_by_dx_dx + eta_by_dy_dy) + dd_by_dy * eta_by_dx_dy) + 0.*(F_star - F_G_star_oldOldies.x) / globals.dt / 2.0;
+        Psi2x = globals.Bcoef_g * d2_here * (dd_by_dx * (2.0 * eta_by_dx_dx + eta_by_dy_dy) + dd_by_dy * eta_by_dx_dy) + 0.*(F_star - F_G_star_oldOldies.y) / globals.dt * 0.5;
 
         Psi1y = globals.Bcoef_g * d3_here * ((eta_up_up - 2.0 * eta_up + 2.0 * eta_down - eta_down_down) * (0.5 * globals.one_over_d3y) + (eta_up_right + eta_up_left - 2.0 * eta_up + 2.0 * eta_down - eta_down_right - eta_down_left) * (0.5 * globals.one_over_dx * globals.one_over_d2x));
-        Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + 0.*(G_star - F_G_star_oldOldies.y) / globals.dt / 2.0;
+        Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + 0.*(G_star - F_G_star_oldOldies.z) / globals.dt * 0.5;
     }
    
     let friction_ = FrictionCalc(in_state_here.x, in_state_here.y, h_here);
@@ -258,26 +269,28 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 
     var newState = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    let F_G_here = vec4<f32>(0.0, F_star, G_star, 0.0);
+
     if (globals.timeScheme == 0) {
         newState = in_state_here_UV + globals.dt * d_by_dt;
 
     } else if (globals.pred_or_corrector == 1) {
+
         newState = in_state_here_UV + globals.dt / 12.0 * (23.0 * d_by_dt - 16.0 * oldies + 5.0 * oldOldies);
 
     } else if (globals.pred_or_corrector == 2) {
+
         let predicted = textureLoad(predictedGradients, idx, 0);
         newState = in_state_here_UV + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
     
- //   if (id.x == 50 && id.y < 160 && id.y > 150) {
- //       newState.r = xflux_west.r;
- //   }
+//    if (id.x == 50 && id.y == 50) {
+//        newState.r = 10.;
+//    }
 
-
-    let F_G_vec = vec4<f32>(F_star, G_star, 0.0, 1.0);
 
     textureStore(txNewState, idx, newState);
     textureStore(dU_by_dt, idx, d_by_dt);
-    textureStore(F_G_star, idx, F_G_vec);
+    textureStore(F_G_star, idx, F_G_here);
     textureStore(current_stateUVstar, idx, newState);
 }

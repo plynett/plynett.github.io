@@ -23,14 +23,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let width = (globals.width);
     let height = (globals.height);
 
-    let zero = vec4<f32>(0.0, 1.0, 0.0, CurrentState.g);
-    textureStore(txtemp, idx, zero);
-    textureStore(txtemp2, idx, CurrentState);
+ //   let zero = vec4<f32>(0.0, 1.0, 0.0, CurrentState.g);
+//    textureStore(txtemp, idx, zero);
+//    textureStore(txtemp2, idx, CurrentState);
 
     // Return if in imaginary grid points
-    if (idx.x >= width - 2 || idx.y >= height - 2 || idx.x <= 1 || idx.y <= 1) {
-        return;
-    }
+//    if (idx.x >= width - 2 || idx.y >= height - 2 || idx.x <= 1 || idx.y <= 1) {
+//        return;
+//    }
 
     let idx_left =  vec2<i32>((idx.x - s + width) % width, idx.y);
     let idx_right = vec2<i32>((idx.x + s + width) % width, idx.y);

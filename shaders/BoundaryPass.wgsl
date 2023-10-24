@@ -8,7 +8,7 @@ struct Globals {
     reflect_x: i32,
     reflect_y: i32,
     PI: f32,
-    BoundaryWidth: f32,
+    BoundaryWidth: i32,
     seaLevel: f32,
     boundary_nx: i32,
     boundary_ny: i32,
@@ -28,7 +28,7 @@ struct Globals {
 @group(0) @binding(4) var txNewState: texture_storage_2d<rgba32float, write>;
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
-    let shift: i32 = 4;
+    let shift = 8;
     let real_idx = vec2<i32>(shift - idx.x, idx.y);
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, -in_state_real.g, in_state_real.b, in_state_real.a);
@@ -41,7 +41,7 @@ fn EastBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
 }
 
 fn SouthBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
-    let shift: i32 = 4;
+    let shift = 8;
     let real_idx = vec2<i32>(idx.x, shift - idx.y);
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, in_state_real.g, -in_state_real.b, in_state_real.a);
@@ -54,25 +54,25 @@ fn NorthBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
 }
 
 fn WestBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
-    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (globals.BoundaryWidth - f32(idx.x) + 2.0) / (globals.BoundaryWidth - 1.0))), 0.01);
+    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - idx.x) + 2.0) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
     return vec4<f32>(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
 
 fn EastBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
-    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (globals.BoundaryWidth - f32(globals.boundary_nx - idx.x)) / (globals.BoundaryWidth - 1.0))), 0.01);
+    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - globals.boundary_nx - idx.x)) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
     return vec4<f32>(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
 
 fn SouthBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
-    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (globals.BoundaryWidth - f32(idx.y) + 2.0) / (globals.BoundaryWidth - 1.0))), 0.01);
+    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - idx.y) + 2.0) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
     return vec4<f32>(new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
 
 fn NorthBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
-    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (globals.BoundaryWidth - f32(globals.boundary_ny - idx.y)) / (globals.BoundaryWidth - 1.0))), 0.01);
+    let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - globals.boundary_ny - idx.y)) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
     return vec4<f32>(new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
@@ -118,22 +118,22 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     
     // Sponge Layers
     // west boundary
-    if (globals.west_boundary_type == 1 && idx.x <= 2 + i32(globals.BoundaryWidth)) {
+    if (globals.west_boundary_type == 1 && idx.x <= 2 + (globals.BoundaryWidth)) {
         BCState = WestBoundarySponge(idx);
     }
 
     // east boundary
-    if (globals.east_boundary_type == 1 && idx.x >= i32(globals.width) - i32(globals.BoundaryWidth) - 1) {
+    if (globals.east_boundary_type == 1 && idx.x >= i32(globals.width) - (globals.BoundaryWidth) - 1) {
         BCState = EastBoundarySponge(idx);
     }
 
     // south boundary
-    if (globals.south_boundary_type == 1 && idx.y <= 2 + i32(globals.BoundaryWidth)) {
+    if (globals.south_boundary_type == 1 && idx.y <= 2 + (globals.BoundaryWidth)) {
         BCState = SouthBoundarySponge(idx);
     }
 
     // north boundary
-    if (globals.north_boundary_type == 1 && idx.y >= i32(globals.height) - i32(globals.BoundaryWidth) - 1) {
+    if (globals.north_boundary_type == 1 && idx.y >= i32(globals.height) - (globals.BoundaryWidth) - 1) {
         BCState = NorthBoundarySponge(idx);
     }
 

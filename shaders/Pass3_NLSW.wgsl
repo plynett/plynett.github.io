@@ -34,14 +34,15 @@ struct Globals {
 @group(0) @binding(6) var oldGradients: texture_2d<f32>;
 @group(0) @binding(7) var oldOldGradients: texture_2d<f32>;
 @group(0) @binding(8) var predictedGradients: texture_2d<f32>;
-@group(0) @binding(9) var F_G_star_oldOldGradients: texture_2d<f32>;
-@group(0) @binding(10) var txstateUVstar: texture_2d<f32>;
-@group(0) @binding(11) var txShipPressure: texture_2d<f32>;
+@group(0) @binding(9) var F_G_star_oldGradients: texture_2d<f32>;
+@group(0) @binding(10) var F_G_star_oldOldGradients: texture_2d<f32>;
+@group(0) @binding(11) var txstateUVstar: texture_2d<f32>;
+@group(0) @binding(12) var txShipPressure: texture_2d<f32>;
 
-@group(0) @binding(12) var txNewState: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(13) var dU_by_dt: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(14) var F_G_star: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(15) var current_stateUVstar: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(13) var txNewState: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(14) var dU_by_dt: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(15) var F_G_star: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;
 
 
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
@@ -65,7 +66,7 @@ fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
 
-    if (idx.x >= i32(globals.width) - 2 || idx.y >= i32(globals.height) - 2 || idx.x <= 1 || idx.y <= 1) {
+    if (idx.x >= i32(globals.width) - 1 || idx.y >= i32(globals.height) - 2 || idx.x <= 0 || idx.y <= 1) {
         let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         textureStore(txNewState, idx, zero);
         textureStore(dU_by_dt, idx, zero);

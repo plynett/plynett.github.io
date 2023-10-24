@@ -1,6 +1,8 @@
+// constants_load_calc.js
+
 
 // set simulation parameters to default values
-let calc_constants = {
+var calc_constants = {
     // Computational domain dimensions
     WIDTH: 800,  // Width of the computational domain.
     HEIGHT: 600,  // Height of the computational domain.
@@ -111,10 +113,13 @@ async function init_sim_parameters(canvas) {
     calc_constants.ship_c3a = 1.0 / (2.0 * Math.pow(calc_constants.ship_length / Math.PI, 2));
     calc_constants.ship_c3b = 1.0 / (2.0 * Math.pow(calc_constants.ship_width / Math.PI, 2));
     calc_constants.render_step = 10;
-
+    calc_constants.elapsedTime = 0.0;
+    calc_constants.simPause = -1;
+    calc_constants.html_update = -1;
+    
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
-    canvas.width = calc_constants.WIDTH;
-    canvas.height = calc_constants.HEIGHT;
+    canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // widht needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+    canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
 
     console.log("Simulation parameters set.");
 }

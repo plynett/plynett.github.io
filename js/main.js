@@ -1,7 +1,8 @@
 ﻿// import source files
 import { calc_constants, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
 import { loadDepthSurface, loadWaveData } from './File_Loader.js';  // load depth surface and wave data file
-import { create_2D_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG } from './File_Writer.js';  // load depth surface and wave data file
+import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup } from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
@@ -14,11 +15,20 @@ import { createComputePipeline, createRenderPipeline } from './Config_Pipelines.
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 
+
+import { displayCalcConstants } from './display_parameters.js';  // starting point for display of simulation parameters
+
+// globals in this source file
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
 
 // Access the WebGPU object. This is the entry point to the WebGPU API.
 const gpu = navigator.gpu;
+
+let device = null;
+let txSaveOut = null;
+let txScreen = null;
+let context = null;
 
 // Check if WebGPU is supported in the user's browser.
 if (!gpu) {
@@ -53,11 +63,11 @@ async function initializeWebGPUApp() {
     console.log("Adapter acquired.");
 
     // Request a device. The device is a representation of the GPU and allows for resource creation and command submission.
-    const device = await adapter.requestDevice();
+    device = await adapter.requestDevice();
     console.log("Device acquired.");
 
     // Get the WebGPU rendering context from the canvas.
-    const context = canvas.getContext('webgpu');
+    context = canvas.getContext('webgpu');
 
     // Define the format for our swap chain. 'bgra8unorm' is a commonly used format.
     const swapChainFormat = 'bgra8unorm';
@@ -94,9 +104,7 @@ async function initializeWebGPUApp() {
     const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txstateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txstateFGstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const current_stateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const current_stateFGstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txU = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -104,12 +112,12 @@ async function initializeWebGPUApp() {
     const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const F_G_star_predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txNormal = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txAuxiliary2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txAuxiliary2Out = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -123,13 +131,14 @@ async function initializeWebGPUApp() {
     const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const F_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);
+
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves);
 
-
     // fill in the bathy texture
-    copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
+    let bathy2Dvec = copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
 
     // fill in the wave data texture
     if (calc_constants.numberOfWaves > 0) {
@@ -141,8 +150,8 @@ async function initializeWebGPUApp() {
     copyInitialConditionDataToTexture(calc_constants, device, txstateUVstar);
 
     // create tridiag coef matrices
-    copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx);
-    copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty);
+    copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec);
+    copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, bathy2Dvec);
 
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
 
@@ -178,7 +187,7 @@ async function initializeWebGPUApp() {
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
-    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, F_G_star, current_stateUVstar);
+    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar);
     const Pass3_uniforms = new ArrayBuffer(100); // allowing for 25 variables
     let Pass3_view = new DataView(Pass3_uniforms);
     Pass3_view.setUint32(0, calc_constants.WIDTH, true);          // u32
@@ -208,6 +217,7 @@ async function initializeWebGPUApp() {
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
     const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
+    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
     const BoundaryPass_uniforms = new ArrayBuffer(100); // allowing for 25 variables
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
     BoundaryPass_view.setUint32(0, calc_constants.WIDTH, true);          // u32
@@ -229,8 +239,6 @@ async function initializeWebGPUApp() {
     BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
     BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
     BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
-
-    console.log(calc_constants)
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -270,9 +278,8 @@ async function initializeWebGPUApp() {
     // Fetch the source code of various shaders used in the application.
     const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
     const Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');
-    const Pass3_ShaderCode = (calc_constants.NLSW_or_Bous == 0)
-        ? await fetchShader('/shaders/Pass3_NLSW.wgsl')
-        : await fetchShader('/shaders/Pass3_Bous.wgsl');
+    const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
+    const Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
     const BoundaryPass_ShaderCode = await fetchShader('/shaders/BoundaryPass.wgsl');
     const TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
     const TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
@@ -285,7 +292,8 @@ async function initializeWebGPUApp() {
     // Configure the pipelines, one for each shader.
     const Pass1_Pipeline = createComputePipeline(device, Pass1_ShaderCode, Pass1_BindGroupLayout);
     const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout);
-    const Pass3_Pipeline = createComputePipeline(device, Pass3_ShaderCode, Pass3_BindGroupLayout);
+    const Pass3_Pipeline_NLSW = createComputePipeline(device, Pass3_ShaderCode_NLSW, Pass3_BindGroupLayout);
+    const Pass3_Pipeline_Bous = createComputePipeline(device, Pass3_ShaderCode_Bous, Pass3_BindGroupLayout);
     const BoundaryPass_Pipeline = createComputePipeline(device, BoundaryPass_ShaderCode, BoundaryPass_BindGroupLayout);
     const TridiagX_Pipeline = createComputePipeline(device, TridiagX_ShaderCode, TridiagX_BindGroupLayout);
     const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout);
@@ -331,61 +339,41 @@ async function initializeWebGPUApp() {
     console.log("Compute / Render loop starting.");
     // This function, `frame`, serves as the main loop of the application,
     // executing repeatedly to update simulation state and render the results.
+
+    const startTime = new Date();  // This captures the current time, or the time at the start rendering
     function frame() {
+
+        // update simulation parameters in buffers if they have been changed by user through html
+        if (calc_constants.html_update > 0) {
+
+            calc_constants.dt = calc_constants.Courant_num * calc_constants.dx / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+            calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
+
+            Pass1_view.setFloat32(20, calc_constants.TWO_THETA, true);           // f32
+            Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
+            Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
+            Pass3_view.setUint32(36, calc_constants.timeScheme, true);       // f32
+            Pass3_view.setUint32(44, calc_constants.isManning, true);           // f32
+            Pass3_view.setFloat32(52, calc_constants.friction, true);             // f32
+            Pass3_view.setFloat32(88, calc_constants.seaLevel, true);           // f32
+            BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
+            BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
+            BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // f32
+            BoundaryPass_view.setInt32(60, calc_constants.east_boundary_type, true);           // f32
+            BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
+            BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
+
+            calc_constants.html_update = -1;
+        }
 
          // loop through the compute shaders "render_step" times.  
         var commandEncoder;  // init the encoder
-        for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {  // loop through the compute shaders "render_step" time
+        if (calc_constants.simPause < 0) {// do not run compute loop when > 0 {
+            for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {  // loop through the compute shaders "render_step" time
 
-            // Increment the frame counter and the simulation time.
-            frame_count += 1;
-            total_time = frame_count * calc_constants.dt;  //simulation time
-
-            // Pass1
-            runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-
-            // Pass2
-            runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-
-            // Pass3
-            calc_constants.pred_or_corrector = 1;  //set to p[redcitor step]
-            Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
-            runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-
-            // put DuDt from predictor into predicted gradients
-            runCopyTextures(device, commandEncoder, calc_constants, dU_by_dt, predictedGradients)
-
-            // BoundaryPass
-            BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
-            runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-            // updated texture is stored in txtemp, but back into current_stateUVstar
-            runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
-            runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
-
-            //Tridiag Solver for Bous, or copy for NLSW
-            if (calc_constants.NLSW_or_Bous > 0) {
-
-             //   runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //potential placehold for nonlinear-dispersive model
-
-                runTridiagSolver(device, commandEncoder, calc_constants, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
-                    TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view, 
-                    TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view, 
-                    runComputeShader, runCopyTextures
-                )
-
-                // Shift back FG textures - only have to do this for Bous, and only after predictor step
-                runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
-                runCopyTextures(device, commandEncoder, calc_constants, F_G_star, F_G_star_oldGradients)
-
-            }
-
-
-            total_time = (frame_count + 1) * calc_constants.dt;  // boundary needs to be applied at time level n+1, since this is done on predicted values
-
-            if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
-            {
-                // put txNewState into txState for the corrector equation, so gradients use the predicted values
-                runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
+                // Increment the frame counter and the simulation time.
+                frame_count += 1;
+                total_time = frame_count * calc_constants.dt;  //simulation time
 
                 // Pass1
                 runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -394,11 +382,20 @@ async function initializeWebGPUApp() {
                 runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                 // Pass3
-                calc_constants.pred_or_corrector = 2;
+                calc_constants.pred_or_corrector = 1;  //set to p[redcitor step]
                 Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
-                runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                if (calc_constants.NLSW_or_Bous > 0) { //BOUS
+                    runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                }
+                else { //NLSW
+                    runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                }
+
+                // put DuDt from predictor into predicted gradients
+                runCopyTextures(device, commandEncoder, calc_constants, dU_by_dt, predictedGradients)
 
                 // BoundaryPass
+                BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
                 runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 // updated texture is stored in txtemp, but back into current_stateUVstar
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
@@ -407,23 +404,74 @@ async function initializeWebGPUApp() {
                 //Tridiag Solver for Bous, or copy for NLSW
                 if (calc_constants.NLSW_or_Bous > 0) {
 
-//                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY); //potential placehold for nonlinear-dispersive model
+                    //   runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //potential placehold for nonlinear-dispersive model
 
                     runTridiagSolver(device, commandEncoder, calc_constants, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
                         TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
                         TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
                         runComputeShader, runCopyTextures
                     )
+
+                    runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
+
+                    // Shift back FG textures - only have to do this for Bous, and only after predictor step
+                    runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
+                    runCopyTextures(device, commandEncoder, calc_constants, predictedF_G_star, F_G_star_oldGradients)
+
                 }
+
+
+                total_time = (frame_count + 1) * calc_constants.dt;  // boundary needs to be applied at time level n+1, since this is done on predicted values
+
+                if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
+                {
+                    // put txNewState into txState for the corrector equation, so gradients use the predicted values
+                    runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
+
+                    // Pass1
+                    runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+
+                    // Pass2
+                    runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+
+                    // Pass3
+                    calc_constants.pred_or_corrector = 2;
+                    Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
+                    if (calc_constants.NLSW_or_Bous > 0) { //BOUS
+                        runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    }
+                    else { //NLSW
+                        runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    }
+
+                    // BoundaryPass
+                    runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    // updated texture is stored in txtemp, but back into current_stateUVstar
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
+
+                    //Tridiag Solver for Bous, or copy for NLSW
+                    if (calc_constants.NLSW_or_Bous > 0) {
+
+                        //                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY); //potential placehold for nonlinear-dispersive model
+
+                        runTridiagSolver(device, commandEncoder, calc_constants, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
+                            TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
+                            TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
+                            runComputeShader, runCopyTextures
+                        )
+                        runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
+                    }
+                }
+
+                // shift gradient textures
+                runCopyTextures(device, commandEncoder, calc_constants, oldGradients, oldOldGradients)
+                runCopyTextures(device, commandEncoder, calc_constants, predictedGradients, oldGradients)
+
+                // Copy future_ocean_texture back to ocean_texture
+                runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
+                runCopyTextures(device, commandEncoder, calc_constants, current_stateUVstar, txstateUVstar)
             }
-
-            // shift gradient textures
-            runCopyTextures(device, commandEncoder, calc_constants, oldGradients, oldOldGradients)
-            runCopyTextures(device, commandEncoder, calc_constants, predictedGradients, oldGradients)
-
-            // Copy future_ocean_texture back to ocean_texture
-            runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
-            runCopyTextures(device, commandEncoder, calc_constants, current_stateUVstar, txstateUVstar)
         }
 
      //   console.log("Rendering data at time step: ", frame_count, " and time (min):", time / 60);
@@ -456,11 +504,33 @@ async function initializeWebGPUApp() {
         // Submit the recorded commands to the GPU for execution.
         device.queue.submit([commandEncoder.finish()]);
 
+        // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed
+        const current_render = context.getCurrentTexture();
+        commandEncoder = device.createCommandEncoder();
+        commandEncoder.copyTextureToTexture(
+            { texture: current_render },  //src
+            { texture: txScreen },  //dst
+            { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
+        );
+        device.queue.submit([commandEncoder.finish()]);
+
         requestAnimationFrame(frame);  // Call the next frame
+
+        // determine elapsed time
+        const now = new Date();
+        calc_constants.elapsedTime = (now - startTime) / 1000;
+
+        // Update the output texture
+        runCopyTextures(device, commandEncoder, calc_constants, txNewState, txSaveOut)
+
+        // Call the function to display the constants in the index.html page
+        displayCalcConstants(calc_constants, total_time);
     }
+
 
     // Invoke the `frame` function once to start the main loop.
     frame();
+
 }
 
 // This code initializes the WebGPU application.
@@ -473,3 +543,88 @@ initializeWebGPUApp().catch(error => {
     // Log the error message to the console.
     console.error("Initialization failed:", error);
 });
+
+
+// All the functions below this are for UI
+document.addEventListener('DOMContentLoaded', function () {
+    // Define a helper function to update calc_constants and potentially re-initialize components
+    function updateCalcConstants(property, newValue) {
+        console.log(`Updating ${property} with value:`, newValue);
+        calc_constants[property] = newValue;
+
+        calc_constants.html_update = 1; // flag used to check for updates.
+    }
+
+    // Add event listeners for each button/input pair
+    const buttonActions = [
+        { id: 'theta-button', input: 'Theta-input', property: 'Theta' },
+        { id: 'courant-button', input: 'courant-input', property: 'Courant_num' },
+        { id: 'friction-button', input: 'friction-input', property: 'friction' }
+    ];
+
+    buttonActions.forEach(({ id, input, property }) => {
+        const button = document.getElementById(id);
+        const inputValue = document.getElementById(input);
+
+        button.addEventListener('click', function () {
+            const value = parseFloat(inputValue.value); // Assuming all values are floats; parse as appropriate
+            updateCalcConstants(property, value);
+        });
+    });
+
+    // Function to handle drop-down menu updates
+    function setupDropdownListeners(button_dropdown_Actions) {
+        button_dropdown_Actions.forEach(({ id, input, property }) => {
+            const selectElement = document.getElementById(input); // The <select> element
+            const button = document.getElementById(id);
+
+            button.addEventListener('click', function () {
+                const selectedValue = selectElement.value; // Getting the selected value from the drop-down
+                updateCalcConstants(property, Math.round(selectedValue)); // No need for parseFloat here
+            });
+        });
+    }
+
+    // Specify the buttons and inputs for the drop-down menus
+    const button_dropdown_Actions = [
+        { id: 'nlsw-button', input: 'nlsw-select', property: 'NLSW_or_Bous' }, // Make sure 'input' refers to the <select> element's ID
+        { id: 'west-boundary-button', input: 'west_boundary_type-select', property: 'west_boundary_type' },
+        { id: 'east-boundary-button', input: 'east_boundary_type-select', property: 'east_boundary_type' },
+        { id: 'south-boundary-button', input: 'south_boundary_type-select', property: 'south_boundary_type' },
+        { id: 'north-boundary-button', input: 'north_boundary_type-select', property: 'north_boundary_type' },
+        { id: 'isManning-button', input: 'isManning-select', property: 'isManning' },
+        { id: 'simPause-button', input: 'simPause-select', property: 'simPause' },
+    ];
+
+    // Call the function for setting up listeners on dropdown menus
+    setupDropdownListeners(button_dropdown_Actions);
+
+    // Refresh button
+    const refreshButton = document.getElementById('refresh-button');
+    refreshButton.addEventListener('click', function () {
+        location.reload();
+    });
+
+    // Download JSON
+    document.getElementById('download-button').addEventListener('click', function () {
+        downloadObjectAsFile(calc_constants);
+    });
+
+
+    // Download channel from txSaveOut Texture
+    document.getElementById('downloadWaveElev-button').addEventListener('click', function () {
+        downloadTextureData(device, txSaveOut, 1);  // last number is the channel 1 = .r, 2 = .g, etc.
+    });
+
+
+    // Download jpg of screen output
+    document.getElementById('downloadJPG-button').addEventListener('click', function () {
+        saveRenderedImageAsJPEG(device, txScreen, canvas.width, canvas.height);
+    });
+
+    // Upload JSON
+    document.getElementById('jsonFileInput').addEventListener('change', handleFileSelect, false);
+
+});
+
+
