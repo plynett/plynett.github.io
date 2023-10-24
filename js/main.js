@@ -59,7 +59,14 @@ async function initializeWebGPUApp() {
     console.log("Starting WebGPU App Initialization...");
 
     // Request an adapter. The adapter represents the GPU device, or a software fallback.
-    const adapter = await gpu.requestAdapter();
+    const options = { powerPreference: "high-performance" };
+    var adapter = await gpu.requestAdapter(options);
+    if (!adapter) {
+        console.log('Failed to find a high-performance GPU adapter, using available GPU.');
+        adapter = await gpu.requestAdapter();
+    } else {
+        console.log('Found high-performance GPU adapter.');
+    }
     console.log("Adapter acquired.");
 
     // Request a device. The device is a representation of the GPU and allows for resource creation and command submission.
