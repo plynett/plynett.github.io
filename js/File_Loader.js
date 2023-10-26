@@ -173,7 +173,7 @@ function calculateZoomLevel(lat_LL, lon_LL, lat_UR, lon_UR, maxWidth, maxHeight)
 // Step 1: Construct URL for Google Maps API.
 function constructGoogleMapsUrl(lat_LL, lon_LL, lat_UR, lon_UR, zoomLevel, maxWidth, maxHeight) {
 
-    let apiKey = 'AIzaSyCrNXSKKC3xLVIwSmbxT5IBJ_KZR-x_UuI';  // p. lynett's API key - remove for distribution, make this an input
+    let apiKey = 'your key here';  // p. lynett's API key - remove for distribution, make this an input
 
     // First, we need to calculate the center of the map view.
     const centerLat = (lat_LL + lat_UR) / 2;
