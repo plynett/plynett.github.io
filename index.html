@@ -8,31 +8,36 @@
     <style>
         /* Add internal CSS here (or you could link to an external stylesheet) */
         #main-container {
+            width: 100%;
             display: flex;
-            justify-content: space-between; /* Adjust layout as per your design preference */
-            align-items: flex-start;
-            font-size: 14px; /* match the font size of your buttons */
-            font-family: Arial, sans-serif;
+            flex-direction: column;
+            justify-content: flex-start; /* Ensures the content starts from the top */
         }
 
         #webgpuCanvas {
             /* Add any specific styles for your canvas */
             max-width: auto; /* Adjust based on your design */
             height: auto; /* Adjust based on your design */
+            margin-top: 20px;
+            margin-bottom: 20px;
         }
 
-        #sidebar {
+        #horizontalbar {
             margin-left: 20px;
-            width: 20%; /* Adjust based on your design and content */
+            margin-right: 20px;
+            width: 100%; /* Adjust based on your design and content */
             display: flex;
-            flex-direction: column; /* stack the children vertically */
+            flex-direction: row; /* stack the children vertically */
         }
 
-        #constants-container, #controls-container, #uploads-container, #downloads-container {
+        #constants-container, #controls-container, #downloads-container, #uploads-container {
             background-color: #f9f9f9;
             border: 1px solid #ddd;
             padding: 10px;
-            margin-bottom: 20px; /* space between the two containers */
+            margin-left: 20px;
+            margin-right: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
             overflow-y: auto;
             line-height: 0.7; /* This is a multiplier of the default line height. */
         }
@@ -59,14 +64,14 @@
             border-radius: 0px; /* slightly rounded corners */
             text-align: center;
             white-space: nowrap;
-            background-color: #f2f2f2; /* typical light-gray button color */
-            color: #333333; /* typical button text color */
+            /*   background-color: darkgrey; /* typical light-gray button color */
+            /*   color: #333333; /* typical button text color */
             font-size: 14px; /* match the font size of your buttons */
             font-family: Arial, sans-serif;
         }
 
             .custom-file-upload-button:hover {
-                background-color: #e6e6e6; /* slightly darker background for hover */
+                /*      background-color: dimgray; /* slightly darker background for hover */
                 border-color: #adadad; /* slightly darker border for hover */
             }
 
@@ -75,18 +80,157 @@
 </head>
 <body>
     <div id="main-container">
-        <canvas id="webgpuCanvas"></canvas>
-        <div id="sidebar">
+
+        <div id="horizontalbar">
             <div id="uploads-container">
 
-                <html4f>------------ Upload Simulation Parameters ------------</html4f>
+                <html4f>------------ 1: Upload Simulation Parameters ------------</html4f>
                 <br />
-                <br /><input type="file" id="jsonFileInput" accept="application/json" style="display: none;" />
-                <label for="jsonFileInput" class="custom-file-upload-button">
-                    Choose JSON Config File
-                </label>
+                <br />
+                <html4f>
+                    Download Example Configurations <a href="https://www.dropbox.com/scl/fi/dgi9r9ufwz5kcfwef2z1h/Example_Configs.zip?rlkey=oqtu2q5b3lkhx8kngc8u7zdqy&dl=0" target="_blank" rel="noopener noreferrer">here</a>
+                </html4f>
+                <br />
+                <br />
+                <div>
+                    <input type="file" id="configFile" accept="application/json" style="display: none;" />
+                    <label for="configFile" class="custom-file-upload-button">
+                        Load JSON Config File
+                    </label>
+                    <br />
+                    <br />
+                    <input type="file" id="bathymetryFile" accept="application/txt" style="display: none;" />
+                    <label for="bathymetryFile" class="custom-file-upload-button">
+                        Load Bathymetry Data File
+                    </label>
+                    <br />
+                    <br />
+                    <input type="file" id="waveFile" accept="application/txt" style="display: none;" />
+                    <label for="waveFile" class="custom-file-upload-button">
+                        Load Wave [amplitude,period,direction] Data File
+                    </label>
+                    <br />
+                    <br />
+                    <button id="start-simulation-btn">Start Simulation</button>
+                    <br />
+                    <br />
+
+
+                    <!-- Updates go to calc_constants.simPause-->
+                    <label for="simPause-select">Pause / Resume Simulation:</label>
+                    <select id="simPause-select" name="simPauseValue">
+                        <option value="1">Pause</option>
+                        <option value="-1">Resume</option>
+                    </select>
+                    <button id="simPause-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+
+                    <!-- Restart simulation-->
+                    <button id="refresh-button">Reload or Load New Configuration</button>
+                    <br />
+                    <br />
+
+
+
+                </div>
 
             </div>
+
+            <div id="downloads-container">
+
+                <html4f>------------ 2: Modify Visualization ------------</html4f>
+                <br />
+                <br />
+                <!-- Updates go to calc_constants.surfaceToPlot-->
+                <label for="surfaceToPlot-select">Property to Plot:</label>
+                <select id="surfaceToPlot-select" name="surfaceToPlotValue">
+                    <option value="0">Free Surface Elevation (m)</option>
+                    <option value="1">Fluid Speed (m/s)</option>
+                    <option value="2">East-West (x) Component of Fluid Velocity (m/s)</option>
+                    <option value="3">North-South (y) Component of Fluid Velocity (m/s)</option>
+                    <option value="4">Vertical Vorticity (1/s)</option>
+                    <option value="5">Turbulence Intensity (m^2/s)</option>
+                </select>
+                <button id="surfaceToPlot-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.colorMap_choice-->
+                <label for="colorMap_choice-select">Colorbar Choices:</label>
+                <select id="colorMap_choice-select" name="colorMap_choiceValue">
+                    <option value="0">Ocean</option>
+                    <option value="1">Parula</option>
+                    <option value="2">Turbo</option>
+                    <option value="3">HSV</option>
+                    <option value="4">Gray</option>
+                    <option value="5">Pink</option>
+                </select>
+                <button id="colorMap_choice-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.colorVal_max-->
+                <label for="colorVal_max-input">Maximum Color Axis Value (in units of plotted property):</label>
+                <br />
+                <input type="number" id="colorVal_max-input" name="colorVal_maxValue">
+                <button id="colorVal_max-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.colorVal_min-->
+                <label for="colorVal_min-input">Minimum Color Axis Value (in units of plotted property):</label>
+                <br />
+                <input type="number" id="colorVal_min-input" name="colorVal_minValue">
+                <button id="colorVal_min-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.showBreaking-->
+                <label for="showBreaking-select">Breaking Visualization:</label>
+                <select id="showBreaking-select" name="showBreakingValue">
+                    <option value="1">Show Areas of Breaking / Turbulence</option>
+                    <option value="0">Do Not Show Areas of Breaking / Turbulence</option>
+                </select>
+                <button id="showBreaking-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.GoogleMapOverlay-->
+                <label for="GoogleMapOverlay-select">Overlay Google Maps Satellite Image:</label>
+                <select id="GoogleMapOverlay-select" name="GoogleMapOverlayValue">
+                    <option value="1">Include Overlay [corner coordinates must be in JSON]</option>
+                    <option value="0">Do Not Include Overlay</option>
+                </select>
+                <button id="GoogleMapOverlay-button" type="button">Update</button>
+                <br />
+                <br />
+
+            </div>
+
+            <div id="downloads-container">
+
+                <html4f>------------ 3: Download Model Parameters and Output ------------</html4f>
+                <br />
+                <br />
+                <!-- Download JSON button-->
+                <button id="download-button">Download Simulation Parameters JSON file</button>
+                <br />
+                <br />
+                <!-- Download texture button-->
+                <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
+                <br />
+                <br />
+                <!-- Download JPG button-->
+                <button id="downloadJPG-button">Download Current Simulation Image (JPG)</button>
+
+            </div>
+
+        </div>
+        <canvas id="webgpuCanvas"></canvas>
+
+        <div id="horizontalbar">
             <div id="constants-container">
                 <!-- Constants will be dynamically filled in by JavaScript -->
             </div>
@@ -184,42 +328,24 @@
                 <br />
                 <br />
 
-                <!-- Updates go to calc_constants.simPause-->
-                <label for="simPause-select">Pause / Resume Simulation:</label>
-                <select id="simPause-select" name="simPauseValue">
-                    <option value="-1">Resume</option>
-                    <option value="1">Pause</option>
-                </select>
-                <button id="simPause-button" type="button">Update</button>
+                <!-- Updates go to calc_constants.dissipation_threshold-->
+                <label for="dissipation_threshold-input">Wave Slope (rise/run) Threshold to Start Wave Breaking:</label>
+                <br />
+                <input type="number" id="dissipation_threshold-input" name="dissipation_thresholdValue" min="0">
+                <button id="dissipation_threshold-button" type="button">Update</button>
                 <br />
                 <br />
 
-
-                <!-- Restart simulation-->
-                <button id="refresh-button">Restart Simulation</button>
+                <!-- Updates go to calc_constants.whiteWaterDecayRate-->
+                <label for="whiteWaterDecayRate-input">Turbulence Decay Coefficient (1st Order Decay):</label>
+                <br />
+                <input type="number" id="whiteWaterDecayRate-input" name="whiteWaterDecayRateValue" min="0">
+                <button id="whiteWaterDecayRate-button" type="button">Update</button>
                 <br />
                 <br />
-
-
-            </div>
-
-            <div id="downloads-container">
-
-                <html4f>------------ Download Model Parameters and Output ------------</html4f>
-                <br />
-                <br />
-                <!-- Download JSON button-->
-                <button id="download-button">Download Simulation Parameters JSON file</button>
-                <br />
-                <br />
-                <!-- Download texture button-->
-                <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
-                <br />
-                <br />
-                <!-- Download JPG button-->
-                <button id="downloadJPG-button">Download Current Wave Elevation Image (JPG)</button>
 
             </div>
+
         </div>
     </div>
 
@@ -243,6 +369,33 @@
 
     <!-- Script that handles the DOM manipulation, for adding sim parameters to the web page -->
     <script type="module" src="js/display_parameters.js"></script>
+
+    <!-- Script to change colors of the input buttons, when a file has been loaded  -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Function to change the color of the label when a file is uploaded
+            function onFileUpload(event) {
+                var inputId = event.target.id;
+                var label = document.querySelector('label[for=' + inputId + ']');
+                if (event.target.files.length > 0) {
+                    label.style.backgroundColor = '#4CAF50';  // for example, green
+                    label.style.color = 'white';
+                    // Additional styling (like changing text to "File Uploaded!") can also be applied here
+                } else {
+                    // Reset to default styles if no file is selected
+                    label.style.backgroundColor = '';  // reset to default
+                    label.style.color = '';  // reset to default
+                }
+            }
+
+            // Add event listeners for the file inputs
+            var fileInputs = document.querySelectorAll('input[type=file]');
+            fileInputs.forEach(function (input) {
+                input.addEventListener('change', onFileUpload);
+            });
+        });
+    </script>
+
 
 </body>
 </html>

@@ -11,7 +11,7 @@ export function create_2D_Image_Texture(device, width, height) {
     return device.createTexture({
         size: [width, height, 1],
         format: 'bgra8unorm',
-        usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
+        usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     });
 }
 
@@ -25,7 +25,7 @@ export function create_1D_Texture(device, width) {
 
 export function createUniformBuffer(device) {
     return device.createBuffer({
-        size: 100,  // enough space for 25 variables
+        size: 256,  // smallest multiple of 256
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
     });
 }

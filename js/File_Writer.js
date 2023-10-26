@@ -235,3 +235,64 @@ export async function saveRenderedImageAsJPEG(device, texture, width, height) {
 }
 
 
+export async function TexturetoImageData(device, texture, width, height) {
+    // Step 1: Read back the pixel data
+    const bytesPerRow = width * 4; // for RGBA, there are 4 channels per pixel
+    const totalBytes = height * bytesPerRow; // total bytes needed for the whole image
+
+    const FlatData = new Uint8ClampedArray(totalBytes); // this array will contain the image data
+
+    const buffer = device.createBuffer({
+        size: FlatData.byteLength,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        mappedAtCreation: true
+    });
+
+    new Uint8ClampedArray(buffer.getMappedRange()).set(FlatData);
+    buffer.unmap();
+
+    // We need to ensure the texture format is compatible with our readback, RGBA8 is assumed here.
+    const copyEncoder = device.createCommandEncoder();
+    copyEncoder.copyTextureToBuffer(
+        {
+            texture: texture,
+        },
+        {
+            buffer: buffer,
+            bytesPerRow: bytesPerRow,
+            rowsPerImage: height,
+        },
+        {
+            width: width,
+            height: height,
+            depthOrArrayLayers: 1
+        },
+    );
+
+    // Submit the commands and wait for them to complete.
+    const queue = device.queue;
+    queue.submit([copyEncoder.finish()]);
+    await buffer.mapAsync(GPUMapMode.READ);
+
+    // Get an array buffer view of the buffer data.
+    const arrayBuffer = buffer.getMappedRange();
+
+    // Make a copy of the buffer data immediately after mapping, to prevent "detached buffer" errors
+    const bufferCopy = new Uint8ClampedArray(arrayBuffer.slice());
+
+    // The buffer contains BGRA data, so we need to swap the red and blue channels for each pixel
+    for (let i = 0; i < bufferCopy.length; i += 4) {
+        // For every pixel, swap the blue and red channels (i.e., [B, G, R, A] becomes [R, G, B, A]).
+        const blue = bufferCopy[i];
+        const red = bufferCopy[i + 2];
+        bufferCopy[i] = red;
+        bufferCopy[i + 2] = blue;
+    }
+
+    // Step 2: Create ImageData from pixel data
+    const imageData = new ImageData(bufferCopy, width, height);
+
+    return imageData;
+}
+
+

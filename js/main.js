@@ -1,7 +1,7 @@
 ﻿// import source files
 import { calc_constants, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadWaveData } from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG } from './File_Writer.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset } from './File_Loader.js';  // load depth surface and wave data file
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData } from './File_Writer.js';  // load depth surface and wave data file
 import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup } from './Handler_Render.js';  // group bindings for render shaders
@@ -18,16 +18,18 @@ import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run 
 
 import { displayCalcConstants } from './display_parameters.js';  // starting point for display of simulation parameters
 
-// globals in this source file
+
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
 
 // Access the WebGPU object. This is the entry point to the WebGPU API.
 const gpu = navigator.gpu;
 
+// globals in this source file
 let device = null;
 let txSaveOut = null;
 let txScreen = null;
+let txGoogleMap = null;
 let context = null;
 
 // Check if WebGPU is supported in the user's browser.
@@ -39,22 +41,22 @@ if (!gpu) {
 }
 
 // create an async function to handle configuration routines that must be performed in order, but also have imbedded async functions.
-async function OrderedFunctions() {
+async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     // Set simulation parameters - this routine inits calc_constants to default values,
     // loads the json config file and places updated values in calc_constants, and then
     // sets and values of calc_constants that are dependent on inputs(e.g.dt)
-    await init_sim_parameters(canvas);  // Ensure this completes first,canvas as input - update WIDTH and HEIGHT of canvas to match grid domain
+    await init_sim_parameters(canvas, configContent);  // Ensure this completes first,canvas as input - update WIDTH and HEIGHT of canvas to match grid domain
 
     // Load depth surface file, place into 2D array bathy2D
-    let bathy2D = await loadDepthSurface('modified_bathy.txt', calc_constants);  // Start this only after the first function completes
+    let bathy2D = await loadDepthSurface(bathymetryContent, calc_constants);  // Start this only after the first function completes
     // Load wave data file, place into waveArray 
-    let { numberOfWaves, waveData } = await loadWaveData('irrWaves.txt');  // Start this only after the first function completes
+    let { numberOfWaves, waveData } = await loadWaveData(waveContent);  // Start this only after the first function completes
     calc_constants.numberOfWaves = numberOfWaves; 
     return { bathy2D, waveData };
 }
 
 // This is an asynchronous function to set up the WebGPU context and resources.
-async function initializeWebGPUApp() {
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting WebGPU App Initialization...");
 
@@ -87,7 +89,7 @@ async function initializeWebGPUApp() {
     });
 
     // load the simulation parameters, the 2D depth surface, and the wave data.  "Ordered" as the sequence of how these files are loaded is important
-    let { bathy2D, waveData } = await OrderedFunctions();
+    let { bathy2D, waveData } = await OrderedFunctions(configContent, bathymetryContent, waveContent);
 
     // Create buffers for storing uniform data. This buffer will be used to send parameter data to shaders.
     const Pass1_uniformBuffer = createUniformBuffer(device);
@@ -97,6 +99,7 @@ async function initializeWebGPUApp() {
     const TridiagX_uniformBuffer = createUniformBuffer(device);
     const TridiagY_uniformBuffer = createUniformBuffer(device);
     const UpdateTrid_uniformBuffer = createUniformBuffer(device);
+    const Render_uniformBuffer = createUniformBuffer(device);
 
     // Create a sampler for texture sampling. This defines how the texture will be sampled (e.g., nearest-neighbor sampling).  Used only for render pipeline
     const textureSampler = device.createSampler({
@@ -139,10 +142,11 @@ async function initializeWebGPUApp() {
     const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);
+    txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // used for bindary output
+    txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for jpg output
+    txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);  // used to store the loaded Google Maps image
 
-    const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves);
+    const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves);  // stores spectrum wave input
 
     // fill in the bathy texture
     let bathy2Dvec = copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
@@ -160,12 +164,40 @@ async function initializeWebGPUApp() {
     copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec);
     copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, bathy2Dvec);
 
+    // load Google Mapls image
+    if (calc_constants.GoogleMapOverlay == 1) {  // if using overlay
+
+        let ImageGoogleMap = await CreateGoogleMapImage(device, context, calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
+
+        console.log('Google Maps image loaded, dimensions:', ImageGoogleMap.width, 'x', ImageGoogleMap.height);
+
+        // Now that the image is loaded, you can copy it to the texture.
+        device.queue.copyExternalImageToTexture(
+            { source: ImageGoogleMap },
+            { texture: txGoogleMap },
+            { width: ImageGoogleMap.width, height: ImageGoogleMap.height }
+        );
+
+        console.log(txGoogleMap);
+
+        let transforms = calculateGoogleMapScaleAndOffset(calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
+        console.log(transforms);
+        calc_constants.GMscaleX = transforms.scaleX;
+        calc_constants.GMscaleY = transforms.scaleY;
+        calc_constants.GMoffsetX = transforms.offsetX;
+        calc_constants.GMoffsetY = transforms.offsetY;
+
+        calc_constants.IsGoogleMapLoaded = 1;
+    }
+
+
+
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
 
     // Pass1 Bindings & Uniforms Config
     const Pass1_BindGroupLayout = create_Pass1_BindGroupLayout(device);
     const Pass1_BindGroup = create_Pass1_BindGroup(device, Pass1_uniformBuffer, txState, txBottom, txH, txU, txV, txC);
-    const Pass1_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const Pass1_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass1_view = new DataView(Pass1_uniforms);
     Pass1_view.setUint32(0, calc_constants.WIDTH, true);          // u32
     Pass1_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
@@ -183,7 +215,7 @@ async function initializeWebGPUApp() {
     // Pass2 Bindings & Uniforms Config
     const Pass2_BindGroupLayout = create_Pass2_BindGroupLayout(device);
     const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txXFlux, txYFlux);
-    const Pass2_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const Pass2_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass2_view = new DataView(Pass2_uniforms);
     Pass2_view.setUint32(0, calc_constants.WIDTH, true);          // u32
     Pass2_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
@@ -195,7 +227,7 @@ async function initializeWebGPUApp() {
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
     const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar);
-    const Pass3_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass3_view = new DataView(Pass3_uniforms);
     Pass3_view.setUint32(0, calc_constants.WIDTH, true);          // u32
     Pass3_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
@@ -220,12 +252,15 @@ async function initializeWebGPUApp() {
     Pass3_view.setFloat32(80, calc_constants.one_over_d3y, true);       // f32
     Pass3_view.setFloat32(84, calc_constants.one_over_dxdy, true);           // f32
     Pass3_view.setFloat32(88, calc_constants.seaLevel, true);           // f32
+    Pass3_view.setFloat32(92, calc_constants.dissipation_threshold, true);           // f32
+    Pass3_view.setFloat32(96, calc_constants.whiteWaterDecayRate, true);           // f32
+
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
     const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
     const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
-    const BoundaryPass_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const BoundaryPass_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
     BoundaryPass_view.setUint32(0, calc_constants.WIDTH, true);          // u32
     BoundaryPass_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
@@ -250,7 +285,7 @@ async function initializeWebGPUApp() {
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
     const TridiagX_BindGroup = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, newcoef_x, txNewState, current_stateUVstar, txtemp_PCRx, txtemp2_PCRx);
-    const TridiagX_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const TridiagX_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let TridiagX_view = new DataView(TridiagX_uniforms);
     TridiagX_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     TridiagX_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
@@ -260,7 +295,7 @@ async function initializeWebGPUApp() {
     // TridiagY - Bindings & Uniforms Config
     const TridiagY_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
     const TridiagY_BindGroup = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, newcoef_y, txNewState, current_stateUVstar, txtemp_PCRy, txtemp2_PCRy);
-    const TridiagY_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const TridiagY_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let TridiagY_view = new DataView(TridiagY_uniforms);
     TridiagY_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     TridiagY_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
@@ -270,7 +305,7 @@ async function initializeWebGPUApp() {
     // UpdateTrid -  Bindings & Uniforms Config
     const UpdateTrid_BindGroupLayout = create_UpdateTrid_BindGroupLayout(device);
     const UpdateTrid_BindGroup = create_UpdateTrid_BindGroup(device, UpdateTrid_uniformBuffer, txBottom, txNewState, coefMatx, coefMaty);
-    const UpdateTrid_uniforms = new ArrayBuffer(100); // allowing for 25 variables
+    const UpdateTrid_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let UpdateTrid_view = new DataView(UpdateTrid_uniforms);
     UpdateTrid_view.setUint32(0, calc_constants.WIDTH, true);          // i32
     UpdateTrid_view.setUint32(4, calc_constants.HEIGHT, true);          // i32
@@ -279,8 +314,21 @@ async function initializeWebGPUApp() {
     UpdateTrid_view.setFloat32(16, calc_constants.Bcoef, true);             // f32
 
     // Render Bindings
-    const renderBindGroupLayout = createRenderBindGroupLayout(device);
-    const renderBindGroup = createRenderBindGroup(device, txNewState, txBottom, textureSampler);
+    const RenderBindGroupLayout = createRenderBindGroupLayout(device);
+    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txGoogleMap, textureSampler);
+    const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let Render_view = new DataView(Render_uniforms);
+    Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
+    Render_view.setFloat32(4, calc_constants.colorVal_min, true);          // f32
+    Render_view.setInt32(8, calc_constants.colorMap_choice, true);             // i32
+    Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
+    Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
+    Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+    Render_view.setFloat32(24, calc_constants.GMscaleX, true);          // f32
+    Render_view.setFloat32(28, calc_constants.GMscaleY, true);          // f32
+    Render_view.setFloat32(32, calc_constants.GMoffsetX, true);          // f32
+    Render_view.setFloat32(36, calc_constants.GMoffsetY, true);          // f32
+
 
     // Fetch the source code of various shaders used in the application.
     const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
@@ -306,7 +354,7 @@ async function initializeWebGPUApp() {
     const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout);
     const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout);
 
-    const renderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, renderBindGroupLayout);
+    const RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
     console.log("Pipelines set up.");
 
     // The render pipeline will render a full-screen quad. This section of code sets up the vertices for that quad.
@@ -347,7 +395,7 @@ async function initializeWebGPUApp() {
     // This function, `frame`, serves as the main loop of the application,
     // executing repeatedly to update simulation state and render the results.
 
-    const startTime = new Date();  // This captures the current time, or the time at the start rendering
+    const startTime = new Date();  // This captures the current time, or the time at the start of rendering
     function frame() {
 
         // update simulation parameters in buffers if they have been changed by user through html
@@ -363,6 +411,9 @@ async function initializeWebGPUApp() {
             Pass3_view.setUint32(44, calc_constants.isManning, true);           // f32
             Pass3_view.setFloat32(52, calc_constants.friction, true);             // f32
             Pass3_view.setFloat32(88, calc_constants.seaLevel, true);           // f32
+            Pass3_view.setFloat32(92, calc_constants.dissipation_threshold, true);           // f32
+            Pass3_view.setFloat32(96, calc_constants.whiteWaterDecayRate, true);           // f32
+
             BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
             BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
             BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // f32
@@ -370,12 +421,19 @@ async function initializeWebGPUApp() {
             BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
             BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
 
+            Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
+            Render_view.setFloat32(4, calc_constants.colorVal_min, true);          // f32
+            Render_view.setInt32(8, calc_constants.colorMap_choice, true);             // i32
+            Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
+            Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
+            Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+
             calc_constants.html_update = -1;
         }
 
          // loop through the compute shaders "render_step" times.  
         var commandEncoder;  // init the encoder
-        if (calc_constants.simPause < 0) {// do not run compute loop when > 0 {
+        if (calc_constants.simPause < 0) {// do not run compute loop when > 0, when the simulation is paused {
             for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {  // loop through the compute shaders "render_step" time
 
                 // Increment the frame counter and the simulation time.
@@ -481,10 +539,9 @@ async function initializeWebGPUApp() {
             }
         }
 
-     //   console.log("Rendering data at time step: ", frame_count, " and time (min):", time / 60);
         // Define the settings for the render pass.
         // The render target is the current swap chain texture.
-        const renderPassDescriptor = {
+        const RenderPassDescriptor = {
             colorAttachments: [{
                 view: context.getCurrentTexture().createView(),
                 loadOp: 'clear',
@@ -494,32 +551,45 @@ async function initializeWebGPUApp() {
         };
 
         commandEncoder = device.createCommandEncoder();
+
+        // set uniforms buffer
+        device.queue.writeBuffer(Render_uniformBuffer, 0, Render_uniforms);
+
         // Begin recording commands for the render pass.
-        const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
+        const RenderPass = commandEncoder.beginRenderPass(RenderPassDescriptor);
 
         // Set the render pipeline, bind group, and vertex buffer.
-        renderPass.setPipeline(renderPipeline);
-        renderPass.setBindGroup(0, renderBindGroup);
-        renderPass.setVertexBuffer(0, quadVertexBuffer);
+        RenderPass.setPipeline(RenderPipeline);
+        RenderPass.setBindGroup(0, RenderBindGroup);
+        RenderPass.setVertexBuffer(0, quadVertexBuffer);
 
         // Issue draw command to draw the full-screen quad.
-        renderPass.draw(4);  // Draw the quad with 4 vertices.
+        RenderPass.draw(4);  // Draw the quad with 4 vertices.
 
         // End the render pass after recording all its commands.
-        renderPass.end();
+        RenderPass.end();
 
         // Submit the recorded commands to the GPU for execution.
         device.queue.submit([commandEncoder.finish()]);
+        // end screen render
 
-        // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed
+        // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations
         const current_render = context.getCurrentTexture();
         commandEncoder = device.createCommandEncoder();
+
         commandEncoder.copyTextureToTexture(
             { texture: current_render },  //src
             { texture: txScreen },  //dst
             { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
         );
         device.queue.submit([commandEncoder.finish()]);
+        // end image store
+
+        // here is where the code to capture the latest frame for an animation would go
+        //  use "TexturetoImageData" to get the current frame, and then "addFrame" that to an
+        //  established encoder.  For this to work, we would need to use ffmpeg.js, which would
+        // add some additional complexity and weight to the code.  Certainly can be done, but
+        // hold off until it becomes an important addition
 
         requestAnimationFrame(frame);  // Call the next frame
 
@@ -540,19 +610,7 @@ async function initializeWebGPUApp() {
 
 }
 
-// This code initializes the WebGPU application.
-
-// Call the `initializeWebGPUApp` asynchronous function. 
-// This function sets up all the resources and processes required to run the WebGPU application.
-initializeWebGPUApp().catch(error => {
-    // If there's any error during the initialization, it will be caught here.
-
-    // Log the error message to the console.
-    console.error("Initialization failed:", error);
-});
-
-
-// All the functions below this are for UI
+// All the functions below this are for UI - this is also where the wave simulation is started
 document.addEventListener('DOMContentLoaded', function () {
     // Define a helper function to update calc_constants and potentially re-initialize components
     function updateCalcConstants(property, newValue) {
@@ -566,7 +624,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const buttonActions = [
         { id: 'theta-button', input: 'Theta-input', property: 'Theta' },
         { id: 'courant-button', input: 'courant-input', property: 'Courant_num' },
-        { id: 'friction-button', input: 'friction-input', property: 'friction' }
+        { id: 'friction-button', input: 'friction-input', property: 'friction' },
+        { id: 'colorVal_max-button', input: 'colorVal_max-input', property: 'colorVal_max' },
+        { id: 'colorVal_min-button', input: 'colorVal_min-input', property: 'colorVal_min' },
+        { id: 'dissipation_threshold-button', input: 'dissipation_threshold-input', property: 'dissipation_threshold' },
+        { id: 'whiteWaterDecayRate-button', input: 'whiteWaterDecayRate-input', property: 'whiteWaterDecayRate' },
     ];
 
     buttonActions.forEach(({ id, input, property }) => {
@@ -601,6 +663,10 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'north-boundary-button', input: 'north_boundary_type-select', property: 'north_boundary_type' },
         { id: 'isManning-button', input: 'isManning-select', property: 'isManning' },
         { id: 'simPause-button', input: 'simPause-select', property: 'simPause' },
+        { id: 'surfaceToPlot-button', input: 'surfaceToPlot-select', property: 'surfaceToPlot' },
+        { id: 'colorMap_choice-button', input: 'colorMap_choice-select', property: 'colorMap_choice' },
+        { id: 'showBreaking-button', input: 'showBreaking-select', property: 'showBreaking' },
+        { id: 'GoogleMapOverlay-button', input: 'GoogleMapOverlay-select', property: 'GoogleMapOverlay' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -629,8 +695,73 @@ document.addEventListener('DOMContentLoaded', function () {
         saveRenderedImageAsJPEG(device, txScreen, canvas.width, canvas.height);
     });
 
-    // Upload JSON
-    document.getElementById('jsonFileInput').addEventListener('change', handleFileSelect, false);
+    // start simulation
+
+    // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
+    document.getElementById('start-simulation-btn').addEventListener('click', function () {
+        startSimulation(); 
+    });
+
+    // This function will be called when the user clicks "Start Simulation."
+    function startSimulation() {
+        // First, retrieve the File objects from the file inputs.
+        var configFile = document.getElementById('configFile').files[0];
+        var bathymetryFile = document.getElementById('bathymetryFile').files[0];
+        var waveFile = document.getElementById('waveFile').files[0];
+
+        // Check if the files are not uploaded
+        if (!configFile || !bathymetryFile || !waveFile) {
+            alert("Please upload all the required files.");
+            return;  // Stop here.
+        }
+
+        // If we're here, it means all files are uploaded.
+        // Now, we can read these files and then start the simulation.
+
+        // Create FileReader objects to read the content of the files
+        var configReader = new FileReader();
+        var bathymetryReader = new FileReader();
+        var waveReader = new FileReader();
+
+        // Setup of the FileReader callbacks to handle the data after files are read
+        configReader.onload = function (e) {
+            var configContent = e.target.result;
+            // Handle or store this content as needed in your simulation
+
+            // We're nesting these to ensure the order of operations (each file read is asynchronous)
+            bathymetryReader.onload = function (e) {
+                var bathymetryContent = e.target.result;
+
+                waveReader.onload = function (e) {
+                    var waveContent = e.target.result;
+
+                    // Now that all files are read and content is stored, start the simulation.
+                    // Pass the necessary data as arguments to your actual simulation function
+                    // runSimulation(configContent, bathymetryContent, waveContent);
+
+                    // This code initializes the WebGPU application.
+                    // Call the `initializeWebGPUApp` asynchronous function. 
+                    // This function sets up all the resources and processes required to run the WebGPU application.
+                    initializeWebGPUApp(configContent, bathymetryContent, waveContent).catch(error => {
+                        // If there's any error during the initialization, it will be caught here.
+
+                        // Log the error message to the console.
+                        console.error("Initialization failed:", error);
+                    });
+
+                }
+
+                // Reading the content of the wave file
+                waveReader.readAsText(waveFile);
+            }
+
+            // Reading the content of the bathymetry file
+            bathymetryReader.readAsText(bathymetryFile);
+        };
+
+        // Initiates the reading of the config file. This starts the chain of reading operations.
+        configReader.readAsText(configFile);
+    }
 
 });
 

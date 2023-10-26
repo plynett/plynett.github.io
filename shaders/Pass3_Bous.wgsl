@@ -21,7 +21,9 @@ struct Globals {
     one_over_d2y: f32,
     one_over_d3y: f32,
     one_over_dxdy: f32,
-    seaLevel: f32
+    seaLevel: f32,
+    dissipation_threshold: f32,
+    whiteWaterDecayRate: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -254,15 +256,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let C_state_down_left = textureLoad(txState, downleftIdx, 0).w;
     let C_state_down_right = textureLoad(txState, downrightIdx, 0).w;
 
-    let Dxx = 0.0;
-    let Dxy = 0.0;
-    let Dyy = 0.0;
+    let Dxx = 1.0;
+    let Dxy = 1.0;
+    let Dyy = 1.0;
 
     let hc_by_dx_dx = Dxx * globals.one_over_d2x * (C_state_right - 2.0 * in_state_here.a + C_state_left);
     let hc_by_dy_dy = Dyy * globals.one_over_d2y * (C_state_up - 2.0 * in_state_here.a + C_state_down);
-    let hc_by_dx_dy = 10.25 * Dxy * globals.one_over_dxdy * (C_state_up_right - C_state_up_left - C_state_down_right + C_state_down_left);
+    let hc_by_dx_dy = 0.25 * Dxy * globals.one_over_dxdy * (C_state_up_right - C_state_up_left - C_state_down_right + C_state_down_left);
 
-    let c_dissipation = -0.00 * C_state_here;
+    let c_dissipation = -globals.whiteWaterDecayRate * C_state_here;
 
     let source_term = vec4<f32>(0.0, -globals.g * h_here * detadx - in_state_here.y * friction_ + (Psi1x + Psi2x) + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + (Psi1y + Psi2y) + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
 
@@ -283,11 +285,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let predicted = textureLoad(predictedGradients, idx, 0);
         newState = in_state_here_UV + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
-    
-//    if (id.x == 50 && id.y == 50) {
-//        newState.r = 10.;
-//    }
 
+// add breaking source
+    if (max(abs(detadx),abs(detady)) * sign(detadx * newState.y + detady * newState.z) > globals.dissipation_threshold) {
+        newState.a = 1.0;
+    }
 
     textureStore(txNewState, idx, newState);
     textureStore(dU_by_dt, idx, d_by_dt);
