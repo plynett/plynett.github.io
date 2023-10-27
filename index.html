@@ -8,15 +8,17 @@
     <style>
         /* Add internal CSS here (or you could link to an external stylesheet) */
         #main-container {
-            width: 100%;
+            width: 100vw; /* viewport width units make the container responsive to the full width of the screen */
+            height: 100vh; /* viewport height units make it responsive to the height of the screen */
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* Ensures the content starts from the top */
+            justify-content: flex-start;
+            overflow: auto; /* Adds scroll if content overflows */
         }
 
         #webgpuCanvas {
             /* Add any specific styles for your canvas */
-            max-width: auto; /* Adjust based on your design */
+            width: 100%;
             height: auto; /* Adjust based on your design */
             margin-top: 20px;
             margin-bottom: 20px;
@@ -30,7 +32,7 @@
             flex-direction: row; /* stack the children vertically */
         }
 
-        #constants-container, #controls-container, #downloads-container, #uploads-container {
+        #constants-container, #mods-container, #downloads-container, #uploads-container {
             background-color: #f9f9f9;
             border: 1px solid #ddd;
             padding: 10px;
@@ -42,12 +44,12 @@
             line-height: 0.7; /* This is a multiplier of the default line height. */
         }
 
-        #controls-container {
+        #uploads-container {
             /* Additional specific styles for the controls container if needed */
             line-height: 1.2; /* This is a multiplier of the default line height. */
         }
 
-        #uploads-container {
+        #mods-container {
             /* Additional specific styles for the controls container if needed */
             line-height: 1.2; /* This is a multiplier of the default line height. */
         }
@@ -56,6 +58,12 @@
             /* Additional specific styles for the controls container if needed */
             line-height: 1.2; /* This is a multiplier of the default line height. */
         }
+
+        #constants-container {
+            /* Additional specific styles for the controls container if needed */
+            width: auto;
+        }
+
         .custom-file-upload-button {
             display: inline-block;
             padding: 2px 2px;
@@ -84,8 +92,7 @@
         <div id="horizontalbar">
             <div id="uploads-container">
 
-                <html4f>------------ 1: Upload Simulation Parameters ------------</html4f>
-                <br />
+                <html4f><center>------- Start Here: Upload Simulation Parameters -------</center></html4f>
                 <br />
                 <html4f>
                     Download Example Configurations <a href="https://www.dropbox.com/scl/fi/dgi9r9ufwz5kcfwef2z1h/Example_Configs.zip?rlkey=oqtu2q5b3lkhx8kngc8u7zdqy&dl=0" target="_blank" rel="noopener noreferrer">here</a>
@@ -107,7 +114,7 @@
                     <br />
                     <input type="file" id="waveFile" accept="application/txt" style="display: none;" />
                     <label for="waveFile" class="custom-file-upload-button">
-                        Load Wave [amplitude,period,direction] Data File
+                        Load Wave [amp,period,dir] Data File
                     </label>
                     <br />
                     <br />
@@ -132,26 +139,31 @@
                     <br />
                     <br />
 
+                    <!-- run example simulation using server-side configurations files-->
+                    <button id="run-example-simulation-btn">Run Example Simulation</button>
+                    <br />
+                    <br />
 
 
                 </div>
 
             </div>
 
-            <div id="downloads-container">
+            <div id="mods-container">
 
-                <html4f>------------ 2: Modify Visualization ------------</html4f>
-                <br />
+                <html4f><center>------------ Modify Visualization ------------</center></html4f>
                 <br />
                 <!-- Updates go to calc_constants.surfaceToPlot-->
                 <label for="surfaceToPlot-select">Property to Plot:</label>
                 <select id="surfaceToPlot-select" name="surfaceToPlotValue">
                     <option value="0">Free Surface Elevation (m)</option>
                     <option value="1">Fluid Speed (m/s)</option>
-                    <option value="2">East-West (x) Component of Fluid Velocity (m/s)</option>
-                    <option value="3">North-South (y) Component of Fluid Velocity (m/s)</option>
+                    <option value="2">East-West (x) Velocity (m/s)</option>
+                    <option value="3">North-South (y) Velocity (m/s)</option>
                     <option value="4">Vertical Vorticity (1/s)</option>
                     <option value="5">Turbulence Intensity (m^2/s)</option>
+                    <option value="6">Bathymetry/Topography (m)</option>
+                    <!--    <option value="7">Friction Factor Map </option> -->
                 </select>
                 <button id="surfaceToPlot-button" type="button">Update</button>
                 <br />
@@ -166,6 +178,7 @@
                     <option value="3">HSV</option>
                     <option value="4">Gray</option>
                     <option value="5">Pink</option>
+                    <option value="6">Bathy/Topo</option>
                 </select>
                 <button id="colorMap_choice-button" type="button">Update</button>
                 <br />
@@ -190,17 +203,17 @@
                 <!-- Updates go to calc_constants.showBreaking-->
                 <label for="showBreaking-select">Breaking Visualization:</label>
                 <select id="showBreaking-select" name="showBreakingValue">
-                    <option value="1">Show Areas of Breaking / Turbulence</option>
-                    <option value="0">Do Not Show Areas of Breaking / Turbulence</option>
+                    <option value="1">Show Areas of Foam</option>
+                    <option value="0">Do Not Show Areas of Foam</option>
                 </select>
                 <button id="showBreaking-button" type="button">Update</button>
                 <br />
                 <br />
 
                 <!-- Updates go to calc_constants.GoogleMapOverlay-->
-                <label for="GoogleMapOverlay-select">Overlay Google Maps Satellite Image:</label>
+                <label for="GoogleMapOverlay-select">Overlay Google Maps Image:</label>
                 <select id="GoogleMapOverlay-select" name="GoogleMapOverlayValue">
-                    <option value="1">Include Overlay [corner coordinates must be in JSON]</option>
+                    <option value="1">Include Overlay</option>
                     <option value="0">Do Not Include Overlay</option>
                 </select>
                 <button id="GoogleMapOverlay-button" type="button">Update</button>
@@ -208,11 +221,42 @@
                 <br />
 
             </div>
+            <div id="mods-container">
+
+                <html4f><center>--------- Modify Model Surface Data ---------</center></html4f>
+                <br />
+                <!-- Updates go to calc_constants.surfaceToChange-->
+                <label for="surfaceToChange-select">Property to Edit:</label>
+                <select id="surfaceToChange-select" name="surfaceToChangeValue">
+                    <option value="1">Bathymetry/Topography (m)</option>
+                    <!--    <option value="2">Friction Factor Map </option> -->
+                </select>
+                <button id="surfaceToChange-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.changeAmplitude-->
+                <label for="changeAmplitude-input">Amount of Property to Change-on-Click:</label>
+                <br />
+                <input type="number" id="changeAmplitude-input" name="changeAmplitudeValue">
+                <button id="changeAmplitude-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.changeRadius-->
+                <label for="changeRadius-input">Lengthscale (m) of Change-on-Click :</label>
+                <br />
+                <input type="number" id="changeRadius-input" name="changeRadiusValue">
+                <button id="changeRadius-button" type="button">Update</button>
+                <br />
+                <br />
+
+
+            </div>
 
             <div id="downloads-container">
 
-                <html4f>------------ 3: Download Model Parameters and Output ------------</html4f>
-                <br />
+                <html4f><center>------------ Download Model Parameters and Output ------------</center></html4f>
                 <br />
                 <!-- Download JSON button-->
                 <button id="download-button">Download Simulation Parameters JSON file</button>
@@ -228,13 +272,20 @@
             </div>
 
         </div>
-        <canvas id="webgpuCanvas"></canvas>
 
         <div id="horizontalbar">
+            <div>
+                <canvas id="webgpuCanvas"></canvas>
+            </div>
             <div id="constants-container">
                 <!-- Constants will be dynamically filled in by JavaScript -->
             </div>
-            <div id="controls-container">
+        </div>
+
+
+
+        <div id="horizontalbar">
+            <div id="mods-container">
 
                 <html4f>------------ Modify Simulation Parameters ------------</html4f>
                 <br />
@@ -361,7 +412,8 @@
     <script type="module" src="js/Handler_Pass3.js"></script>
     <script type="module" src="js/Handler_BoundaryPass.js"></script>
     <script type="module" src="js/Handler_Tridiag.js"></script>
-    <script type="module" src="js/Handler_UpdateTrid.js"></script>
+    <script type="module" src="js/Handler_MouseClickChange.js"></script>
+    <script type="module" src="js/Handler_UpdateTrid.js"></script> 
     <script type="module" src="js/Config_Pipelines.js"></script>
     <script type="module" src="js/Run_Compute_Shader.js"></script>
     <script type="module" src="js/Run_Tridiag_Solver.js"></script>

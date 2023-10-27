@@ -54,7 +54,7 @@ var calc_constants = {
     colorVal_min: -1.0,  // value that maps to the "lowest" color
     colorMap_choice: 0,  // decision variable for the colormap to use during rendering
     surfaceToPlot: 0, // which surface (eta, u, v, vort) to plot
-    showBreaking: 1,  //  show breaking (foam) areas when ==1
+    showBreaking: 0,  //  show breaking (foam) areas when ==1
     GoogleMapOverlay: 0, // load satellite image and plot over dry land, requires proper values of lat,lon at lower left and upper right corners
     IsGoogleMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
     GMapImageWidth: 512,  // number of pixels in google maps image width
@@ -67,6 +67,18 @@ var calc_constants = {
     lon_LL: 0, // longitude at lower left corner
     lat_UR: 0, // latitude at upper right corner
     lon_UR: 0, // longitude at upper right corner
+    render_step: 10, // number of compute steps to run for every render step, the biggest the number the choppier the viz, but also the faster it runs
+    simPause: -1, // check variable, simulation is paused when this value is =1, running when = -1
+    html_update: -1,  // check variable - if the user has updated ANY parameter from the interface, =1, and buffers are updated
+
+    // canvas interaction parameters
+    xClick: 0, // pixel coordinate of x-click
+    yClick: 0, // pixel coordinate of y-click
+    click_update: -1,   // check variable - if the user has clicked on the canvas =1, and surfaces are updated as specified
+    surfaceToChange: 0, // which surface to change (bathy, friction)
+    changeRadius: 1, // lengthscale of change function, in meters
+    changeAmplitude: 1, // amplitude of change function, in units of the surfaceToChange
+
 };
 
 // load the control file
@@ -145,10 +157,9 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.ship_c2 = (-1.0 / (4.0 * Math.pow(calc_constants.ship_length / Math.PI, 2))) + (1.0 / (4.0 * Math.pow(calc_constants.ship_width / Math.PI, 2)));
     calc_constants.ship_c3a = 1.0 / (2.0 * Math.pow(calc_constants.ship_length / Math.PI, 2));
     calc_constants.ship_c3b = 1.0 / (2.0 * Math.pow(calc_constants.ship_width / Math.PI, 2));
-    calc_constants.render_step = 10;
     calc_constants.elapsedTime = 0.0;
-    calc_constants.simPause = -1;
-    calc_constants.html_update = -1;
+    calc_constants.changeRadius = 100. * calc_constants.dx;
+    calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
     
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
     canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // widht needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;

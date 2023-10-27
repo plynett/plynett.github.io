@@ -54,7 +54,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
          c = -d_here * d_dx / (6.0 * globals.dx) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
     }
     coefx = vec4<f32>(a, b, c, 0.0);
- //   coefx = vec4<f32>(0.0, 1.0, 0.0, 0.0);
 
     // Y-coefs
     var coefy = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -77,7 +76,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
          c = -d_here * d_dy / (6.0 * globals.dy) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
     }
     coefy = vec4<f32>(a, b, c, 0.0);
-//    coefy = vec4<f32>(0.0, 1.0, 0.0, 0.0);
 
     textureStore(coefMatx, idx, coefx);
     textureStore(coefMaty, idx, coefy);

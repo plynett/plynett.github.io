@@ -143,7 +143,27 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         vec3<f32>(0.9545, 0.9545, 0.8628),
         vec3<f32>(0.9775, 0.9775, 0.9339),
         vec3<f32>(1.0000, 1.0000, 1.0000) );  // white
+    }  else if(colorMap_choice == 6) {  // haxby for bathy/topo colormap
+        colorMap = array<vec3<f32>, 16>(
+        vec3<f32>(0.1451, 0.2235, 0.6863),
+        vec3<f32>(0.1569, 0.4980, 0.9843),
+        vec3<f32>(0.1961, 0.7451, 1.0000),
+        vec3<f32>(0.3373, 0.8549, 1.0000),
+        vec3<f32>(0.4784, 0.9216, 1.0000),
+        vec3<f32>(0.5412, 0.9255, 0.6824),
+        vec3<f32>(0.6745, 0.9647, 0.6588),
+        vec3<f32>(0.8039, 1.0000, 0.6353),
+        vec3<f32>(0.8706, 0.9647, 0.5569),
+        vec3<f32>(0.9412, 0.9255, 0.4745),
+        vec3<f32>(0.9686, 0.8353, 0.4078),
+        vec3<f32>(1.0000, 0.7412, 0.3412),
+        vec3<f32>(1.0000, 0.6863, 0.3020),
+        vec3<f32>(1.0000, 0.6314, 0.2667),
+        vec3<f32>(1.0000, 0.8000, 0.3922),
+        vec3<f32>(1.0000, 1.0000, 1.0000) );
+
     } 
+
 
 
     let maxWave = globals.colorVal_max;
@@ -177,10 +197,13 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     } else if (surfaceToPlot == 5) {  // breaking
         render_surface = textureSample(etaTexture, textureSampler, uv).a;
+
+    } else if (surfaceToPlot == 6) {  // bathy/topo
+        render_surface = bottom;
     }
     
     var color_rgb: vec3<f32>;
-    if (bottom + 0.01 > waves) {
+    if (bottom + 0.01 > waves && surfaceToPlot != 6) {
         if(globals.GoogleMapOverlay == 1) {
             color_rgb = GoogleMap;
         }
@@ -209,10 +232,10 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     }
 
     
-        if (globals.showBreaking ==1 ) {
-            let breaking = textureSample(etaTexture, textureSampler, uv).a;
-            color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
-        }
+    if (globals.showBreaking ==1 ) {
+        let breaking = textureSample(etaTexture, textureSampler, uv).a;
+        color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
+    }
 
     out.color = vec4<f32>(color_rgb, 1.0);
     return out;

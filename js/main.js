@@ -11,6 +11,7 @@ import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup } from './Handler_
 import { create_BoundaryPass_BindGroupLayout, create_BoundaryPass_BindGroup } from './Handler_BoundaryPass.js';  // group bindings for BoundaryPass shaders
 import { create_Tridiag_BindGroupLayout, create_Tridiag_BindGroup } from './Handler_Tridiag.js';  // group bindings for Tridiag X and Y shaders
 import { create_UpdateTrid_BindGroupLayout, create_UpdateTrid_BindGroup } from './Handler_UpdateTrid.js';  // group bindings for Tridiag X and Y shaders
+import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
 import { createComputePipeline, createRenderPipeline } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
@@ -99,6 +100,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const TridiagX_uniformBuffer = createUniformBuffer(device);
     const TridiagY_uniformBuffer = createUniformBuffer(device);
     const UpdateTrid_uniformBuffer = createUniformBuffer(device);
+    const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const Render_uniformBuffer = createUniformBuffer(device);
 
     // Create a sampler for texture sampling. This defines how the texture will be sampled (e.g., nearest-neighbor sampling).  Used only for render pipeline
@@ -136,6 +138,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -170,6 +173,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         let ImageGoogleMap = await CreateGoogleMapImage(device, context, calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
 
         console.log('Google Maps image loaded, dimensions:', ImageGoogleMap.width, 'x', ImageGoogleMap.height);
+
+        console.log(ImageGoogleMap)
 
         // Now that the image is loaded, you can copy it to the texture.
         device.queue.copyExternalImageToTexture(
@@ -313,6 +318,20 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     UpdateTrid_view.setFloat32(12, calc_constants.dy, true);             // f32
     UpdateTrid_view.setFloat32(16, calc_constants.Bcoef, true);             // f32
 
+    // MouseClickChange -  Bindings & Uniforms Config
+    const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
+    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txtemp_MouseClick);
+    const MouseClickChange_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
+    let MouseClickChange_view = new DataView(MouseClickChange_uniforms);
+    MouseClickChange_view.setUint32(0, calc_constants.WIDTH, true);          // i32
+    MouseClickChange_view.setUint32(4, calc_constants.HEIGHT, true);          // i32
+    MouseClickChange_view.setFloat32(8, calc_constants.dx, true);             // f32
+    MouseClickChange_view.setFloat32(12, calc_constants.dy, true);             // f32
+    MouseClickChange_view.setFloat32(16, calc_constants.xClick, true);             // f32
+    MouseClickChange_view.setFloat32(20, calc_constants.yClick, true);             // f32
+    MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
+    MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32
+
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
     const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txGoogleMap, textureSampler);
@@ -339,6 +358,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
     const TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
     const UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
+    const MouseClickChange_ShaderCode = await fetchShader('/shaders/MouseClickChange.wgsl');
 
     const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
     const fragmentShaderCode = await fetchShader('/shaders/fragment.wgsl');
@@ -353,6 +373,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const TridiagX_Pipeline = createComputePipeline(device, TridiagX_ShaderCode, TridiagX_BindGroupLayout);
     const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout);
     const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout);
+    const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout);
 
     const RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
     console.log("Pipelines set up.");
@@ -429,6 +450,25 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
 
             calc_constants.html_update = -1;
+        }
+
+        // update surfaces following user clicks
+        if (calc_constants.click_update > 0) {
+
+            MouseClickChange_view.setFloat32(16, calc_constants.xClick, true);             // f32
+            MouseClickChange_view.setFloat32(20, calc_constants.yClick, true);             // f32
+            MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
+            MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32
+
+            runComputeShader(device, commandEncoder, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth based on mouse click
+            // put modified texture back into txBottom from predictor into predicted gradients
+            runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
+
+            if (calc_constants.NLSW_or_Bous > 0) {
+                console.log('Updating tridiag coef due to change in depth')
+                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+            }
+            calc_constants.click_update = -1;
         }
 
          // loop through the compute shaders "render_step" times.  
@@ -612,10 +652,40 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
 // All the functions below this are for UI - this is also where the wave simulation is started
 document.addEventListener('DOMContentLoaded', function () {
+    // Get a reference to your canvas element.
+    var canvas = document.getElementById('webgpuCanvas');
+
+    // Add the event listener for 'click' events.
+    canvas.addEventListener('click', function (event) {
+        // Calculate the correct position within the canvas taking into account any offset.
+        var rect = canvas.getBoundingClientRect(); // abs. size of element
+        var scaleX = calc_constants.WIDTH / rect.width;    // relationship bitmap vs. element for X
+        var scaleY = calc_constants.HEIGHT / rect.height;  // relationship bitmap vs. element for Y
+
+        calc_constants.xClick = (event.clientX - rect.left) * scaleX;  // scale mouse coordinates after they have // pixel coordinate of x-click
+        calc_constants.yClick = calc_constants.HEIGHT - (event.clientY - rect.top) * scaleY;   // been adjusted to be relative to element// pixel coordinate of y-click // inverted due to image coordinates
+        calc_constants.click_update = 1,   // check variable - if the user has clicked on the canvas =1, and surfaces are updated as specified
+
+        console.log("Canvas clicked at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
+    });
+
+
     // Define a helper function to update calc_constants and potentially re-initialize components
     function updateCalcConstants(property, newValue) {
         console.log(`Updating ${property} with value:`, newValue);
         calc_constants[property] = newValue;
+
+        if (property == 'surfaceToPlot' && calc_constants.surfaceToPlot == 6) {  // set for showing bathy/topo
+            calc_constants.colorVal_min = -calc_constants.base_depth;
+            calc_constants.colorVal_max = calc_constants.base_depth;
+            calc_constants.colorMap_choice = 6;
+        }
+
+        if (property == 'surfaceToPlot' && calc_constants.colorVal_max == calc_constants.base_depth && calc_constants.surfaceToPlot != 6) {
+            calc_constants.colorVal_min = -1.0;
+            calc_constants.colorVal_max = 1.0;
+            calc_constants.colorMap_choice = 0;
+        }
 
         calc_constants.html_update = 1; // flag used to check for updates.
     }
@@ -629,6 +699,8 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'colorVal_min-button', input: 'colorVal_min-input', property: 'colorVal_min' },
         { id: 'dissipation_threshold-button', input: 'dissipation_threshold-input', property: 'dissipation_threshold' },
         { id: 'whiteWaterDecayRate-button', input: 'whiteWaterDecayRate-input', property: 'whiteWaterDecayRate' },
+        { id: 'changeAmplitude-button', input: 'changeAmplitude-input', property: 'changeAmplitude' },
+        { id: 'changeRadius-button', input: 'changeRadius-input', property: 'changeRadius' },
     ];
 
     buttonActions.forEach(({ id, input, property }) => {
@@ -678,6 +750,35 @@ document.addEventListener('DOMContentLoaded', function () {
         location.reload();
     });
 
+    // update the ALL input and dropdown buttons with the current parameter value when any one button is pushed
+    function updateAllUIElements() {
+        // Update text input fields
+        buttonActions.forEach((action) => {
+            var currentValue = calc_constants[action.property];
+            document.getElementById(action.input).value = currentValue;
+        });
+
+        // Update dropdown selections
+        button_dropdown_Actions.forEach((action) => {
+            var currentValue = calc_constants[action.property];
+            var selectElement = document.getElementById(action.input);
+            selectElement.value = currentValue;
+        });
+    }
+    const allActions = buttonActions.concat(button_dropdown_Actions);
+
+    allActions.forEach((action) => {
+        // Set up the click event listener for each button
+        document.getElementById(action.id).addEventListener('click', function () {
+            // Assume the new value for the property comes from a text input or dropdown selection
+            // Update the property in calc_constants
+            calc_constants[action.property] = document.getElementById(action.input).value;
+
+            // Call the function to update all UI elements
+            updateAllUIElements();
+        });
+    });
+
     // Download JSON
     document.getElementById('download-button').addEventListener('click', function () {
         downloadObjectAsFile(calc_constants);
@@ -700,6 +801,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
     document.getElementById('start-simulation-btn').addEventListener('click', function () {
         startSimulation(); 
+    });
+
+    // run example simulation
+
+    // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
+    document.getElementById('run-example-simulation-btn').addEventListener('click', function () {
+
+        initializeWebGPUApp();
+
     });
 
     // This function will be called when the user clicks "Start Simulation."
@@ -748,6 +858,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         // Log the error message to the console.
                         console.error("Initialization failed:", error);
                     });
+
 
                 }
 

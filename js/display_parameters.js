@@ -19,7 +19,7 @@ export function displayCalcConstants(calc_constants, total_time) {
      container.innerHTML = '';
 
     // Add text 
-    addTextToContainer(`------------ Simulation Parameters ------------`, container);
+    addTextToContainer(`--- Simulation Parameters ---`, container);
 
     if (calc_constants.NLSW_or_Bous == 0) {
         addTextToContainer(`NLSW Simulation`, container);
@@ -28,13 +28,13 @@ export function displayCalcConstants(calc_constants, total_time) {
         addTextToContainer(`Boussinesq Simulation`, container);
     }
     if (calc_constants.timeScheme == 2) {
-        addTextToContainer(`4th-Order Implicit Predictor-Corrector Time Integration`, container);
+        addTextToContainer(`4th-Order Implicit Predictor-Corrector Scheme`, container);
     }
     else {
-        addTextToContainer(`3rd-Order Explicit Predictor Time Integration`, container);
+        addTextToContainer(`3rd-Order Explicit Predictor Scheme`, container);
     }
 
-    addTextToContainer(`Using MinMod for Flux Limiters, with Theta: ${calc_constants.Theta}`, container);
+    addTextToContainer(`Using MinMod with Theta: ${calc_constants.Theta}`, container);
 
     addTextToContainer(`Cells in X-direction: ${calc_constants.WIDTH}`, container);
     addTextToContainer(`Cells in Y-direction: ${calc_constants.HEIGHT}`, container);
@@ -58,12 +58,12 @@ export function displayCalcConstants(calc_constants, total_time) {
     addTextToContainer(`Wave Breaking Slope Threshold: ${calc_constants.dissipation_threshold}`, container);
     addTextToContainer(`Turbulent Decay Coefficient: ${calc_constants.whiteWaterDecayRate}`, container);
     addSpacerToContainer(container);
-    addTextToContainer(`------------ Runtime Parameters ------------`, container);
-    addTextToContainer(`Elapsed Simulation Time (min): ${Math.round(total_time / 60. * 1000) / 1000}`, container);
+    addTextToContainer(`--- Runtime Parameters ---`, container);
+    addTextToContainer(`Simulated Time (min): ${Math.round(total_time / 60. * 1000) / 1000}`, container);
     addTextToContainer(`Faster-than-Realtime Ratio: ${Math.round(total_time / calc_constants.elapsedTime * 1000) / 1000}`, container);
 
     addSpacerToContainer(container);
-    addTextToContainer(`------------ Visualization Parameters ------------`, container);
+    addTextToContainer(`--- Visualization Parameters ---`, container);
     if (calc_constants.surfaceToPlot == 0) {
         addTextToContainer(`Plotting Free Surface Elevation (m)`, container);
     }
