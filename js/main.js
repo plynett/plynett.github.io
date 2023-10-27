@@ -779,6 +779,27 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Function to change the color of the label when a file is uploaded
+    function onFileUpload(event) {
+        var inputId = event.target.id;
+        var label = document.querySelector('label[for=' + inputId + ']');
+        if (event.target.files.length > 0) {
+            label.style.backgroundColor = '#4CAF50';  // for example, green
+            label.style.color = 'white';
+            // Additional styling (like changing text to "File Uploaded!") can also be applied here
+        } else {
+            // Reset to default styles if no file is selected
+            label.style.backgroundColor = '';  // reset to default
+            label.style.color = '';  // reset to default
+        }
+    }
+
+    // Add event listeners for the file inputs
+    var fileInputs = document.querySelectorAll('input[type=file]');
+    fileInputs.forEach(function (input) {
+        input.addEventListener('change', onFileUpload);
+    });
+
     // Download JSON
     document.getElementById('download-button').addEventListener('click', function () {
         downloadObjectAsFile(calc_constants);
