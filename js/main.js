@@ -32,6 +32,7 @@ let txSaveOut = null;
 let txScreen = null;
 let txGoogleMap = null;
 let context = null;
+let adapter = null;
 
 // Check if WebGPU is supported in the user's browser.
 if (!gpu) {
@@ -63,7 +64,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Request an adapter. The adapter represents the GPU device, or a software fallback.
     const options = { powerPreference: "high-performance" };
-    var adapter = await gpu.requestAdapter(options);
+    adapter = await gpu.requestAdapter(options);
     if (!adapter) {
         console.log('Failed to find a high-performance GPU adapter, using available GPU.');
         adapter = await gpu.requestAdapter();
@@ -73,7 +74,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     console.log("Adapter acquired.");
 
     // Request a device. The device is a representation of the GPU and allows for resource creation and command submission.
-    device = await adapter.requestDevice();
+    const device = await adapter.requestDevice({
+        // Enable built-in validation
+        requiredFeatures: [],
+        requiredLimits: {},
+        forceFallbackAdapter: false,
+    });
     console.log("Device acquired.");
 
     // Get the WebGPU rendering context from the canvas.
@@ -411,19 +417,83 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     let total_time = 0;          // Initialize time, which might be used for animations or simulations.
     let frame_count = 0;   // Counter to keep track of the number of rendered frames.
+    let frame_count_since_http_update = 0;   // Counter to keep track of the number of rendered frames.
+    let total_time_since_http_update = 0;          // Initialize time, which might be used for animations or simulations.
+    let frame_count_find_render_step = 0;   // Counter to keep track of the number of rendered frames.
+
+    // variables needed for the "render_step" optimziation
+    let startTime_find_render_step = new Date();
+    let total_time_find_render_step = 0.;
+    let adapt_render_step = 1;
+    let render_step_up_or_down = 1;
+    let clock_time_render_stop_old = -1.;
+    let clock_time_render_stop_new = 0.;
+    let render_update_n_since_change = 0;
 
     console.log("Compute / Render loop starting.");
     // This function, `frame`, serves as the main loop of the application,
     // executing repeatedly to update simulation state and render the results.
 
-    const startTime = new Date();  // This captures the current time, or the time at the start of rendering
+    var startTime = new Date();  // This captures the current time, or the time at the start of rendering
     function frame() {
+
+        // render step find logic, trying to find a render step that both maximizes the usage of the GPU
+        // but does not over work it.  The need for this logic is that if the GPU is too overworked, which
+        // here means that there is too much wall clock time between renderings of the wave field, the html
+        // and javascript interface seems to lose sync with the gpu, causing the error "GPU Connection Lost."  While some
+        // parts of the js will continue to run after this error, it is a fatal error on the canvas, and rendering
+        // to screen can not be re-started without a complete reload/refresh (AFSIK).  The code below will look to
+        // update the render step (number of compute steps per screen render) every 1.0 second (this seems like a
+        // reasonable number, but could be larger potentially for slower machines).  If the wall clock time per
+        // compute time step is 90% less than the value from the previous 1 second, this implies that we are not
+        // maximizing the usage of the GPU, and we can increase "render_step."  From trial and error, it seems that if
+        // this ratio floats slightly above 1 (using 1.01) this is a reasonable indicator that the GPU is in a
+        // near-max utilization state, without much headroom for additional computations - in this situation, we
+        // decrease the "render_step."  Also, if the "render_step" has not changed over the past 10 seconds, we step
+        // it up by one value to see if we can push performance.  If this is too much, "render_step" will quickly decrease
+        // back down to its original value.
+        if (adapt_render_step == 1 && calc_constants.simPause < 0) {
+            frame_count_find_render_step += 1;
+            total_time_find_render_step = (new Date()) - startTime_find_render_step;
+            if (total_time_find_render_step > 1.0*1000.) {  // update renderstep every 1 second
+                let number_of_time_steps = frame_count_find_render_step * calc_constants.render_step;
+                clock_time_render_stop_new = total_time_find_render_step / number_of_time_steps;
+                if (clock_time_render_stop_old > 0.0) {
+                    let ratio = clock_time_render_stop_new / clock_time_render_stop_old;
+                    if (render_step_up_or_down < 0) {
+                        ratio = 1 / ratio;
+                    }
+                    render_step_up_or_down = 0;
+                    if (ratio < 0.9 || render_update_n_since_change > 10) {
+                        calc_constants.render_step = calc_constants.render_step + 1;
+                        render_step_up_or_down = 1;
+                        render_update_n_since_change = 0;
+                        console.log('Increasing render step');
+                    } else if (ratio > 1.001) {
+                        calc_constants.render_step = Math.max(1, calc_constants.render_step - 1);
+                        render_step_up_or_down = -1;
+                        render_update_n_since_change = 0;
+                        console.log('Decreasing render step');
+                    } else {
+                        render_update_n_since_change += 1;
+                    }
+                } else {
+                    calc_constants.render_step = calc_constants.render_step + 1;  // after first 10 seconds step up to 2
+                }
+                clock_time_render_stop_old = clock_time_render_stop_new;
+                frame_count_find_render_step = 0;
+                startTime_find_render_step = new Date();
+
+            }
+
+        }
 
         // update simulation parameters in buffers if they have been changed by user through html
         if (calc_constants.html_update > 0) {
 
             calc_constants.dt = calc_constants.Courant_num * calc_constants.dx / Math.sqrt(calc_constants.g * calc_constants.base_depth);
             calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
+            calc_constants.render_step = Math.round(calc_constants.render_step);
 
             Pass1_view.setFloat32(20, calc_constants.TWO_THETA, true);           // f32
             Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
@@ -448,6 +518,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
             Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
             Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+
+            startTime = new Date();  // This captures the current time, or the time at the start of rendering
+            frame_count_since_http_update = 0;
 
             calc_constants.html_update = -1;
         }
@@ -478,7 +551,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 // Increment the frame counter and the simulation time.
                 frame_count += 1;
+                frame_count_since_http_update += 1;
+
                 total_time = frame_count * calc_constants.dt;  //simulation time
+                total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
 
                 // Pass1
                 runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -641,7 +717,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         runCopyTextures(device, commandEncoder, calc_constants, txNewState, txSaveOut)
 
         // Call the function to display the constants in the index.html page
-        displayCalcConstants(calc_constants, total_time);
+        displayCalcConstants(calc_constants, total_time_since_http_update);
     }
 
 
@@ -701,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'whiteWaterDecayRate-button', input: 'whiteWaterDecayRate-input', property: 'whiteWaterDecayRate' },
         { id: 'changeAmplitude-button', input: 'changeAmplitude-input', property: 'changeAmplitude' },
         { id: 'changeRadius-button', input: 'changeRadius-input', property: 'changeRadius' },
+        { id: 'render_step-button', input: 'render_step-input', property: 'render_step' },
     ];
 
     buttonActions.forEach(({ id, input, property }) => {

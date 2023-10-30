@@ -61,6 +61,7 @@ export function displayCalcConstants(calc_constants, total_time) {
     addTextToContainer(`--- Runtime Parameters ---`, container);
     addTextToContainer(`Simulated Time (min): ${Math.round(total_time / 60. * 1000) / 1000}`, container);
     addTextToContainer(`Faster-than-Realtime Ratio: ${Math.round(total_time / calc_constants.elapsedTime * 1000) / 1000}`, container);
+    addTextToContainer(`Render Frame Interval: ${calc_constants.render_step}`, container);
 
     addSpacerToContainer(container);
     addTextToContainer(`--- Visualization Parameters ---`, container);

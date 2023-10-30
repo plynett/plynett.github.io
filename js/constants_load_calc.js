@@ -67,7 +67,7 @@ var calc_constants = {
     lon_LL: 0, // longitude at lower left corner
     lat_UR: 0, // latitude at upper right corner
     lon_UR: 0, // longitude at upper right corner
-    render_step: 10, // number of compute steps to run for every render step, the biggest the number the choppier the viz, but also the faster it runs
+    render_step: 1, // number of compute steps to run for every render step, the biggest the number the choppier the viz, but also the faster it runs
     simPause: -1, // check variable, simulation is paused when this value is =1, running when = -1
     html_update: -1,  // check variable - if the user has updated ANY parameter from the interface, =1, and buffers are updated
 
