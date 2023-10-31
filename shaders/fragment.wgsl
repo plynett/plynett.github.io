@@ -13,14 +13,20 @@ struct Globals {
     scaleY: f32,
     offsetX: f32,
     offsetY: f32,
+    dx: f32,
+    dy: f32,
+    WIDTH: i32,
+    HEIGHT: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
 
 @group(0) @binding(1) var etaTexture: texture_2d<f32>;
 @group(0) @binding(2) var bottomTexture: texture_2d<f32>;
-@group(0) @binding(3) var txGoogleMap: texture_2d<f32>;
-@group(0) @binding(4) var textureSampler: sampler;
+@group(0) @binding(3) var txMeans: texture_2d<f32>;
+@group(0) @binding(4) var txWaveHeight: texture_2d<f32>; 
+@group(0) @binding(5) var txGoogleMap: texture_2d<f32>;
+@group(0) @binding(6) var textureSampler: sampler;
 
 @fragment
 fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
@@ -192,14 +198,60 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         let Q = textureSample(etaTexture, textureSampler, uv).b; 
         render_surface = Q/H;
 
-    } else if (surfaceToPlot == 4) {  // vertical vorticity, need to add dx,dy, WIDTH, and HEIGHT to the globals in order to do this.
-        render_surface = textureSample(etaTexture, textureSampler, uv).r;
+    } else if (surfaceToPlot == 4) {  // total vertical vorticity
+        // up
+        var uv_vort = uv;
+        uv_vort.y = uv_vort.y + 1/f32(globals.HEIGHT);
+        let P_up = textureSample(etaTexture, textureSampler, uv_vort).g; 
+
+        // down
+        uv_vort = uv;
+        uv_vort.y = uv_vort.y - 1/f32(globals.HEIGHT);
+        let P_down = textureSample(etaTexture, textureSampler, uv_vort).g; 
+
+        // right
+        uv_vort = uv;
+        uv_vort.x = uv_vort.x + 1/f32(globals.WIDTH);
+        let Q_right = textureSample(etaTexture, textureSampler, uv_vort).b; 
+        
+        // left
+        uv_vort = uv;
+        uv_vort.x = uv_vort.x - 1/f32(globals.WIDTH);
+        let Q_left = textureSample(etaTexture, textureSampler, uv_vort).b; 
+
+        render_surface = 0.5*(P_up - P_down)/globals.dy - 0.5*(Q_right - Q_left)/globals.dx;
 
     } else if (surfaceToPlot == 5) {  // breaking
         render_surface = textureSample(etaTexture, textureSampler, uv).a;
 
     } else if (surfaceToPlot == 6) {  // bathy/topo
         render_surface = bottom;
+
+    } else if (surfaceToPlot == 7) {  // mean eta
+        render_surface = textureSample(txMeans, textureSampler, uv).r;;
+   
+    } else if (surfaceToPlot == 8) {  // mean fluid flux
+        let P = textureSample(txMeans, textureSampler, uv).g; 
+        let Q = textureSample(txMeans, textureSampler, uv).b; 
+        render_surface = sqrt(P * P + Q * Q);
+
+    } else if (surfaceToPlot == 9) {  // mean x-dir flux
+        render_surface = textureSample(txMeans, textureSampler, uv).g; 
+    
+    } else if (surfaceToPlot == 10) {  // mean y-dir flux
+        render_surface = textureSample(txMeans, textureSampler, uv).b; 
+
+    } else if (surfaceToPlot == 11) {  // mean breaking intensity
+        render_surface = textureSample(txMeans, textureSampler, uv).a; 
+    
+    } else if (surfaceToPlot == 12) {  // mean wave height
+        render_surface = textureSample(txWaveHeight, textureSampler, uv).a; 
+
+    } else if (surfaceToPlot == 13) {  // significant wave height
+        render_surface = textureSample(txWaveHeight, textureSampler, uv).b; 
+
+    } else if (surfaceToPlot == 14) {  // significant wave height convergence
+        render_surface = 100.*textureSample(txWaveHeight, textureSampler, uv).g; 
     }
     
     var color_rgb: vec3<f32>;

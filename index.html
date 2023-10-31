@@ -157,12 +157,20 @@
                 <label for="surfaceToPlot-select">Property to Plot:</label>
                 <select id="surfaceToPlot-select" name="surfaceToPlotValue">
                     <option value="0">Free Surface Elevation (m)</option>
+                    <option value="6">Bathymetry/Topography (m)</option>
                     <option value="1">Fluid Speed (m/s)</option>
                     <option value="2">East-West (x) Velocity (m/s)</option>
                     <option value="3">North-South (y) Velocity (m/s)</option>
-                    <option value="4">Vertical Vorticity (1/s)</option>
+                    <option value="4">Total Vertical Vorticity (m/s)</option>
                     <option value="5">Turbulence Intensity (m^2/s)</option>
-                    <option value="6">Bathymetry/Topography (m)</option>
+                    <option value="7">Mean Free Surface Elev (m)</option>
+                    <option value="8">Mean Fluid Flux [Magn] (m^2/s)</option>
+                    <option value="9">Mean Fluid Flux [E-W] (m^2/s)</option>
+                    <option value="10">Mean Fluid Flux [N-S] (m^2/s)</option>
+                    <option value="11">Mean Turb Intensity (m^2/s)</option>
+                    <option value="12">RMS Wave Height (m)</option>
+                    <option value="13">Significant Wave Height (m)</option>
+                    <option value="14">Sim Convergence - (delta Hs) / Hs </option>
                     <!--    <option value="7">Friction Factor Map </option> -->
                 </select>
                 <button id="surfaceToPlot-button" type="button">Update</button>
@@ -217,6 +225,16 @@
                     <option value="0">Do Not Include Overlay</option>
                 </select>
                 <button id="GoogleMapOverlay-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- reset mean textures-->
+                <button id="reset-mean-texture-btn">Reset Mean Surfaces</button>
+                <br />
+                <br />
+
+                <!-- reset wave height textures-->
+                <button id="reset-waveheight-texture-btn">Reset Wave Height Surface</button>
                 <br />
                 <br />
 

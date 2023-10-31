@@ -10,7 +10,9 @@ import { create_Pass2_BindGroupLayout, create_Pass2_BindGroup } from './Handler_
 import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup } from './Handler_Pass3.js';  // group bindings for Pass3 shaders
 import { create_BoundaryPass_BindGroupLayout, create_BoundaryPass_BindGroup } from './Handler_BoundaryPass.js';  // group bindings for BoundaryPass shaders
 import { create_Tridiag_BindGroupLayout, create_Tridiag_BindGroup } from './Handler_Tridiag.js';  // group bindings for Tridiag X and Y shaders
-import { create_UpdateTrid_BindGroupLayout, create_UpdateTrid_BindGroup } from './Handler_UpdateTrid.js';  // group bindings for Tridiag X and Y shaders
+import { create_UpdateTrid_BindGroupLayout, create_UpdateTrid_BindGroup } from './Handler_UpdateTrid.js';  // group bindings for updating tridiag coef shader
+import { create_CalcMeans_BindGroupLayout, create_CalcMeans_BindGroup } from './Handler_CalcMeans.js';  // group bindings for shader that calculates running means of state variables
+import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup } from './Handler_CalcWaveHeight.js';  // group bindings for shader that calculates running means of state variables
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
 import { createComputePipeline, createRenderPipeline } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
@@ -74,7 +76,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     console.log("Adapter acquired.");
 
     // Request a device. The device is a representation of the GPU and allows for resource creation and command submission.
-    const device = await adapter.requestDevice({
+    device = await adapter.requestDevice({
         // Enable built-in validation
         requiredFeatures: [],
         requiredLimits: {},
@@ -106,6 +108,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const TridiagX_uniformBuffer = createUniformBuffer(device);
     const TridiagY_uniformBuffer = createUniformBuffer(device);
     const UpdateTrid_uniformBuffer = createUniformBuffer(device);
+    const CalcMeans_uniformBuffer = createUniformBuffer(device);
+    const CalcWaveHeight_uniformBuffer = createUniformBuffer(device);
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const Render_uniformBuffer = createUniformBuffer(device);
 
@@ -136,9 +140,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txNormal = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txAuxiliary2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txAuxiliary2Out = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -151,6 +152,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txtemp_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
     txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // used for bindary output
     txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for jpg output
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);  // used to store the loaded Google Maps image
@@ -324,6 +329,20 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     UpdateTrid_view.setFloat32(12, calc_constants.dy, true);             // f32
     UpdateTrid_view.setFloat32(16, calc_constants.Bcoef, true);             // f32
 
+    // CalcMeans -  Bindings & Uniforms Config
+    const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
+    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txNewState, txtemp_Means);
+    const CalcMeans_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
+    let CalcMeans_view = new DataView(CalcMeans_uniforms);
+    CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
+
+    // CalcWaveHeight -  Bindings & Uniforms Config
+    const CalcWaveHeight_BindGroupLayout = create_CalcWaveHeight_BindGroupLayout(device);
+    const CalcWaveHeight_BindGroup = create_CalcWaveHeight_BindGroup(device, CalcWaveHeight_uniformBuffer, txstateUVstar, txNewState, txMeans, txWaveHeight, txtemp_WaveHeight);
+    const CalcWaveHeight_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
+    let CalcWaveHeight_view = new DataView(CalcWaveHeight_uniforms);
+    CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
+
     // MouseClickChange -  Bindings & Uniforms Config
     const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
     const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txtemp_MouseClick);
@@ -340,7 +359,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txGoogleMap, textureSampler);
+    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txGoogleMap, textureSampler);
     const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -353,6 +372,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(28, calc_constants.GMscaleY, true);          // f32
     Render_view.setFloat32(32, calc_constants.GMoffsetX, true);          // f32
     Render_view.setFloat32(36, calc_constants.GMoffsetY, true);          // f32
+    Render_view.setFloat32(40, calc_constants.dx, true);          // f32
+    Render_view.setFloat32(44, calc_constants.dy, true);          // f32
+    Render_view.setInt32(48, calc_constants.WIDTH, true);          // f32
+    Render_view.setInt32(52, calc_constants.HEIGHT, true);          // f32
 
 
     // Fetch the source code of various shaders used in the application.
@@ -364,6 +387,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
     const TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
     const UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
+    const CalcMeans_ShaderCode = await fetchShader('/shaders/CalcMeans.wgsl');
+    const CalcWaveHeight_ShaderCode = await fetchShader('/shaders/CalcWaveHeight.wgsl');
     const MouseClickChange_ShaderCode = await fetchShader('/shaders/MouseClickChange.wgsl');
 
     const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
@@ -379,6 +404,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const TridiagX_Pipeline = createComputePipeline(device, TridiagX_ShaderCode, TridiagX_BindGroupLayout);
     const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout);
     const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout);
+    const CalcMeans_Pipeline = createComputePipeline(device, CalcMeans_ShaderCode, CalcMeans_BindGroupLayout);
+    const CalcWaveHeight_Pipeline = createComputePipeline(device, CalcWaveHeight_ShaderCode, CalcWaveHeight_BindGroupLayout);
     const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout);
 
     const RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
@@ -468,12 +495,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                         calc_constants.render_step = calc_constants.render_step + 1;
                         render_step_up_or_down = 1;
                         render_update_n_since_change = 0;
-                        console.log('Increasing render step');
+                    //    console.log('Increasing render step');
                     } else if (ratio > 1.001) {
                         calc_constants.render_step = Math.max(1, calc_constants.render_step - 1);
                         render_step_up_or_down = -1;
                         render_update_n_since_change = 0;
-                        console.log('Decreasing render step');
+                    //    console.log('Decreasing render step');
                     } else {
                         render_update_n_since_change += 1;
                     }
@@ -645,6 +672,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     }
                 }
 
+                //  Update Statistics - means and wave height
+                calc_constants.n_time_steps_means += 1;
+                CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
+                runComputeShader(device, commandEncoder, CalcMeans_uniformBuffer, CalcMeans_uniforms, CalcMeans_Pipeline, CalcMeans_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means, txMeans)
+
+                calc_constants.n_time_steps_waveheight += 1;
+                CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
+                runComputeShader(device, commandEncoder, CalcWaveHeight_uniformBuffer, CalcWaveHeight_uniforms, CalcWaveHeight_Pipeline, CalcWaveHeight_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_WaveHeight, txWaveHeight)
+
                 // shift gradient textures
                 runCopyTextures(device, commandEncoder, calc_constants, oldGradients, oldOldGradients)
                 runCopyTextures(device, commandEncoder, calc_constants, predictedGradients, oldGradients)
@@ -731,19 +769,47 @@ document.addEventListener('DOMContentLoaded', function () {
     // Get a reference to your canvas element.
     var canvas = document.getElementById('webgpuCanvas');
 
-    // Add the event listener for 'click' events.
-    canvas.addEventListener('click', function (event) {
-        // Calculate the correct position within the canvas taking into account any offset.
-        var rect = canvas.getBoundingClientRect(); // abs. size of element
-        var scaleX = calc_constants.WIDTH / rect.width;    // relationship bitmap vs. element for X
-        var scaleY = calc_constants.HEIGHT / rect.height;  // relationship bitmap vs. element for Y
+    // Add the event listener for 'click' events - this is for modifying bathy / various mapsl
+    var mouseIsDown = false;  // Flag to track if the mouse is being held down
 
-        calc_constants.xClick = (event.clientX - rect.left) * scaleX;  // scale mouse coordinates after they have // pixel coordinate of x-click
-        calc_constants.yClick = calc_constants.HEIGHT - (event.clientY - rect.top) * scaleY;   // been adjusted to be relative to element// pixel coordinate of y-click // inverted due to image coordinates
-        calc_constants.click_update = 1,   // check variable - if the user has clicked on the canvas =1, and surfaces are updated as specified
+    // Helper function to handle click or mouse move while button is pressed
+    function handleMouseEvent(event) {
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = calc_constants.WIDTH / rect.width;
+        var scaleY = calc_constants.HEIGHT / rect.height;
 
-        console.log("Canvas clicked at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
+        calc_constants.xClick = (event.clientX - rect.left) * scaleX;
+        calc_constants.yClick = calc_constants.HEIGHT - (event.clientY - rect.top) * scaleY;
+        calc_constants.click_update = 1;
+
+        console.log("Canvas clicked/moved at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
+    }
+
+    // Event listener for mousedown - start of the hold
+    canvas.addEventListener('mousedown', function (event) {
+        mouseIsDown = true;
+        handleMouseEvent(event);  // Handle the initial click
     });
+
+    // Event listener for mousemove - if mouse is down, it's equivalent to multiple clicks
+    canvas.addEventListener('mousemove', function (event) {
+        if (mouseIsDown) {
+            handleMouseEvent(event);
+        }
+    });
+
+    // Event listener for mouseup - end of the hold
+    canvas.addEventListener('mouseup', function () {
+        mouseIsDown = false;
+        calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
+    });
+
+    // To handle cases where the mouse leaves the canvas while being pressed
+    canvas.addEventListener('mouseleave', function () {
+        mouseIsDown = false;  // Consider the mouse as no longer being held down
+    });
+    // end mouse interaction functions
+
 
 
     // Define a helper function to update calc_constants and potentially re-initialize components
@@ -870,6 +936,18 @@ document.addEventListener('DOMContentLoaded', function () {
             label.style.color = '';  // reset to default
         }
     }
+
+    // Reset mean surfaces - reset-mean-texture-btn
+    document.getElementById('reset-mean-texture-btn').addEventListener('click', function () {
+        calc_constants.n_time_steps_means = 0;  // reset means counter - compute shader will automatically reset
+    });
+
+
+    // Reset wave height surface - reset-waveheight-texture-btn
+    document.getElementById('reset-waveheight-texture-btn').addEventListener('click', function () {
+        calc_constants.n_time_steps_waveheight = 0;  // reset wave height counter - compute shader will automatically reset
+    });
+
 
     // Add event listeners for the file inputs
     var fileInputs = document.querySelectorAll('input[type=file]');

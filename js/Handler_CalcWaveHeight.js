@@ -1,27 +1,26 @@
-// Handler_Render.js
-
-export function createRenderBindGroupLayout(device) {
+// Handler_Tridiag.js
+export function create_CalcWaveHeight_BindGroupLayout(device) {
     return device.createBindGroupLayout({
         entries: [
             {
                 // 0th binding: A uniform buffer (for parameters like time, etc.)
                 binding: 0,
-                visibility: GPUShaderStage.FRAGMENT, // This buffer is only visible to the fragment stage
+                visibility: GPUShaderStage.COMPUTE, // This buffer is only visible to the compute stage
                 buffer: { type: 'uniform' }  // It's a uniform buffer
             },
             {
-                // First binding: A texture that the fragment shader will sample from.
+                // 1st binding: A texture that the fragment shader will sample from.
                 binding: 1,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.COMPUTE,
                 texture: {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
                 }
             },
             {
-                // Second binding: A texture that the fragment shader will sample from.
+                // 2nd binding: A texture that the fragment shader will sample from.
                 binding: 2,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.COMPUTE,
                 texture: {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
@@ -30,46 +29,38 @@ export function createRenderBindGroupLayout(device) {
             {
                 // 3rd binding: A texture that the fragment shader will sample from.
                 binding: 3,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.COMPUTE,
                 texture: {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
                 }
             },
             {
-                // 4th binding: A sampler describing how the texture will be sampled.
+                // 4th binding: A texture that the fragment shader will sample from.
                 binding: 4,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.COMPUTE,
                 texture: {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
                 }
             },
             {
-                // 5th binding: A texture that the fragment shader will sample from.
+                // 5th binding: A storage texture. The compute shader will write results into this texture.
                 binding: 5,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {
-                    sampleType: 'unfilterable-float',
-                    format: 'bgra8unorm'  // imagedata for the google maps image
-                }
-            },
-            {
-                // 6th binding: A sampler describing how the texture will be sampled.
-                binding: 6,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {
-                    type: 'non-filtering'  // Nearest-neighbor sampling (no interpolation)
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
                 }
             }
         ]
     });
 }
 
-
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txGoogleMap, textureSampler) {
+export function create_CalcWaveHeight_BindGroup(device, uniformBuffer, txState, txNewState, txMeans, txWaveHeight, txtemp_WaveHeight) {
     return device.createBindGroup({
-        layout: createRenderBindGroupLayout(device),
+        layout: create_CalcWaveHeight_BindGroupLayout(device),
         entries: [
             {
                 binding: 0,
@@ -83,7 +74,7 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             },
             {
                 binding: 2,
-                resource: txBottom.createView()
+                resource: txNewState.createView()
             },
             {
                 binding: 3,
@@ -95,12 +86,8 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             },
             {
                 binding: 5,
-                resource: txGoogleMap.createView()
+                resource: txtemp_WaveHeight.createView()
             },
-            {
-                binding: 6,
-                resource: textureSampler
-            }
         ]
     });
 }

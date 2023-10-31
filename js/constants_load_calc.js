@@ -70,6 +70,8 @@ var calc_constants = {
     render_step: 1, // number of compute steps to run for every render step, the biggest the number the choppier the viz, but also the faster it runs
     simPause: -1, // check variable, simulation is paused when this value is =1, running when = -1
     html_update: -1,  // check variable - if the user has updated ANY parameter from the interface, =1, and buffers are updated
+    n_time_steps_means: 0,  // time steps counter for means calculation
+    n_time_steps_waveheight:0, // time steps counter for wave height calculation
 
     // canvas interaction parameters
     xClick: 0, // pixel coordinate of x-click
@@ -136,9 +138,9 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.boundary_epsilon = calc_constants.epsilon;
     calc_constants.boundary_nx = calc_constants.WIDTH - 1;
     calc_constants.boundary_ny = calc_constants.HEIGHT - 1;
-    calc_constants.reflect_x = 2 * (calc_constants.WIDTH - 1) - 2;
-    calc_constants.reflect_y = 2 * (calc_constants.HEIGHT - 1) - 2;
-    calc_constants.BoundaryWidth = 25.0;
+    calc_constants.reflect_x = 2 * (calc_constants.WIDTH - 3);
+    calc_constants.reflect_y = 2 * (calc_constants.HEIGHT - 3);
+    calc_constants.BoundaryWidth = 50.0;
     calc_constants.boundary_g = calc_constants.g;
     calc_constants.Px = Math.ceil(Math.log(calc_constants.WIDTH)  / Math.log(2));
     calc_constants.Py = Math.ceil(Math.log(calc_constants.HEIGHT) / Math.log(2));
@@ -158,7 +160,7 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.ship_c3a = 1.0 / (2.0 * Math.pow(calc_constants.ship_length / Math.PI, 2));
     calc_constants.ship_c3b = 1.0 / (2.0 * Math.pow(calc_constants.ship_width / Math.PI, 2));
     calc_constants.elapsedTime = 0.0;
-    calc_constants.changeRadius = 100. * calc_constants.dx;
+    calc_constants.changeRadius = 50. * calc_constants.dx;
     calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
     
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.

@@ -86,12 +86,13 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
     let omega = 2.0 * globals.PI / period;
     let k = calc_wavenumber_approx(omega, d);
     let c = omega / k;
-    let kx = cos(theta) * x * k;
-    let ky = sin(theta) * y * k;
+    let theta_mod = theta;
+    let kx = cos(theta_mod) * x * k;
+    let ky = sin(theta_mod) * y * k;
     let eta = amplitude * sin(omega * t - kx - ky + phase) * min(1.0, t / period);
     let speed = globals.boundary_g * eta / (c * k) * tanh(k * d);
-    let hu = speed * cos(theta);
-    let hv = speed * sin(theta);
+    let hu = speed * cos(theta_mod);
+    let hv = speed * sin(theta_mod);
     return vec3<f32>(eta, hu, hv);
 }
 
