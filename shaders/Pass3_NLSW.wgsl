@@ -1,6 +1,6 @@
 struct Globals {
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     dt: f32,
     dx: f32,
     dy: f32,
@@ -8,9 +8,9 @@ struct Globals {
     one_over_dy: f32,
     g_over_dx: f32,
     g_over_dy: f32,
-    timeScheme: u32,
+    timeScheme: i32,
     epsilon: f32,
-    isManning: u32,
+    isManning: i32,
     g: f32,
     friction: f32,
     pred_or_corrector: u32,
@@ -24,6 +24,7 @@ struct Globals {
     seaLevel: f32,
     dissipation_threshold: f32,
     whiteWaterDecayRate: f32,
+    clearConc: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -45,6 +46,8 @@ struct Globals {
 @group(0) @binding(14) var dU_by_dt: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(15) var F_G_star: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;
+
+@group(0) @binding(17) var txContSource: texture_2d<f32>;
 
 
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
@@ -68,7 +71,7 @@ fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
 
-    if (idx.x >= i32(globals.width) - 1 || idx.y >= i32(globals.height) - 2 || idx.x <= 0 || idx.y <= 1) {
+    if (idx.x >= globals.width - 2 || idx.y >= globals.height - 2 || idx.x <= 1 || idx.y <= 1) {
         let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         textureStore(txNewState, idx, zero);
         textureStore(dU_by_dt, idx, zero);
@@ -176,9 +179,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         newState = in_state_here_UV + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
     
-// add breaking source
+    // add breaking source
     if (max(abs(detadx),abs(detady)) * sign(detadx * newState.y + detady * newState.z) > globals.dissipation_threshold) {
         newState.a = 1.0;
+    }
+
+    let contaminent_source = textureLoad(txContSource, idx, 0).r; 
+    newState.a = min(1.0, newState.a + contaminent_source); 
+
+    // clear concentration if set
+    if (globals.clearConc == 1){
+        newState.a = 0.0; 
     }
 
     let F_G_vec = vec4<f32>(0.0, 0.0, 0.0, 1.0);

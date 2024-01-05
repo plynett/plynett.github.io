@@ -3,7 +3,7 @@ import { calc_constants, loadConfig, init_sim_parameters } from './constants_loa
 import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset } from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData } from './File_Writer.js';  // load depth surface and wave data file
 import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup } from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
 import { create_Pass2_BindGroupLayout, create_Pass2_BindGroup } from './Handler_Pass2.js';  // group bindings for Pass2 shaders
@@ -14,7 +14,7 @@ import { create_UpdateTrid_BindGroupLayout, create_UpdateTrid_BindGroup } from '
 import { create_CalcMeans_BindGroupLayout, create_CalcMeans_BindGroup } from './Handler_CalcMeans.js';  // group bindings for shader that calculates running means of state variables
 import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup } from './Handler_CalcWaveHeight.js';  // group bindings for shader that calculates running means of state variables
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
-import { createComputePipeline, createRenderPipeline } from './Config_Pipelines.js';  // pipeline config for ALL shaders
+import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 
@@ -122,40 +122,44 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Create a texturse with the desired dimensions (WIDTH, HEIGHT) and format 'rgba32float'.
     // Textures will have multiple usages, allowing it to be read/written by shaders, copied from/to, and used as a render target.
     console.log("Creating 2D textures.");
-    const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txstateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const current_stateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txU = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txW = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores information about the bathy/topo
+    const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) "state", or eta, P, Q, and c
+    const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the next (n+1) "state"
+    const txstateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) bous-grouped state, or eta, U, V, and c
+    const current_stateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // next bous-grouped state
+    const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of H
+    const txU = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of u
+    const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of v
+    const txW = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of w (eta) - currrently not used
+    const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
+    const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores bottom friction info
+    const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores passive tracer source map
+    const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores x-flux values along cell edges
+    const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores y-flux values along cell edges
+    const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values found in the predictor step
+    const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values at previous time step
+    const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values from two time steps ago
+    const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores F*, G* (bous only) found in predictor step
+    const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT); // stores F*, G* (bous only) found at previous time step
+    const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT); // stores F*, G* (bous only) found from two time steps ago
+    const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
+    const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
+    const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR y-dir
+    const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
+    const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);    // temp storage for PCR y-dir
+    const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for MouseClick shader
+    const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // tridiagonal coefficients for x-dir (bous only)
+    const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // tridiagonal coefficients for y-dir (bous only)
+    const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // PCR reduced tridiagonal coefficients for x-dir (bous only) 
+    const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // PCR reduced tridiagonal coefficients for y-dir (bous only) 
+    const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values output from Pass3 calls
+    const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores ship pressure - not used in WebGPU yet
+    const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores various mean values
     const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores current wave height surface
     const txtemp_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
+    const txBaseline_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores "baseline" wave height surface
+    const txzeros = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores a zeros texture, for reseting textures to zero
     txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // used for bindary output
     txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for jpg output
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);  // used to store the loaded Google Maps image
@@ -173,6 +177,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // create initial condition
     copyInitialConditionDataToTexture(calc_constants, device, txState);
     copyInitialConditionDataToTexture(calc_constants, device, txstateUVstar);
+
+    // create initial bottom friction surface
+    copyConstantValueToTexture(calc_constants, device, txBottomFriction, calc_constants.friction, 0.0, 0.0, 0.0);
 
     // create tridiag coef matrices
     copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec);
@@ -242,11 +249,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
-    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar);
+    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource);
     const Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass3_view = new DataView(Pass3_uniforms);
-    Pass3_view.setUint32(0, calc_constants.WIDTH, true);          // u32
-    Pass3_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
+    Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
+    Pass3_view.setInt32(4, calc_constants.HEIGHT, true);          // u32
     Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
     Pass3_view.setFloat32(12, calc_constants.dx, true);       // f32
     Pass3_view.setFloat32(16, calc_constants.dy, true);           // f32
@@ -254,12 +261,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setFloat32(24, calc_constants.one_over_dy, true);       // f32
     Pass3_view.setFloat32(28, calc_constants.g_over_dx, true);           // f32
     Pass3_view.setFloat32(32, calc_constants.g_over_dy, true);           // f32
-    Pass3_view.setUint32(36, calc_constants.timeScheme, true);       // f32
+    Pass3_view.setInt32(36, calc_constants.timeScheme, true);       // f32
     Pass3_view.setFloat32(40, calc_constants.epsilon, true);           // f32
-    Pass3_view.setUint32(44, calc_constants.isManning, true);           // f32
+    Pass3_view.setInt32(44, calc_constants.isManning, true);           // f32
     Pass3_view.setFloat32(48, calc_constants.g, true);           // f32
     Pass3_view.setFloat32(52, calc_constants.friction, true);             // f32
-    Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
+    Pass3_view.setInt32(56, calc_constants.pred_or_corrector, true);       // f32
     Pass3_view.setFloat32(60, calc_constants.Bcoef, true);           // f32
     Pass3_view.setFloat32(64, calc_constants.Bcoef_g, true);           // f32
     Pass3_view.setFloat32(68, calc_constants.one_over_d2x, true);       // f32
@@ -270,27 +277,27 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setFloat32(88, calc_constants.seaLevel, true);           // f32
     Pass3_view.setFloat32(92, calc_constants.dissipation_threshold, true);           // f32
     Pass3_view.setFloat32(96, calc_constants.whiteWaterDecayRate, true);           // f32
-
+    Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
     const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
-    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
+    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txtemp_boundary);
     const BoundaryPass_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
-    BoundaryPass_view.setUint32(0, calc_constants.WIDTH, true);          // u32
-    BoundaryPass_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
+    BoundaryPass_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    BoundaryPass_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
     BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
     BoundaryPass_view.setFloat32(12, calc_constants.dx, true);       // f32
     BoundaryPass_view.setFloat32(16, calc_constants.dy, true);           // f32
     BoundaryPass_view.setFloat32(20, 0, true);           // f32
     BoundaryPass_view.setInt32(24, calc_constants.reflect_x, true);       // f32
-    BoundaryPass_view.setInt32(28, calc_constants.reflect_x, true);           // f32
+    BoundaryPass_view.setInt32(28, calc_constants.reflect_y, true);           // f32
     BoundaryPass_view.setFloat32(32, calc_constants.PI, true);           // f32
     BoundaryPass_view.setInt32(36, calc_constants.BoundaryWidth, true);       // f32
     BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
     BoundaryPass_view.setInt32(44, calc_constants.boundary_nx, true);           // f32
-    BoundaryPass_view.setInt32(48, calc_constants.boundary_nx, true);           // f32
+    BoundaryPass_view.setInt32(48, calc_constants.boundary_ny, true);           // f32
     BoundaryPass_view.setInt32(52, calc_constants.numberOfWaves, true);             // f32
     BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // f32
     BoundaryPass_view.setInt32(60, calc_constants.east_boundary_type, true);           // f32
@@ -345,21 +352,24 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // MouseClickChange -  Bindings & Uniforms Config
     const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
-    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txtemp_MouseClick);
+    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txBottomFriction, txContSource, txtemp_MouseClick);
     const MouseClickChange_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let MouseClickChange_view = new DataView(MouseClickChange_uniforms);
-    MouseClickChange_view.setUint32(0, calc_constants.WIDTH, true);          // i32
-    MouseClickChange_view.setUint32(4, calc_constants.HEIGHT, true);          // i32
+    MouseClickChange_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    MouseClickChange_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
     MouseClickChange_view.setFloat32(8, calc_constants.dx, true);             // f32
     MouseClickChange_view.setFloat32(12, calc_constants.dy, true);             // f32
     MouseClickChange_view.setFloat32(16, calc_constants.xClick, true);             // f32
     MouseClickChange_view.setFloat32(20, calc_constants.yClick, true);             // f32
     MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
-    MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32
+    MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32  
+    MouseClickChange_view.setInt32(32, calc_constants.surfaceToChange, true);             // f32  
+    MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // f32  
+    MouseClickChange_view.setFloat32(40, calc_constants.base_depth, true);             // f32  
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txGoogleMap, textureSampler);
+    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, textureSampler);
     const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -375,8 +385,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(40, calc_constants.dx, true);          // f32
     Render_view.setFloat32(44, calc_constants.dy, true);          // f32
     Render_view.setInt32(48, calc_constants.WIDTH, true);          // f32
-    Render_view.setInt32(52, calc_constants.HEIGHT, true);          // f32
-
+    Render_view.setInt32(52, calc_constants.HEIGHT, true);          // f32  
+    Render_view.setFloat32(56, calc_constants.rotationAngle_xy, true);          // f32  
+    Render_view.setFloat32(60, calc_constants.shift_x, true);          // f32  
+    Render_view.setFloat32(64, calc_constants.shift_y, true);          // f32  
+    Render_view.setFloat32(68, calc_constants.forward, true);          // f32  
 
     // Fetch the source code of various shaders used in the application.
     const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
@@ -392,6 +405,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const MouseClickChange_ShaderCode = await fetchShader('/shaders/MouseClickChange.wgsl');
 
     const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
+    const vertex3DShaderCode = await fetchShader('/shaders/vertex3D.wgsl');
     const fragmentShaderCode = await fetchShader('/shaders/fragment.wgsl');
     console.log("Shaders loaded.");
 
@@ -408,7 +422,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const CalcWaveHeight_Pipeline = createComputePipeline(device, CalcWaveHeight_ShaderCode, CalcWaveHeight_BindGroupLayout);
     const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout);
 
-    const RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+    var RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
     console.log("Pipelines set up.");
 
     // The render pipeline will render a full-screen quad. This section of code sets up the vertices for that quad.
@@ -439,6 +453,58 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // After copying the data, we unmap the buffer, which means we're done writing to it.
     quadVertexBuffer.unmap();
 
+    // buffers for a vertex grid
+    // Define a simple grid as just a single quad (two triangles)
+    const gridWidth = calc_constants.WIDTH;  // Number of vertices along the width
+    const gridHeight = calc_constants.HEIGHT; // Number of vertices along the height
+    let numVertices = 2*gridHeight*gridWidth;
+    let vertices = [];
+
+    // Generate vertices for the grid
+    for (let y = 0; y < gridHeight - 1; y++) {
+        // Start of new strip (except for the first row)
+        if (y > 0) {
+            // Repeat the first vertex of this row (degenerate triangle)
+            vertices.push(-1, 1 - 2 * y / (gridHeight - 1));
+        }
+        for (let x = 0; x < gridWidth; x++) {
+            // Top vertex of the current column
+            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * y / (gridHeight - 1));
+            // Bottom vertex of the current column
+            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * (y + 1) / (gridHeight - 1));
+        }
+        // End of strip (except for the last row)
+        if (y < gridHeight - 2) {
+            // Repeat the last vertex of this row (degenerate triangle)
+            vertices.push(1, 1 - 2 * (y + 1) / (gridHeight - 1));
+        }
+    }
+    
+    // Handle the last row separately to ensure it's included
+    if (gridHeight > 1) {
+        let lastY = gridHeight - 2;
+        // Repeat the last vertex of the second-to-last row (degenerate triangle)
+        vertices.push(1, 1 - 2 * lastY / (gridHeight - 1));
+        // Define the last row vertices
+        for (let x = 0; x < gridWidth; x++) {
+            // Top vertex of the current column (from the second-to-last row)
+            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * lastY / (gridHeight - 1));
+            // Bottom vertex of the current column (last row)
+            vertices.push(-1 + 2 * x / (gridWidth - 1), -1);
+        }
+    }
+
+    const gridVertices = new Float32Array(vertices);
+    const gridVertexBuffer = device.createBuffer({
+        size: gridVertices.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true
+    });
+    new Float32Array(gridVertexBuffer.getMappedRange()).set(gridVertices);
+    gridVertexBuffer.unmap();
+    
+
+
     // Log that the buffers have been set up.
     console.log("Buffers set up.");
 
@@ -462,6 +528,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // executing repeatedly to update simulation state and render the results.
 
     var startTime = new Date();  // This captures the current time, or the time at the start of rendering
+
     function frame() {
 
         // render step find logic, trying to find a render step that both maximizes the usage of the GPU
@@ -515,6 +582,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
         }
 
+        // store baseline wave height map
+        if (calc_constants.save_baseline == 1) {
+            runCopyTextures(device, commandEncoder, calc_constants, txWaveHeight, txBaseline_WaveHeight)
+            calc_constants.save_baseline = 0;
+        }
+
         // update simulation parameters in buffers if they have been changed by user through html
         if (calc_constants.html_update > 0) {
 
@@ -531,6 +604,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Pass3_view.setFloat32(88, calc_constants.seaLevel, true);           // f32
             Pass3_view.setFloat32(92, calc_constants.dissipation_threshold, true);           // f32
             Pass3_view.setFloat32(96, calc_constants.whiteWaterDecayRate, true);           // f32
+            Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
+
+            if(calc_constants.clearConc == 1){  // remove all passive tracer sources when changing overlay
+                runCopyTextures(device, commandEncoder, calc_constants, txzeros, txContSource)
+            }
 
             BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
             BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
@@ -545,6 +623,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
             Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
             Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+            if (calc_constants.viewType == 1)
+            {
+                // Render QUAD
+                RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+            }
+            else if (calc_constants.viewType == 2)
+            {
+                // Render Vertex grid
+                RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+            }
 
             startTime = new Date();  // This captures the current time, or the time at the start of rendering
             frame_count_since_http_update = 0;
@@ -555,18 +643,35 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // update surfaces following user clicks
         if (calc_constants.click_update > 0) {
 
-            MouseClickChange_view.setFloat32(16, calc_constants.xClick, true);             // f32
-            MouseClickChange_view.setFloat32(20, calc_constants.yClick, true);             // f32
-            MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
-            MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32
+            if (calc_constants.click_update == 1 && calc_constants.viewType == 1) {
+                MouseClickChange_view.setFloat32(16, calc_constants.xClick, true);             // f32
+                MouseClickChange_view.setFloat32(20, calc_constants.yClick, true);             // f32
+                MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
+                MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32
+                MouseClickChange_view.setInt32(32, calc_constants.surfaceToChange, true);             // f32  
+                MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // f32  
 
-            runComputeShader(device, commandEncoder, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth based on mouse click
-            // put modified texture back into txBottom from predictor into predicted gradients
-            runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
+                runComputeShader(device, commandEncoder, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth/friction based on mouse click
+                if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
+                    if (calc_constants.NLSW_or_Bous > 0) {
+                        console.log('Updating tridiag coef due to change in depth')
+                        runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                    }
+                } else if(calc_constants.surfaceToChange == 2){  //when changing friction
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottomFriction)
 
-            if (calc_constants.NLSW_or_Bous > 0) {
-                console.log('Updating tridiag coef due to change in depth')
-                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                } else if(calc_constants.surfaceToChange == 3){  //when changing passive tracer
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txContSource)
+                }
+            }
+            else if (calc_constants.click_update == 2 && calc_constants.viewType == 2)
+            {
+                Render_view.setFloat32(56, calc_constants.rotationAngle_xy, true);          // f32  
+                Render_view.setFloat32(60, calc_constants.shift_x, true);          // f32  
+                Render_view.setFloat32(64, calc_constants.shift_y, true);          // f32  
+                Render_view.setFloat32(68, calc_constants.forward, true);          // f32  
+                console.log("Updating view in Explorer Mode" )
             }
             calc_constants.click_update = -1;
         }
@@ -605,29 +710,26 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // BoundaryPass
                 BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
                 runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                // updated texture is stored in txtemp, but back into current_stateUVstar
+                // updated texture is stored in txtemp_boundary, but back into current_stateUVstar
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
 
                 //Tridiag Solver for Bous, or copy for NLSW
-                if (calc_constants.NLSW_or_Bous > 0) {
+                runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
+                    TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
+                    TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
+                    runComputeShader, runCopyTextures
+                )
 
-                    //   runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //potential placehold for nonlinear-dispersive model
-
-                    runTridiagSolver(device, commandEncoder, calc_constants, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
-                        TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
-                        TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
-                        runComputeShader, runCopyTextures
-                    )
-
+                // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
+                if (calc_constants.NLSW_or_Bous > 0) { //BOUS
                     runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
-
-                    // Shift back FG textures - only have to do this for Bous, and only after predictor step
-                    runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
-                    runCopyTextures(device, commandEncoder, calc_constants, predictedF_G_star, F_G_star_oldGradients)
-
+                    // updated texture is stored in txtemp, but back into txNewState
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
                 }
 
+                // Shift back FG textures - only have to do this for Bous, and only after predictor step
+                runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
+                runCopyTextures(device, commandEncoder, calc_constants, predictedF_G_star, F_G_star_oldGradients)
 
                 total_time = (frame_count + 1) * calc_constants.dt;  // boundary needs to be applied at time level n+1, since this is done on predicted values
 
@@ -653,22 +755,23 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     }
 
                     // BoundaryPass
+                    BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
                     runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     // updated texture is stored in txtemp, but back into current_stateUVstar
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
 
                     //Tridiag Solver for Bous, or copy for NLSW
-                    if (calc_constants.NLSW_or_Bous > 0) {
-
-                        //                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY); //potential placehold for nonlinear-dispersive model
-
-                        runTridiagSolver(device, commandEncoder, calc_constants, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
+                    runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
                             TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
                             TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
                             runComputeShader, runCopyTextures
-                        )
+                    )
+
+                    // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
+                    if (calc_constants.NLSW_or_Bous > 0) { //BOUS
                         runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
+                        // updated texture is stored in txtemp, but back into txNewState
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
                     }
                 }
 
@@ -700,7 +803,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 view: context.getCurrentTexture().createView(),
                 loadOp: 'clear',
                 storeOp: 'store',
-                clearColor: { r: 0, g: 0, b: 0, a: 1 },
+                clearColor: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
             }]
         };
 
@@ -715,10 +818,22 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // Set the render pipeline, bind group, and vertex buffer.
         RenderPass.setPipeline(RenderPipeline);
         RenderPass.setBindGroup(0, RenderBindGroup);
-        RenderPass.setVertexBuffer(0, quadVertexBuffer);
 
-        // Issue draw command to draw the full-screen quad.
-        RenderPass.draw(4);  // Draw the quad with 4 vertices.
+        if (calc_constants.viewType == 1)
+        {
+            // Render QUAD
+            RenderPass.setVertexBuffer(0, quadVertexBuffer);
+            // Issue draw command to draw
+            RenderPass.draw(4);  // Draw the quad 
+        }
+        else if (calc_constants.viewType == 2)
+        {
+            // Render Vertex grid
+            RenderPass.setVertexBuffer(0, gridVertexBuffer);
+            // Issue draw command to draw
+            RenderPass.draw(numVertices);  // Draw the vertex grid
+            
+        }
 
         // End the render pass after recording all its commands.
         RenderPass.end();
@@ -755,6 +870,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         runCopyTextures(device, commandEncoder, calc_constants, txNewState, txSaveOut)
 
         // Call the function to display the constants in the index.html page
+        calc_constants.clearConc = 0; // reset back to default value - no easier place to set this back.
+        Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
+
         displayCalcConstants(calc_constants, total_time_since_http_update);
     }
 
@@ -770,7 +888,15 @@ document.addEventListener('DOMContentLoaded', function () {
     var canvas = document.getElementById('webgpuCanvas');
 
     // Add the event listener for 'click' events - this is for modifying bathy / various mapsl
-    var mouseIsDown = false;  // Flag to track if the mouse is being held down
+    // Flags to track if the mouse is being held down
+    var leftMouseIsDown = false;
+    var rightMouseIsDown = false;
+
+    // Variables for mouse interaction
+    var lastMouseX_right = 0;
+    var lastMouseY_right = 0;
+    var lastMouseX_left = 0;
+    var lastMouseY_left = 0;
 
     // Helper function to handle click or mouse move while button is pressed
     function handleMouseEvent(event) {
@@ -787,30 +913,118 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Event listener for mousedown - start of the hold
     canvas.addEventListener('mousedown', function (event) {
-        mouseIsDown = true;
-        handleMouseEvent(event);  // Handle the initial click
+        if (event.button === 0 && calc_constants.viewType == 1) { // Left mouse button, Design mode
+            leftMouseIsDown = true;
+            handleMouseEvent(event);  // Handle the initial click
+        } else if (event.button === 0 && calc_constants.viewType == 2) { // Left mouse button, Explorer mode
+            leftMouseIsDown = true;
+            lastMouseX_left = event.clientX;
+            lastMouseY_left = event.clientY;
+            calc_constants.click_update = 2;
+        } else if (event.button === 2) { // Right mouse button
+            rightMouseIsDown = true;
+            lastMouseX_right = event.clientX;
+            lastMouseY_right = event.clientY;
+            calc_constants.click_update = 2;
+        }
     });
 
     // Event listener for mousemove - if mouse is down, it's equivalent to multiple clicks
     canvas.addEventListener('mousemove', function (event) {
-        if (mouseIsDown) {
+        if (leftMouseIsDown && calc_constants.viewType == 1) {
             handleMouseEvent(event);
+        } else if (leftMouseIsDown && calc_constants.viewType == 2) {
+            const deltaX = event.clientX - lastMouseX_left;
+            const deltaY = event.clientY - lastMouseY_left;
+            const motion_inc = 0.001 / calc_constants.forward;
+
+            calc_constants.shift_x  += deltaX * motion_inc; // Adjust the sensitivity as needed
+            calc_constants.shift_y  -= deltaY * motion_inc * calc_constants.WIDTH / calc_constants.HEIGHT; // Adjust the sensitivity as needed
+
+            lastMouseX_left = event.clientX;
+            lastMouseY_left = event.clientY;
+            calc_constants.click_update = 2;
+        } else if (rightMouseIsDown) {
+            const deltaX = event.clientX - lastMouseX_right;
+            calc_constants.rotationAngle_xy -= deltaX * 0.1; // Adjust the sensitivity as needed
+
+            lastMouseX_right = event.clientX;
+            lastMouseY_right = event.clientY;
+            calc_constants.click_update = 2;
         }
     });
 
     // Event listener for mouseup - end of the hold
-    canvas.addEventListener('mouseup', function () {
-        mouseIsDown = false;
-        calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
+    canvas.addEventListener('mouseup', function (event) {
+        if (event.button === 0) { // Left mouse button
+            leftMouseIsDown = false;
+            calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
+        } else if (event.button === 2) { // Right mouse button
+            rightMouseIsDown = false;
+            calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
+        }
     });
 
     // To handle cases where the mouse leaves the canvas while being pressed
     canvas.addEventListener('mouseleave', function () {
-        mouseIsDown = false;  // Consider the mouse as no longer being held down
+        leftMouseIsDown = false;  // Consider the left mouse as no longer being held down
+        rightMouseIsDown = false; // Consider the right mouse as no longer being held down
+    });
+
+    // Prevent the context menu from appearing on right-click
+    canvas.addEventListener('contextmenu', function (event) {
+        event.preventDefault();
     });
     // end mouse interaction functions
 
+    // keyboard interactions
+    // Event listener for keydown - to handle arrow keys for shifting
+    document.addEventListener('keydown', function (event) {
+        const shiftAmount = 0.1; // Change this value to shift by more or less  
+        calc_constants.click_update = 2;
+        switch (event.key) {
+            case 'a': // 'A' key for left
+            case 'A':
+                calc_constants.shift_x -= shiftAmount;
+                break;
+            case 'd': // 'D' key for right
+            case 'D':
+                calc_constants.shift_x += shiftAmount;
+                break;
+            case 'w': // 'W' key for up
+            case 'W':
+                calc_constants.shift_y -= shiftAmount;
+                break;
+            case 's': // 'S' key for down
+            case 'S':
+                calc_constants.shift_y += shiftAmount;
+                break;
+        }
+    });
+    // end keyboard interaction
 
+    // mouse scroll wheel interaction
+    const zoomSensitivity = 0.1;  // Adjust this value to make zoom faster or slower
+
+    canvas.addEventListener('wheel', function(event) {
+        // Prevent the default scroll behavior
+        event.preventDefault();
+    
+        calc_constants.click_update = 2;
+
+        // Adjust the zoom level based on the wheel delta
+        if (event.deltaY < 0) {
+            // Scrolling up, zoom in
+            calc_constants.forward *= (1 + zoomSensitivity);
+        } else if (event.deltaY > 0) {
+            // Scrolling down, zoom out
+            calc_constants.forward *= (1 - zoomSensitivity);
+        }
+    
+        // Clamp the zoom level to a minimum and maximum value to prevent too much zoom
+        calc_constants.forward = Math.max(0.1, Math.min(100, calc_constants.forward));
+    });   
+    // end scroll wheel interaction
 
     // Define a helper function to update calc_constants and potentially re-initialize components
     function updateCalcConstants(property, newValue) {
@@ -828,6 +1042,18 @@ document.addEventListener('DOMContentLoaded', function () {
             calc_constants.colorVal_max = 1.0;
             calc_constants.colorMap_choice = 0;
         }
+
+        if (property == 'showBreaking') {
+            calc_constants.clearConc = 1;
+            if (calc_constants.showBreaking <= 1){
+                calc_constants.dissipation_threshold = 0.15;
+                calc_constants.whiteWaterDecayRate = 0.1;
+            } else if (calc_constants.showBreaking == 2){
+                calc_constants.dissipation_threshold = 10;
+                calc_constants.whiteWaterDecayRate = 0.0;
+            }
+        }
+
 
         calc_constants.html_update = 1; // flag used to check for updates.
     }
@@ -882,6 +1108,9 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'colorMap_choice-button', input: 'colorMap_choice-select', property: 'colorMap_choice' },
         { id: 'showBreaking-button', input: 'showBreaking-select', property: 'showBreaking' },
         { id: 'GoogleMapOverlay-button', input: 'GoogleMapOverlay-select', property: 'GoogleMapOverlay' },
+        { id: 'viewType-button', input: 'viewType-select', property: 'viewType' },
+        { id: 'surfaceToChange-button', input: 'surfaceToChange-select', property: 'surfaceToChange' },
+        { id: 'changeType-button', input: 'changeType-select', property: 'changeType' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -936,6 +1165,12 @@ document.addEventListener('DOMContentLoaded', function () {
             label.style.color = '';  // reset to default
         }
     }
+
+    // Save baseline wave height surface
+    document.getElementById('save-baseline-texture-btn').addEventListener('click', function () {
+        calc_constants.save_baseline = 1;  // store baseline wave height
+    });
+
 
     // Reset mean surfaces - reset-mean-texture-btn
     document.getElementById('reset-mean-texture-btn').addEventListener('click', function () {

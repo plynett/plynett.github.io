@@ -18,8 +18,26 @@ export function create_MouseClickChange_BindGroupLayout(device) {
                 }
             },
             {
-                // 2nd binding: A storage texture. The compute shader will write results into this texture.
+                // 2nd binding: A texture that the fragment shader will sample from.
                 binding: 2,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 3rd binding:  A texture that the fragment shader will sample from.
+                binding: 3,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 4th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 4,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -31,7 +49,7 @@ export function create_MouseClickChange_BindGroupLayout(device) {
     });
 }
 
-export function create_MouseClickChange_BindGroup(device, uniformBuffer, txBottom, txtemp_MouseClick) {
+export function create_MouseClickChange_BindGroup(device, uniformBuffer, txBottom, txBottomFriction, txContSource, txtemp_MouseClick) {
     return device.createBindGroup({
         layout: create_MouseClickChange_BindGroupLayout(device),
         entries: [
@@ -47,6 +65,14 @@ export function create_MouseClickChange_BindGroup(device, uniformBuffer, txBotto
             },
             {
                 binding: 2,
+                resource: txBottomFriction.createView() 
+            },
+            {
+                binding: 3,
+                resource: txContSource.createView()
+            },
+            {
+                binding: 4,
                 resource: txtemp_MouseClick.createView()
             },
         ]

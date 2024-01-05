@@ -1,6 +1,6 @@
 struct Globals {
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     dt: f32,
     dx: f32,
     dy: f32,
@@ -8,9 +8,9 @@ struct Globals {
     one_over_dy: f32,
     g_over_dx: f32,
     g_over_dy: f32,
-    timeScheme: u32,
+    timeScheme: i32,
     epsilon: f32,
-    isManning: u32,
+    isManning: i32,
     g: f32,
     friction: f32,
     pred_or_corrector: u32,
@@ -24,6 +24,7 @@ struct Globals {
     seaLevel: f32,
     dissipation_threshold: f32,
     whiteWaterDecayRate: f32,
+    clearConc: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -44,7 +45,9 @@ struct Globals {
 @group(0) @binding(13) var txNewState: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(14) var dU_by_dt: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(15) var F_G_star: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;  
+
+@group(0) @binding(17) var txContSource: texture_2d<f32>;
 
 
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
@@ -68,7 +71,7 @@ fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
 
-    if (idx.x >= i32(globals.width) - 1 || idx.y >= i32(globals.height) - 1 || idx.x <= 0 || idx.y <= 0) {
+    if (idx.x >= globals.width - 2 || idx.y >= globals.height - 2 || idx.x <= 1 || idx.y <= 1) {
         let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         textureStore(txNewState, idx, zero);
         textureStore(dU_by_dt, idx, zero);
@@ -157,7 +160,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let in_state_down_left = textureLoad(txState, downleftIdx, 0).xyz;
         let in_state_down_right = textureLoad(txState, downrightIdx, 0).xyz;
 
-        let F_G_star_oldOldies = textureLoad(F_G_star_oldOldGradients, downrightIdx, 0).xyz;
+        let F_G_star_oldOldies = textureLoad(F_G_star_oldOldGradients, idx, 0).xyz;
 
     // Calculate d stencil
         let d_left = globals.seaLevel - B_west;
@@ -228,10 +231,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
         
         Psi1x = globals.Bcoef_g * d3_here * ((eta_right_right - 2.0 * eta_right + 2.0 * eta_left - eta_left_left) * (0.5 * globals.one_over_d3x) + (eta_up_right - eta_up_left - 2.0 * eta_right + 2.0 * eta_left + eta_down_right - eta_down_left) * (0.5 * globals.one_over_dx * globals.one_over_d2y));
-        Psi2x = globals.Bcoef_g * d2_here * (dd_by_dx * (2.0 * eta_by_dx_dx + eta_by_dy_dy) + dd_by_dy * eta_by_dx_dy) + 0.*(F_star - F_G_star_oldOldies.y) / globals.dt * 0.5;
+        Psi2x = globals.Bcoef_g * d2_here * (dd_by_dx * (2.0 * eta_by_dx_dx + eta_by_dy_dy) + dd_by_dy * eta_by_dx_dy) + (F_star - F_G_star_oldOldies.y) / globals.dt * 0.5;
 
         Psi1y = globals.Bcoef_g * d3_here * ((eta_up_up - 2.0 * eta_up + 2.0 * eta_down - eta_down_down) * (0.5 * globals.one_over_d3y) + (eta_up_right + eta_up_left - 2.0 * eta_up + 2.0 * eta_down - eta_down_right - eta_down_left) * (0.5 * globals.one_over_dx * globals.one_over_d2x));
-        Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + 0.*(G_star - F_G_star_oldOldies.z) / globals.dt * 0.5;
+        Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + (G_star - F_G_star_oldOldies.z) / globals.dt * 0.5;
     }
    
     let friction_ = FrictionCalc(in_state_here.x, in_state_here.y, h_here);
@@ -286,9 +289,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         newState = in_state_here_UV + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
 
-// add breaking source
+    // add passive tracer sources
     if (max(abs(detadx),abs(detady)) * sign(detadx * newState.y + detady * newState.z) > globals.dissipation_threshold) {
         newState.a = 1.0;
+    }
+
+    let contaminent_source = textureLoad(txContSource, idx, 0).r; 
+    newState.a = min(1.0, newState.a + contaminent_source); 
+
+    // clear concentration if set
+    if (globals.clearConc == 1){
+        newState.a = 0.0; 
     }
 
     textureStore(txNewState, idx, newState);

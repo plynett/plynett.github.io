@@ -25,8 +25,10 @@ struct Globals {
 @group(0) @binding(2) var bottomTexture: texture_2d<f32>;
 @group(0) @binding(3) var txMeans: texture_2d<f32>;
 @group(0) @binding(4) var txWaveHeight: texture_2d<f32>; 
-@group(0) @binding(5) var txGoogleMap: texture_2d<f32>;
-@group(0) @binding(6) var textureSampler: sampler;
+@group(0) @binding(5) var txBaseline_WaveHeight: texture_2d<f32>; 
+@group(0) @binding(6) var txBottomFriction: texture_2d<f32>; 
+@group(0) @binding(7) var txGoogleMap: texture_2d<f32>;
+@group(0) @binding(8) var textureSampler: sampler;
 
 @fragment
 fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
@@ -250,12 +252,14 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (surfaceToPlot == 13) {  // significant wave height
         render_surface = textureSample(txWaveHeight, textureSampler, uv).b; 
 
-    } else if (surfaceToPlot == 14) {  // significant wave height convergence
-        render_surface = 100.*textureSample(txWaveHeight, textureSampler, uv).g; 
+    } else if (surfaceToPlot == 14) {  // deviation from basesline
+        render_surface = textureSample(txWaveHeight, textureSampler, uv).b - textureSample(txBaseline_WaveHeight, textureSampler, uv).b; 
+    } else if (surfaceToPlot == 15) {  // bottom friction mao
+        render_surface = textureSample(txBottomFriction, textureSampler, uv).r; 
     }
     
     var color_rgb: vec3<f32>;
-    if (bottom + 0.01 > waves && surfaceToPlot != 6) {
+    if (bottom + 0.0001 > waves && surfaceToPlot != 6) {
         if(globals.GoogleMapOverlay == 1) {
             color_rgb = GoogleMap;
         }
@@ -287,8 +291,11 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     if (globals.showBreaking ==1 ) {
         let breaking = textureSample(etaTexture, textureSampler, uv).a;
         color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
+    } else if (globals.showBreaking == 2 ) {
+        let tracer = textureSample(etaTexture, textureSampler, uv).a;
+        color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
     }
 
-    out.color = vec4<f32>(color_rgb, 1.0);
+    out.color = vec4<f32>(color_rgb, 1.0); //vec4<f32>(color_rgb, 1.0);
     return out;
 }

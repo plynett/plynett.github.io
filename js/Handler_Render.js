@@ -6,13 +6,13 @@ export function createRenderBindGroupLayout(device) {
             {
                 // 0th binding: A uniform buffer (for parameters like time, etc.)
                 binding: 0,
-                visibility: GPUShaderStage.FRAGMENT, // This buffer is only visible to the fragment stage
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, // This buffer is only visible to the fragment stage
                 buffer: { type: 'uniform' }  // It's a uniform buffer
             },
             {
                 // First binding: A texture that the fragment shader will sample from.
                 binding: 1,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                 texture: {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
@@ -21,7 +21,7 @@ export function createRenderBindGroupLayout(device) {
             {
                 // Second binding: A texture that the fragment shader will sample from.
                 binding: 2,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                 texture: {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
@@ -51,12 +51,30 @@ export function createRenderBindGroupLayout(device) {
                 visibility: GPUShaderStage.FRAGMENT,
                 texture: {
                     sampleType: 'unfilterable-float',
+                    format: 'rgba32float' 
+                }
+            },
+            {
+                // 6th binding: A texture that the fragment shader will sample from.
+                binding: 6,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'  
+                }
+            },
+            {
+                // 7th binding: A texture that the fragment shader will sample from.
+                binding: 7,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
                     format: 'bgra8unorm'  // imagedata for the google maps image
                 }
             },
             {
-                // 6th binding: A sampler describing how the texture will be sampled.
-                binding: 6,
+                // 8th binding: A sampler describing how the texture will be sampled.
+                binding: 8,
                 visibility: GPUShaderStage.FRAGMENT,
                 sampler: {
                     type: 'non-filtering'  // Nearest-neighbor sampling (no interpolation)
@@ -67,7 +85,7 @@ export function createRenderBindGroupLayout(device) {
 }
 
 
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txGoogleMap, textureSampler) {
+export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, textureSampler) {
     return device.createBindGroup({
         layout: createRenderBindGroupLayout(device),
         entries: [
@@ -95,10 +113,18 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             },
             {
                 binding: 5,
-                resource: txGoogleMap.createView()
+                resource: txBaseline_WaveHeight.createView()
             },
             {
                 binding: 6,
+                resource: txBottomFriction.createView()
+            },
+            {
+                binding: 7,
+                resource: txGoogleMap.createView()
+            },
+            {
+                binding: 8,
                 resource: textureSampler
             }
         ]

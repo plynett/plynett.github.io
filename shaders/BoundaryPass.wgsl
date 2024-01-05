@@ -1,6 +1,6 @@
 struct Globals {
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     dt: f32,
     dx: f32,
     dy: f32,
@@ -29,7 +29,7 @@ struct Globals {
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let shift = 8;
-    let real_idx = vec2<i32>(shift - idx.x, idx.y);
+    let real_idx = vec2<i32>(shift  - idx.x, idx.y); 
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, -in_state_real.g, in_state_real.b, in_state_real.a);
 }
@@ -42,7 +42,7 @@ fn EastBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
 
 fn SouthBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let shift = 8;
-    let real_idx = vec2<i32>(idx.x, shift - idx.y);
+    let real_idx = vec2<i32>(idx.x, shift  - idx.y);
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, in_state_real.g, -in_state_real.b, in_state_real.a);
 }
@@ -124,7 +124,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     // east boundary
-    if (globals.east_boundary_type == 1 && idx.x >= i32(globals.width) - (globals.BoundaryWidth) - 1) {
+    if (globals.east_boundary_type == 1 && idx.x >= globals.width - (globals.BoundaryWidth) - 1) {
         BCState = EastBoundarySponge(idx);
     }
 
@@ -134,7 +134,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     // north boundary
-    if (globals.north_boundary_type == 1 && idx.y >= i32(globals.height) - (globals.BoundaryWidth) - 1) {
+    if (globals.north_boundary_type == 1 && idx.y >= globals.height - (globals.BoundaryWidth) - 1) {
         BCState = NorthBoundarySponge(idx);
     }
 
@@ -150,9 +150,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // east boundary
     if (globals.east_boundary_type <= 1) {
-        if (idx.x >= i32(globals.width) - 2) {
+        if (idx.x >= globals.width - 2) {
             BCState = EastBoundarySolid(idx);
-        } else if (idx.x == i32(globals.width) - 3) {
+        } else if (idx.x == globals.width - 3) {
             BCState.y = 0.0;
         }
     }
@@ -168,9 +168,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // north boundary
     if (globals.north_boundary_type <= 1) {
-        if (idx.y >= i32(globals.height) - 2) {
+        if (idx.y >= globals.height - 2) {
             BCState = NorthBoundarySolid(idx);
-        } else if (idx.y == i32(globals.height) - 3) {
+        } else if (idx.y == globals.height - 3) {
             BCState.z = 0.0;
         }
     }
@@ -182,7 +182,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     // east boundary
-    if (globals.east_boundary_type == 2 && idx.x >= i32(globals.width) - 3) {
+    if (globals.east_boundary_type == 2 && idx.x >= globals.width - 3) {
         BCState = BoundarySineWave(idx);
     }
 
@@ -192,14 +192,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     // north boundary
-    if (globals.north_boundary_type == 2 && idx.y >= i32(globals.height) - 3) {
+    if (globals.north_boundary_type == 2 && idx.y >= globals.height - 3) {
         BCState = BoundarySineWave(idx);
     }
 
     // Check for negative depths
     let bottom = textureLoad(txBottom, idx, 0).z;
     if (BCState.x <= bottom) {
-        BCState = vec4<f32>(0, 0.0, 0.0, 0.0);
+        BCState = vec4<f32>(bottom, 0.0, 0.0, 0.0);
     }
 
     textureStore(txNewState, idx, BCState);

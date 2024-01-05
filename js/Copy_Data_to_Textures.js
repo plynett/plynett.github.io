@@ -129,7 +129,7 @@ function copyInitialConditionDataToTexture(calc_constants, device, txState) {
             let dy = y - calc_constants.HEIGHT / 3.;
             let sigma = 24.0;
 
-            let eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma))
+            let eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
             paddedFlatData[paddedIndex] = eta;  // red
@@ -160,6 +160,51 @@ function copyInitialConditionDataToTexture(calc_constants, device, txState) {
     device.queue.submit([commandEncoder.finish()]);
 
 }
+
+function copyConstantValueToTexture(calc_constants, device, txState, constantvalue1,constantvalue2,constantvalue3,constantvalue4) {
+    // create and place initial condition into txState
+
+    // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
+    // awesomely, the copy function requires that the buffer has a row size (in bytes) that is a multiple of 256
+    // this will generally not be the case, so the 1D array that will go into the buffer must be padded so that there is the 256 multiple
+
+    const actualBytesPerRow = calc_constants.WIDTH * 4 * 4; // 4 channels and 4 bytes per float
+    const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
+    const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
+
+    for (let y = 0; y < calc_constants.HEIGHT; y++) {
+        for (let x = 0; x < calc_constants.WIDTH; x++) {
+
+            const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
+            paddedFlatData[paddedIndex] = constantvalue1;  // red
+            paddedFlatData[paddedIndex + 1] = constantvalue2;  // green
+            paddedFlatData[paddedIndex + 2] = constantvalue3;  // blue
+            paddedFlatData[paddedIndex + 3] = constantvalue4;  // alpha
+        }
+    }
+    const buffer = device.createBuffer({
+        size: paddedFlatData.byteLength,
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
+    buffer.unmap();
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyBufferToTexture({
+        buffer: buffer,
+        bytesPerRow: requiredBytesPerRow,
+        rowsPerImage: calc_constants.HEIGHT,
+    }, {
+        texture: txState
+    }, {
+        width: calc_constants.WIDTH,
+        height: calc_constants.HEIGHT,
+        depthOrArrayLayers: 1
+    });
+    device.queue.submit([commandEncoder.finish()]);
+
+}
+
 
 function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec) {
     // copy Tridiag coef into coefMatx
@@ -312,4 +357,4 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, ba
 
 
 
-export { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture };
+export { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture };

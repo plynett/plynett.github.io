@@ -156,13 +156,22 @@ export function create_Pass3_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
+            },
+            {
+                // 17th binding: A texture that the fragment shader will sample from.
+                binding: 17,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
             }
         ]
     });
 }
 
 
-export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, F_G_star, current_stateUVstar) {
+export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource) {
     return device.createBindGroup({
         layout: create_Pass3_BindGroupLayout(device),
         entries: [
@@ -235,6 +244,10 @@ export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom,
             {
                 binding: 16,
                 resource: current_stateUVstar.createView()
+            },
+            {
+                binding: 17,
+                resource: txContSource.createView()
             },
         ]
     });

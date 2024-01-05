@@ -30,6 +30,7 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
         const fileContents = await response.text();
 
         lines = fileContents.split('\n');
+        console.log("server side Bathy data loaded successfully.");
     }
 
     const bathy2D = Array.from({ length: calc_constants.WIDTH }, () => Array(calc_constants.HEIGHT));
@@ -75,7 +76,7 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
             bathy2D[x][y] = bathy2D[x][calc_constants.HEIGHT - 5];
         }
     }
-    console.log("Bathy/topo data loaded successfully.");
+    console.log("Bathy/topo data parsed successfully.");
 
     return bathy2D;
 }
@@ -101,6 +102,7 @@ export async function loadWaveData(waveContent) {
 
         const text = await response.text();
         lines = text.trim().split("\n");
+        console.log("server side Waves data loaded successfully.");
     }
 
     try {
@@ -108,7 +110,7 @@ export async function loadWaveData(waveContent) {
 
         const waveData = lines.slice(2).map(line => line.trim().split(/\s+/).map(Number));
 
-        console.log("Wave data loaded successfully.");
+        console.log("Wave data parsed successfully.");
         return { numberOfWaves, waveData };
 
     } catch (error) {

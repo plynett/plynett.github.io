@@ -62,36 +62,6 @@ export function displayCalcConstants(calc_constants, total_time) {
     addTextToContainer(`Simulated Time (min): ${Math.round(total_time / 60. * 1000) / 1000}`, container);
     addTextToContainer(`Faster-than-Realtime Ratio: ${Math.round(total_time / calc_constants.elapsedTime * 10) / 10}`, container);
     addTextToContainer(`Render Frame Interval: ${calc_constants.render_step}`, container);
-
-    addSpacerToContainer(container);
-    addTextToContainer(`--- Visualization Parameters ---`, container);
-    if (calc_constants.surfaceToPlot == 0) {
-        addTextToContainer(`Plotting Free Surface Elevation (m)`, container);
-    }
-    else if (calc_constants.surfaceToPlot == 1) {
-        addTextToContainer(`Plotting Fluid Speed (m/s)`, container);
-    }
-    else if (calc_constants.surfaceToPlot == 2) {
-        addTextToContainer(`Plotting East-West (x) Component of Fluid Velocity (m/s)`, container);
-    }
-    else if (calc_constants.surfaceToPlot == 3) {
-        addTextToContainer(`Plotting North-South (y) Component of Fluid Velocity (m/s)`, container);
-    }
-    else if (calc_constants.surfaceToPlot == 4) {
-        addTextToContainer(`Plotting Vertical Vorticity (1/s)`, container);
-    }
-    else if (calc_constants.surfaceToPlot == 5) {
-        addTextToContainer(`Plotting Turbulence Intensity (m^2/s)`, container);
-    }
-    addTextToContainer(`Color Axis Maximum Value: ${calc_constants.colorVal_max}`, container);
-    addTextToContainer(`Color Axis Minimum Value: ${calc_constants.colorVal_min}`, container);
-
-    if (calc_constants.lon_LL != 0) {
-        addTextToContainer(`Lower-Left Corner Coordinates: ${calc_constants.lat_LL}, ${calc_constants.lon_LL}`, container);
-        addTextToContainer(`Upper-Right Corner Coordinates: ${calc_constants.lat_UR}, ${calc_constants.lon_UR}`, container);
-
-    }
-
     
 }
 

@@ -71,16 +71,23 @@ var calc_constants = {
     simPause: -1, // check variable, simulation is paused when this value is =1, running when = -1
     html_update: -1,  // check variable - if the user has updated ANY parameter from the interface, =1, and buffers are updated
     n_time_steps_means: 0,  // time steps counter for means calculation
-    n_time_steps_waveheight:0, // time steps counter for wave height calculation
+    n_time_steps_waveheight: 0, // time steps counter for wave height calculation
+    save_baseline: 0, // store baseline wave height texture when = 1
 
     // canvas interaction parameters
     xClick: 0, // pixel coordinate of x-click
     yClick: 0, // pixel coordinate of y-click
     click_update: -1,   // check variable - if the user has clicked on the canvas =1, and surfaces are updated as specified
-    surfaceToChange: 0, // which surface to change (bathy, friction)
+    surfaceToChange: 1, // which surface to change (bathy, friction)
+    clearConc: 0, // will clear the concentration channel if = 1
+    changeType: 1, // Change Property Continuously (1) or Set to Specific Value (2)
     changeRadius: 1, // lengthscale of change function, in meters
     changeAmplitude: 1, // amplitude of change function, in units of the surfaceToChange
-
+    viewType: 1, // 1 = plan-view design mode, 2 = 3D explorer mode
+    rotationAngle_xy: 0.0, // rotation angle of 2D plane
+    shift_x: 0.0, // x shift of 2D plane
+    shift_y: 0.0, // y shift of 2D plane
+    forward: 1.0, // zoom in/out of 2D plane
 };
 
 // load the control file
@@ -94,7 +101,7 @@ async function loadConfig() {
         loadedConfig = await response.json();
         calc_constants = { ...calc_constants, ...loadedConfig };
      //   console.log(calc_constants);
-        console.log("config.json loaded successfully.");
+        console.log("server side config.json loaded successfully.");
     } catch (error) {
         console.error("Failed to load configuration:", error);
     }
