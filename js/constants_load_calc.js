@@ -55,6 +55,8 @@ var calc_constants = {
     colorMap_choice: 0,  // decision variable for the colormap to use during rendering
     surfaceToPlot: 0, // which surface (eta, u, v, vort) to plot
     showBreaking: 0,  //  show breaking (foam) areas when ==1
+    dissipation_threshold: 0.2, // wave slope for breaking 
+    whiteWaterDecayRate: 0.1, // "turbulence" decay rate   
     GoogleMapOverlay: 0, // load satellite image and plot over dry land, requires proper values of lat,lon at lower left and upper right corners
     IsGoogleMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
     GMapImageWidth: 512,  // number of pixels in google maps image width

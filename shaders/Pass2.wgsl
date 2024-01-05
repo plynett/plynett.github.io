@@ -103,7 +103,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         NumericalFlux(aplus, aminus, hW_east * uW_east, h_here.y * u_here.y, mass_diff_x),
         NumericalFlux(aplus, aminus, hW_east * uW_east * uW_east, h_here.y * u_here.y * u_here.y, hW_east * uW_east - h_here.y * u_here.y),
         NumericalFlux(aplus, aminus, hW_east * uW_east * vW_east, h_here.y * u_here.y * v_here.y, hW_east * vW_east - h_here.y * v_here.y),
-        NumericalFlux(aplus, aminus, hW_east * uW_east * cW_east, h_here.g * u_here.g * c_here.g, phix * (hW_east * cW_east - h_here.g * c_here.g))
+        NumericalFlux(aplus, aminus, hW_east * uW_east * cW_east, h_here.y * u_here.y * c_here.y, phix * (hW_east * cW_east - h_here.y * c_here.y))
     );
         
     let yflux = vec4<f32>(

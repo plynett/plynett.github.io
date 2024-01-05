@@ -1026,6 +1026,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });   
     // end scroll wheel interaction
 
+    // html input fields
     // Define a helper function to update calc_constants and potentially re-initialize components
     function updateCalcConstants(property, newValue) {
         console.log(`Updating ${property} with value:`, newValue);
@@ -1058,70 +1059,24 @@ document.addEventListener('DOMContentLoaded', function () {
         calc_constants.html_update = 1; // flag used to check for updates.
     }
 
-    // Add event listeners for each button/input pair
-    const buttonActions = [
-        { id: 'theta-button', input: 'Theta-input', property: 'Theta' },
-        { id: 'courant-button', input: 'courant-input', property: 'Courant_num' },
-        { id: 'friction-button', input: 'friction-input', property: 'friction' },
-        { id: 'colorVal_max-button', input: 'colorVal_max-input', property: 'colorVal_max' },
-        { id: 'colorVal_min-button', input: 'colorVal_min-input', property: 'colorVal_min' },
-        { id: 'dissipation_threshold-button', input: 'dissipation_threshold-input', property: 'dissipation_threshold' },
-        { id: 'whiteWaterDecayRate-button', input: 'whiteWaterDecayRate-input', property: 'whiteWaterDecayRate' },
-        { id: 'changeAmplitude-button', input: 'changeAmplitude-input', property: 'changeAmplitude' },
-        { id: 'changeRadius-button', input: 'changeRadius-input', property: 'changeRadius' },
-        { id: 'render_step-button', input: 'render_step-input', property: 'render_step' },
-    ];
-
-    buttonActions.forEach(({ id, input, property }) => {
-        const button = document.getElementById(id);
-        const inputValue = document.getElementById(input);
-
-        button.addEventListener('click', function () {
-            const value = parseFloat(inputValue.value); // Assuming all values are floats; parse as appropriate
-            updateCalcConstants(property, value);
-        });
-    });
-
-    // Function to handle drop-down menu updates
-    function setupDropdownListeners(button_dropdown_Actions) {
-        button_dropdown_Actions.forEach(({ id, input, property }) => {
+     // Function to handle drop-down menu updates directly on selection change
+     function setupDropdownListeners(button_dropdown_Actions) {
+        button_dropdown_Actions.forEach(({ input, property }) => {
             const selectElement = document.getElementById(input); // The <select> element
-            const button = document.getElementById(id);
 
-            button.addEventListener('click', function () {
-                const selectedValue = selectElement.value; // Getting the selected value from the drop-down
-                updateCalcConstants(property, Math.round(selectedValue)); // No need for parseFloat here
-            });
+            // Ensure the selectElement exists before adding an event listener
+            if (selectElement) {
+                selectElement.addEventListener('change', function (event) {
+                    const selectedValue = event.target.value; // Getting the selected value from the drop-down
+                    updateCalcConstants(property, Math.round(selectedValue)); // Assuming you want to round the value
+                    updateAllUIElements();
+                });
+            } else {
+                console.error(`Element with ID '${input}' not found.`);
+            }
         });
-    }
-
-    // Specify the buttons and inputs for the drop-down menus
-    const button_dropdown_Actions = [
-        { id: 'nlsw-button', input: 'nlsw-select', property: 'NLSW_or_Bous' }, // Make sure 'input' refers to the <select> element's ID
-        { id: 'west-boundary-button', input: 'west_boundary_type-select', property: 'west_boundary_type' },
-        { id: 'east-boundary-button', input: 'east_boundary_type-select', property: 'east_boundary_type' },
-        { id: 'south-boundary-button', input: 'south_boundary_type-select', property: 'south_boundary_type' },
-        { id: 'north-boundary-button', input: 'north_boundary_type-select', property: 'north_boundary_type' },
-        { id: 'isManning-button', input: 'isManning-select', property: 'isManning' },
-        { id: 'simPause-button', input: 'simPause-select', property: 'simPause' },
-        { id: 'surfaceToPlot-button', input: 'surfaceToPlot-select', property: 'surfaceToPlot' },
-        { id: 'colorMap_choice-button', input: 'colorMap_choice-select', property: 'colorMap_choice' },
-        { id: 'showBreaking-button', input: 'showBreaking-select', property: 'showBreaking' },
-        { id: 'GoogleMapOverlay-button', input: 'GoogleMapOverlay-select', property: 'GoogleMapOverlay' },
-        { id: 'viewType-button', input: 'viewType-select', property: 'viewType' },
-        { id: 'surfaceToChange-button', input: 'surfaceToChange-select', property: 'surfaceToChange' },
-        { id: 'changeType-button', input: 'changeType-select', property: 'changeType' },
-    ];
-
-    // Call the function for setting up listeners on dropdown menus
-    setupDropdownListeners(button_dropdown_Actions);
-
-    // Refresh button
-    const refreshButton = document.getElementById('refresh-button');
-    refreshButton.addEventListener('click', function () {
-        location.reload();
-    });
-
+    } 
+    
     // update the ALL input and dropdown buttons with the current parameter value when any one button is pushed
     function updateAllUIElements() {
         // Update text input fields
@@ -1136,19 +1091,71 @@ document.addEventListener('DOMContentLoaded', function () {
             var selectElement = document.getElementById(action.input);
             selectElement.value = currentValue;
         });
-    }
-    const allActions = buttonActions.concat(button_dropdown_Actions);
+    }    
 
-    allActions.forEach((action) => {
-        // Set up the click event listener for each button
-        document.getElementById(action.id).addEventListener('click', function () {
-            // Assume the new value for the property comes from a text input or dropdown selection
-            // Update the property in calc_constants
-            calc_constants[action.property] = document.getElementById(action.input).value;
+    // Parameters for each button/input pair which has some numerical input value, and an associated "Update" button
+    const buttonActions = [
+        { id: 'theta-button', input: 'Theta-input', property: 'Theta' },
+        { id: 'courant-button', input: 'courant-input', property: 'Courant_num' },
+        { id: 'friction-button', input: 'friction-input', property: 'friction' },
+        { id: 'colorVal_max-button', input: 'colorVal_max-input', property: 'colorVal_max' },
+        { id: 'colorVal_min-button', input: 'colorVal_min-input', property: 'colorVal_min' },
+        { id: 'dissipation_threshold-button', input: 'dissipation_threshold-input', property: 'dissipation_threshold' },
+        { id: 'whiteWaterDecayRate-button', input: 'whiteWaterDecayRate-input', property: 'whiteWaterDecayRate' },
+        { id: 'changeAmplitude-button', input: 'changeAmplitude-input', property: 'changeAmplitude' },
+        { id: 'changeRadius-button', input: 'changeRadius-input', property: 'changeRadius' },
+        { id: 'render_step-button', input: 'render_step-input', property: 'render_step' },
+    ];
 
-            // Call the function to update all UI elements
-            updateAllUIElements();
-        });
+    // Specify the inputs for the drop-down menus
+    const button_dropdown_Actions = [
+        { input: 'nlsw-select', property: 'NLSW_or_Bous' },
+        { input: 'west_boundary_type-select', property: 'west_boundary_type' },
+        { input: 'east_boundary_type-select', property: 'east_boundary_type' },
+        { input: 'south_boundary_type-select', property: 'south_boundary_type' },
+        { input: 'north_boundary_type-select', property: 'north_boundary_type' },
+        { input: 'isManning-select', property: 'isManning' },
+        { input: 'simPause-select', property: 'simPause' },
+        { input: 'surfaceToPlot-select', property: 'surfaceToPlot' },
+        { input: 'colorMap_choice-select', property: 'colorMap_choice' },
+        { input: 'showBreaking-select', property: 'showBreaking' },
+        { input: 'GoogleMapOverlay-select', property: 'GoogleMapOverlay' },
+        { input: 'viewType-select', property: 'viewType' },
+        { input: 'surfaceToChange-select', property: 'surfaceToChange' },
+        { input: 'changeType-select', property: 'changeType' },
+    ];
+
+    // Call the function for setting up listeners on dropdown menus
+    setupDropdownListeners(button_dropdown_Actions);
+
+    // set up listeners for the "Update" button fields
+    buttonActions.forEach(({ id, input, property }) => {
+        const button = document.getElementById(id);
+        const inputValue = document.getElementById(input);
+    
+        if (button && inputValue) {
+            button.addEventListener('click', function () {
+                const value = parseFloat(inputValue.value); // Assuming all values are floats; parse as appropriate
+                updateCalcConstants(property, value);
+                
+                // Call the function to update all UI elements
+                updateAllUIElements();
+            });
+        } else {
+            // Error handling if the button or input element is not found
+            if (!button) {
+                console.error(`Button with ID '${id}' not found.`);
+            }
+            if (!inputValue) {
+                console.error(`Input with ID '${input}' not found.`);
+            }
+        }
+    });
+
+    // special button to reset everything - Reload or Load New Configuration
+    const refreshButton = document.getElementById('refresh-button');
+    refreshButton.addEventListener('click', function () {
+        location.reload();
     });
 
     // Function to change the color of the label when a file is uploaded
@@ -1212,6 +1219,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
     document.getElementById('start-simulation-btn').addEventListener('click', function () {
         startSimulation(); 
+        const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
+        setTimeout(updateAllUIElements, delay);
     });
 
     // run example simulation
@@ -1220,6 +1229,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('run-example-simulation-btn').addEventListener('click', function () {
 
         initializeWebGPUApp();
+        const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
+        setTimeout(updateAllUIElements, delay);
 
     });
 
