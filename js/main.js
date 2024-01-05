@@ -1158,6 +1158,45 @@ document.addEventListener('DOMContentLoaded', function () {
         location.reload();
     });
 
+    // to make the canvas go full screen
+    const fullscreenButton = document.getElementById('fullscreen-button');
+    // Function to adjust canvas size
+    function resizeCanvas() {
+        if (document.fullscreenElement) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        } else {
+            // Set canvas size back to normal when exiting full screen
+            canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // widht needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+            canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
+        }
+    }
+
+    fullscreenButton.addEventListener('click', function () {
+        if (!document.fullscreenElement) {
+            canvas.requestFullscreen().then(() => {
+                canvas.classList.add('fullscreen'); // Add the full-screen class for styling
+                resizeCanvas(); // Resize the canvas to full screen dimensions
+                updateCalcConstants('viewType', 2); // change to explorer mode
+                calc_constants.click_update = 2;
+            }).catch(err => {
+                console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen().then(() => {
+                canvas.classList.remove('fullscreen'); // Remove the full-screen class
+                resizeCanvas(); // Resize the canvas back to normal dimensions
+                
+            }).catch(err => {
+                console.log(`Error attempting to disable full-screen mode: ${err.message}`);
+            });
+        }
+    });
+
+    // Handle resize events when in full screen
+    window.addEventListener('resize', resizeCanvas);
+
+
     // Function to change the color of the label when a file is uploaded
     function onFileUpload(event) {
         var inputId = event.target.id;
