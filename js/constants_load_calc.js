@@ -91,6 +91,8 @@ var calc_constants = {
     shift_y: 0.0, // y shift of 2D plane
     forward: 1.0, // zoom in/out of 2D plane
     full_screen: 0, // = 0 regular, = 1 in fullscreen
+    canvas_width_ratio: 1.0, // for full screen asepct ratio correction
+    canvas_height_ratio: 1.0, // for full screen asepct ratio correction
 };
 
 // load the control file
