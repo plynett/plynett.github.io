@@ -90,6 +90,7 @@ var calc_constants = {
     shift_x: 0.0, // x shift of 2D plane
     shift_y: 0.0, // y shift of 2D plane
     forward: 1.0, // zoom in/out of 2D plane
+    full_screen: 0, // = 0 regular, = 1 in fullscreen
 };
 
 // load the control file

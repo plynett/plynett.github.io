@@ -390,6 +390,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(60, calc_constants.shift_x, true);          // f32  
     Render_view.setFloat32(64, calc_constants.shift_y, true);          // f32  
     Render_view.setFloat32(68, calc_constants.forward, true);          // f32  
+    Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
+    Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
 
     // Fetch the source code of various shaders used in the application.
     const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
@@ -673,6 +675,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 Render_view.setFloat32(68, calc_constants.forward, true);          // f32  
                 console.log("Updating view in Explorer Mode" )
             }
+            
+            Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
+            Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
+
             calc_constants.click_update = -1;
         }
 
@@ -842,16 +848,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         device.queue.submit([commandEncoder.finish()]);
         // end screen render
 
-        // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations
-        const current_render = context.getCurrentTexture();
-        commandEncoder = device.createCommandEncoder();
+        // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations, only when not fullscreen
+        if(calc_constants.full_screen == 0){
+            const current_render = context.getCurrentTexture();
+            commandEncoder = device.createCommandEncoder();
 
-        commandEncoder.copyTextureToTexture(
-            { texture: current_render },  //src
-            { texture: txScreen },  //dst
-            { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
-        );
-        device.queue.submit([commandEncoder.finish()]);
+            commandEncoder.copyTextureToTexture(
+                { texture: current_render },  //src
+                { texture: txScreen },  //dst
+                { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
+            );
+            device.queue.submit([commandEncoder.finish()]);
+        }
         // end image store
 
         // here is where the code to capture the latest frame for an animation would go
@@ -1007,11 +1015,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const zoomSensitivity = 0.1;  // Adjust this value to make zoom faster or slower
 
     canvas.addEventListener('wheel', function(event) {
-        // Prevent the default scroll behavior
-        event.preventDefault();
-    
+        if (event.cancelable) {
+            // Only call preventDefault if the event is cancelable, indicating it's safe to do so
+            event.preventDefault();
+        }
+        
         calc_constants.click_update = 2;
-
+    
         // Adjust the zoom level based on the wheel delta
         if (event.deltaY < 0) {
             // Scrolling up, zoom in
@@ -1023,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
         // Clamp the zoom level to a minimum and maximum value to prevent too much zoom
         calc_constants.forward = Math.max(0.1, Math.min(100, calc_constants.forward));
-    });   
+    }, { passive: false }); // Explicitly mark the listener as not passive    
     // end scroll wheel interaction
 
     // html input fields
@@ -1163,12 +1173,25 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to adjust canvas size
     function resizeCanvas() {
         if (document.fullscreenElement) {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            const window_width = window.innerWidth;
+            const window_height = window.innerHeight;
+
+            if(calc_constants.WIDTH >= calc_constants.HEIGHT){
+                calc_constants.canvas_width_ratio = 1.0;
+                calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*window_height/window_width); 
+            } else {
+                calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*window_height/window_width; 
+                calc_constants.canvas_height_ratio = 1.0; 
+            } 
+
+            canvas.width = window_width;
+            canvas.height = window_height;
         } else {
             // Set canvas size back to normal when exiting full screen
             canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // widht needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
             canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
+            calc_constants.canvas_width_ratio = 1.0; 
+            calc_constants.canvas_height_ratio = 1.0; 
         }
     }
 
@@ -1177,8 +1200,6 @@ document.addEventListener('DOMContentLoaded', function () {
             canvas.requestFullscreen().then(() => {
                 canvas.classList.add('fullscreen'); // Add the full-screen class for styling
                 resizeCanvas(); // Resize the canvas to full screen dimensions
-                updateCalcConstants('viewType', 2); // change to explorer mode
-                calc_constants.click_update = 2;
             }).catch(err => {
                 console.log(`Error attempting to enable full-screen mode: ${err.message}`);
             });
@@ -1195,6 +1216,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Handle resize events when in full screen
     window.addEventListener('resize', resizeCanvas);
+
+    // Listen for fullscreen change events
+    document.addEventListener('fullscreenchange', function () {
+        if (!document.fullscreenElement) {
+            // The user has exited full screen
+            canvas.classList.remove('fullscreen'); // Remove the full-screen class
+            resizeCanvas(); // Resize the canvas back to normal dimensions
+            
+            console.log("Exited full screen mode");
+            updateCalcConstants('viewType', 1); // change to explorer mode
+            calc_constants.click_update = 1;
+            calc_constants.full_screen = 0;
+            updateAllUIElements();
+            // Include any additional logic you want to perform when exiting full screen
+        } else {
+            // The user has entered full screen
+            console.log("Entered full screen mode");
+            updateCalcConstants('viewType', 2); // change to design mode
+            calc_constants.click_update = 2;
+            calc_constants.full_screen = 1;
+            // Include any additional logic you want to perform when entering full screen
+        }
+    });  
 
 
     // Function to change the color of the label when a file is uploaded

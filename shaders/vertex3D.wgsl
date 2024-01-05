@@ -22,6 +22,8 @@ struct Globals {
     shift_x: f32,
     shift_y: f32,
     forward: f32,
+    canvas_width_ratio: f32,
+    canvas_height_ratio: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -66,8 +68,8 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
     let rotatedY = sinAngle * centeredX + cosAngle * centeredY;
 
     // Normalize rotated coordinates based on the canvas size
-    let normalizedX = globals.forward*((rotatedX + centerX) / f32(globals.WIDTH) * 2.0 - 1.0 + globals.shift_x);
-    let normalizedY = globals.forward*((rotatedY + centerY) / f32(globals.HEIGHT) * 2.0 - 1.0 + globals.shift_y);
+    let normalizedX = globals.forward*((rotatedX + centerX) / f32(globals.WIDTH) * 2.0 - 1.0 + globals.shift_x)*globals.canvas_width_ratio;
+    let normalizedY = globals.forward*((rotatedY + centerY) / f32(globals.HEIGHT) * 2.0 - 1.0 + globals.shift_y)*globals.canvas_height_ratio;
 
     out.clip_position = vec4<f32>(normalizedX, normalizedY, 0.0, 1.0);
     return out;
