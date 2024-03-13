@@ -17,6 +17,19 @@ struct Globals {
     dy: f32,
     WIDTH: i32,
     HEIGHT: i32,
+    rotationAngle_xy: f32,
+    shift_x: f32,
+    shift_y: f32,
+    forward: f32,
+    canvas_width_ratio: f32,
+    canvas_height_ratio: f32,
+    delta: f32,
+    CB_show: i32,
+    CB_xbuffer_uv: f32,
+    CB_xstart_uv: f32,
+    CB_width_uv: f32,
+    CB_ystart: i32,
+    CB_label_height: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -28,7 +41,8 @@ struct Globals {
 @group(0) @binding(5) var txBaseline_WaveHeight: texture_2d<f32>; 
 @group(0) @binding(6) var txBottomFriction: texture_2d<f32>; 
 @group(0) @binding(7) var txGoogleMap: texture_2d<f32>;
-@group(0) @binding(8) var textureSampler: sampler;
+@group(0) @binding(8) var txDraw: texture_2d<f32>;
+@group(0) @binding(9) var textureSampler: sampler;
 
 @fragment
 fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
@@ -181,6 +195,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     let bottom = textureSample(bottomTexture, textureSampler, uv).b;
     let waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
     let GoogleMap = textureSample(txGoogleMap, textureSampler, uv_mod).rgb;
+    let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
     let H = max(0.01, waves - bottom);
     var render_surface = waves;
 
@@ -254,12 +269,15 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     } else if (surfaceToPlot == 14) {  // deviation from basesline
         render_surface = textureSample(txWaveHeight, textureSampler, uv).b - textureSample(txBaseline_WaveHeight, textureSampler, uv).b; 
-    } else if (surfaceToPlot == 15) {  // bottom friction mao
+    } else if (surfaceToPlot == 15) {  // bottom friction map
         render_surface = textureSample(txBottomFriction, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 16) {  // max free surface map
+        render_surface = textureSample(txMeans, textureSampler, uv).a; 
     }
     
+    
     var color_rgb: vec3<f32>;
-    if (bottom + 0.0001 > waves && surfaceToPlot != 6) {
+    if (bottom + globals.delta >= waves && surfaceToPlot != 6) {
         if(globals.GoogleMapOverlay == 1) {
             color_rgb = GoogleMap;
         }
@@ -295,6 +313,46 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         let tracer = textureSample(etaTexture, textureSampler, uv).a;
         color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
     }
+
+    if (globals.CB_show == 1) {
+        // Add colorbar
+        let colorbar_LL = vec2<f32>(globals.CB_xstart_uv, 0.0);
+        let colorbar_width = globals.CB_width_uv;
+        let colorbar_height = f32(globals.CB_ystart + 20) / f32(globals.HEIGHT); // 20 pixels above tick marks
+        let colorbar_UR = vec2<f32>(colorbar_LL.x + colorbar_width, colorbar_LL.y + colorbar_height);
+        let colorbar_buffer =  vec4<f32>(globals.CB_xbuffer_uv, globals.CB_xbuffer_uv, colorbar_LL.y, 0.5*globals.CB_xbuffer_uv);
+
+        if(uv.x >= colorbar_LL.x - colorbar_buffer.x && uv.x <= colorbar_UR.x + colorbar_buffer.y  && uv.y >= colorbar_LL.y - colorbar_buffer.z && uv.y <= colorbar_UR.y + colorbar_buffer.a){
+            color_rgb = vec3<f32>(211, 211, 211)/256;  //light gray
+        }
+
+        if(uv.x >= colorbar_LL.x && uv.x <= colorbar_UR.x && uv.y >= colorbar_LL.y && uv.y <= colorbar_UR.y){
+            // Determine where 'render_surface' falls in the range from 'minWave' to 'maxWave'.
+            var wavePosition = f32((uv.x  -  colorbar_LL.x) / (colorbar_UR.x -  colorbar_LL.x));
+
+            // Clamp the position between 0 and 1 to stay within the color map.
+            wavePosition = clamp(wavePosition, 0.0, 1.0);
+
+            // Determine the indices of the two colors we'll be interpolating between.
+            // This requires the color map to have a known and fixed size.
+            let lowerIndex = i32(floor(wavePosition * 15.0)); // Because we have 16 colors.
+            let upperIndex = lowerIndex + 1;
+
+            // Calculate how far between the two colors 'render_surface' falls.
+            let mixAmount = fract(wavePosition * 15.0); // Fractional part represents the mix amount between colors.
+
+            // Interpolate between the two colors in the color map.
+            let color_wave = mix(colorMap[lowerIndex], colorMap[upperIndex], mixAmount);        
+            
+            color_rgb = color_wave;
+        }
+
+        if(TextDraw.r + TextDraw.g + TextDraw.b <= 3.*0.99){
+            color_rgb = TextDraw;
+        }
+    }
+
+
 
     out.color = vec4<f32>(color_rgb, 1.0); //vec4<f32>(color_rgb, 1.0);
     return out;

@@ -11,6 +11,29 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
     const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
     const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
 
+    // remove single point islands
+    let change_point = 1.;
+    let new_count = 0.;
+    let old_count = 0.;
+    while (change_point > 0.5)  {
+        old_count = new_count;
+        new_count = 0.;
+        for (let y = 1; y < calc_constants.HEIGHT-1; y++) {
+            for (let x = 1; x < calc_constants.WIDTH-1; x++) {
+                if (bathy2D[x][y] >= 0.0){  // dry point
+                    if (bathy2D[x+1][y] <= 0.0 && bathy2D[x-1][y] <= 0.0 && bathy2D[x][y+1] <= 0.0 && bathy2D[x][y-1] <= 0.0 ){
+                        bathy2D[x][y] = 0.0;
+                        new_count = new_count + 1.0;
+                    }
+                }
+            }
+        }
+        change_point = new_count - old_count;
+        if (change_point > 0.5 ){
+            console.log("Flattened ", change_point, " single point islands from initial bathy/topo");
+        }
+    }
+
     let lengthCheck = 3;    // check within three points
     for (let y = 0; y < calc_constants.HEIGHT; y++) {
         for (let x = 0; x < calc_constants.WIDTH; x++) {
@@ -110,7 +133,7 @@ function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
 
 
 
-function copyInitialConditionDataToTexture(calc_constants, device, txState) {
+function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState) {
     // create and place initial condition into txState
 
     // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
@@ -133,9 +156,9 @@ function copyInitialConditionDataToTexture(calc_constants, device, txState) {
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
             paddedFlatData[paddedIndex] = eta;  // red
-            paddedFlatData[paddedIndex + 1] = 0;  // green
-            paddedFlatData[paddedIndex + 2] = 0;  // blue
-            paddedFlatData[paddedIndex + 3] = 0;  // alpha
+            paddedFlatData[paddedIndex + 1] = 0.0;  // green
+            paddedFlatData[paddedIndex + 2] = 0.0;  // blue
+            paddedFlatData[paddedIndex + 3] = 0.0;  // alpha
         }
     }
     const buffer = device.createBuffer({

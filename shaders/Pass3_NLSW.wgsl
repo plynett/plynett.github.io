@@ -13,7 +13,7 @@ struct Globals {
     isManning: i32,
     g: f32,
     friction: f32,
-    pred_or_corrector: u32,
+    pred_or_corrector: i32,
     Bcoef: f32,
     Bcoef_g: f32,
     one_over_d2x: f32,
@@ -25,6 +25,7 @@ struct Globals {
     dissipation_threshold: f32,
     whiteWaterDecayRate: f32,
     clearConc: i32,
+    delta: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -102,30 +103,31 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let h_vec = textureLoad(txH, idx, 0);
     let h_here = in_state_here.x - B_here;
 
+    let eta_here = in_state_here.x;
     let eta_west = textureLoad(txState, leftIdx, 0).x;
     let eta_east = textureLoad(txState, rightIdx, 0).x;
     let eta_south = textureLoad(txState, downIdx, 0).x;
     let eta_north = textureLoad(txState, upIdx, 0).x;
 
+    let h_west = eta_west - B_west;
+    let h_east = eta_east - B_east;
+    let h_north = eta_north - B_north;
+    let h_south = eta_south - B_south;
+
+    var h_min = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    h_min.x= min(h_here, h_north);
+    h_min.y= min(h_here, h_east);
+    h_min.z= min(h_here, h_south);
+    h_min.w= min(h_here, h_west);
+
     var detadx = 0.5*(eta_east - eta_west) * globals.one_over_dx;
     var detady = 0.5*(eta_north - eta_south) * globals.one_over_dy;
-    
-    // correction for "small" depth cells, fixes near-shoreline spurious waves
-    let minH = min(h_vec.w, min(h_vec.z, min(h_vec.y, h_vec.x)));
-    let dB = max(abs(B_south - B_here), max(abs(B_north - B_here), max(abs(B_west - B_here), abs(B_east - B_here))));
-    let u_here = in_state_here.y;
-    let v_here = in_state_here.z;
-    let speed2_here = u_here * u_here + v_here * v_here;
-    if (minH * minH < 2.0 * globals.dx * dB && speed2_here < 0.00001 * dB * globals.g) {
-        detady = 0.0;
-        detadx = 0.0;
-    }
 
     // Load values from txXFlux and txYFlux using idx
-    let xflux_here = textureLoad(txXFlux, idx, 0);
-    let xflux_west = textureLoad(txXFlux, leftIdx, 0);
-    let yflux_here = textureLoad(txYFlux, idx, 0);
-    let yflux_south = textureLoad(txYFlux, downIdx, 0);
+    var xflux_here = textureLoad(txXFlux, idx, 0);
+    var xflux_west = textureLoad(txXFlux, leftIdx, 0);
+    var yflux_here = textureLoad(txYFlux, idx, 0);
+    var yflux_south = textureLoad(txYFlux, downIdx, 0);
    
     let friction_ = FrictionCalc(in_state_here.x, in_state_here.y, h_here);
 
@@ -159,7 +161,34 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let c_dissipation = -globals.whiteWaterDecayRate * C_state_here;
 
-    let source_term = vec4<f32>(0.0, -globals.g * h_here * detadx - in_state_here.y * friction_ + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
+// fix slope near shoreline
+    let h_cut = globals.delta;
+    if (h_min.x <= h_cut && h_min.z <= h_cut) {
+        detady = 0.0;
+    }
+    else if (h_min.x <= h_cut) {  //north
+        detady = 1.*(eta_here - eta_south) * globals.one_over_dy;
+    }
+    else if (h_min.z <= h_cut) {  //south
+        detady = 1.*(eta_north - eta_here) * globals.one_over_dy;
+    }
+
+    if (h_min.y <= h_cut && h_min.w <= h_cut) {
+        detadx = 0.0;
+    }
+    else if (h_min.y <= h_cut) {   //east
+        detadx = 1.*(eta_here - eta_west) * globals.one_over_dx;
+    }
+    else if (h_min.w <= h_cut) {  //west
+        detadx = 1.*(eta_east - eta_here) * globals.one_over_dx;
+    }
+
+    var overflow_dry = 0.0;
+    if(B_here > 0.0) {
+        overflow_dry = -0.001;  // hydraulic conductivity of coarse, unsaturated sand
+    }
+
+    let source_term = vec4<f32>(overflow_dry, -globals.g * h_here * detadx - in_state_here.y * friction_ + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
 
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 

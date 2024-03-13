@@ -18,6 +18,7 @@ struct Globals {
     south_boundary_type: i32,
     north_boundary_type: i32,
     boundary_g: f32,
+    delta: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -28,7 +29,7 @@ struct Globals {
 @group(0) @binding(4) var txNewState: texture_storage_2d<rgba32float, write>;
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
-    let shift = 8;
+    let shift = 4;
     let real_idx = vec2<i32>(shift  - idx.x, idx.y); 
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, -in_state_real.g, in_state_real.b, in_state_real.a);
@@ -41,7 +42,7 @@ fn EastBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
 }
 
 fn SouthBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
-    let shift = 8;
+    let shift = 4;
     let real_idx = vec2<i32>(idx.x, shift  - idx.y);
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, in_state_real.g, -in_state_real.b, in_state_real.a);
@@ -196,10 +197,98 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         BCState = BoundarySineWave(idx);
     }
 
+    let leftIdx = idx + vec2<i32>(-1, 0);
+    let rightIdx = idx + vec2<i32>(1, 0);
+    let downIdx = idx + vec2<i32>(0, -1);
+    let upIdx = idx + vec2<i32>(0, 1);
+
+    let B_here = textureLoad(txBottom, idx, 0).z;
+    let B_south = textureLoad(txBottom, downIdx, 0).z;
+    let B_north = textureLoad(txBottom, upIdx, 0).z;
+    let B_west = textureLoad(txBottom, leftIdx, 0).z;
+    let B_east = textureLoad(txBottom, rightIdx, 0).z;
+
+    let state_west = textureLoad(txState, leftIdx, 0);
+    let state_east = textureLoad(txState, rightIdx, 0);
+    let state_south = textureLoad(txState, downIdx, 0);
+    let state_north = textureLoad(txState, upIdx, 0);
+
+    var eta_here = BCState.x;
+    var eta_west = state_west.x;
+    var eta_east = state_east.x;
+    var eta_south = state_south.x;
+    var eta_north = state_north.x;
+    
+    var u_west = state_west.y;
+    var u_east = state_east.y;
+    var u_south = state_south.y;
+    var u_north = state_north.y;
+    
+    var v_west = state_west.z;
+    var v_east = state_east.z;
+    var v_south = state_south.z;
+    var v_north = state_north.z;
+
+    var h_here = eta_here - B_here;
+    let h_west = eta_west - B_west;
+    let h_east = eta_east - B_east;
+    let h_south = eta_south - B_south;
+    let h_north = eta_north - B_north;
+
+    var h_cut = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    h_cut.x= max(globals.delta, abs(B_here - B_north));
+    h_cut.y= max(globals.delta, abs(B_here - B_east));
+    h_cut.z= max(globals.delta, abs(B_here - B_south));
+    h_cut.w= max(globals.delta, abs(B_here - B_west));
+
+    var dry_here = 1;
+    var dry_west = 1;
+    var dry_east = 1;
+    var dry_south = 1;
+    var dry_north = 1;
+
+    if (h_here <= globals.delta) { dry_here = 0;}
+    if (h_west <= h_cut.w) { dry_west = 0;}
+    if (h_east <= h_cut.y) { dry_east = 0;}
+    if (h_south <= h_cut.z) { dry_south = 0;}
+    if (h_north <= h_cut.x) { dry_north = 0;}
+
+    let sum_dry = dry_west + dry_east + dry_south + dry_north;
+
+    var h_min = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    h_min.x= min(h_here, h_north);
+    h_min.y= min(h_here, h_east);
+    h_min.z= min(h_here, h_south);
+    h_min.w= min(h_here, h_west);
+
+    let wetdry = min(h_here, min(h_south, min(h_north, min(h_west, h_east))));
+    let nearshore = min(B_here, min(B_south, min(B_north, min(B_west, B_east))));
+
+    // remove islands
+    if( dry_here == 1) {
+        if (sum_dry == 0) {  // freeze single point wet areas
+            if (B_here <= 0.0) {
+                BCState = vec4<f32>(max(BCState.x,B_here), 0.0, 0.0, 0.0);
+            }
+            else {
+                BCState = vec4<f32>(B_here, 0.0, 0.0, 0.0);
+            }
+        }
+        else if (sum_dry == 1) {  // freeze end of single grid channel, with free surface gradient equal to zero
+            let wet_eta = (f32(dry_west)*eta_west + f32(dry_east)*eta_east + f32(dry_south)*eta_south + f32(dry_north)*eta_north) / f32(sum_dry);
+            BCState = vec4<f32>(wet_eta, 0.0, 0.0, 0.0);
+        }
+    }
+
     // Check for negative depths
-    let bottom = textureLoad(txBottom, idx, 0).z;
-    if (BCState.x <= bottom) {
-        BCState = vec4<f32>(bottom, 0.0, 0.0, 0.0);
+    h_here = BCState.x  - B_here;
+    if (h_here <= globals.delta) {
+            if (B_here <= 0.0) {
+                BCState = vec4<f32>(max(BCState.x,B_here), 0.0, 0.0, 0.0);
+            }
+            else {
+                BCState = vec4<f32>(B_here, 0.0, 0.0, 0.0);
+            }
     }
 
     textureStore(txNewState, idx, BCState);

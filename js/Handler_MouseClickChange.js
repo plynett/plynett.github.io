@@ -36,8 +36,17 @@ export function create_MouseClickChange_BindGroupLayout(device) {
                 }
             },
             {
-                // 4th binding: A storage texture. The compute shader will write results into this texture.
+                // 4th binding:  A texture that the fragment shader will sample from.
                 binding: 4,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 5th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 5,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -49,7 +58,7 @@ export function create_MouseClickChange_BindGroupLayout(device) {
     });
 }
 
-export function create_MouseClickChange_BindGroup(device, uniformBuffer, txBottom, txBottomFriction, txContSource, txtemp_MouseClick) {
+export function create_MouseClickChange_BindGroup(device, uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txtemp_MouseClick) {
     return device.createBindGroup({
         layout: create_MouseClickChange_BindGroupLayout(device),
         entries: [
@@ -73,6 +82,10 @@ export function create_MouseClickChange_BindGroup(device, uniformBuffer, txBotto
             },
             {
                 binding: 4,
+                resource: txState.createView()
+            },
+            {
+                binding: 5,
                 resource: txtemp_MouseClick.createView()
             },
         ]

@@ -4,7 +4,8 @@ import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMa
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData } from './File_Writer.js';  // load depth surface and wave data file
 import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
-import { createRenderBindGroupLayout, createRenderBindGroup } from './Handler_Render.js';  // group bindings for render shaders
+import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar } from './Handler_Render.js';  // group bindings for render shaders
+import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
 import { create_Pass2_BindGroupLayout, create_Pass2_BindGroup } from './Handler_Pass2.js';  // group bindings for Pass2 shaders
 import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup } from './Handler_Pass3.js';  // group bindings for Pass3 shaders
@@ -13,12 +14,11 @@ import { create_Tridiag_BindGroupLayout, create_Tridiag_BindGroup } from './Hand
 import { create_UpdateTrid_BindGroupLayout, create_UpdateTrid_BindGroup } from './Handler_UpdateTrid.js';  // group bindings for updating tridiag coef shader
 import { create_CalcMeans_BindGroupLayout, create_CalcMeans_BindGroup } from './Handler_CalcMeans.js';  // group bindings for shader that calculates running means of state variables
 import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup } from './Handler_CalcWaveHeight.js';  // group bindings for shader that calculates running means of state variables
+import { create_AddDisturbance_BindGroupLayout, create_AddDisturbance_BindGroup } from './Handler_AddDisturbance.js';  // group bindings for adding a landslide or tsunami impulsive source
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
-
-
 import { displayCalcConstants } from './display_parameters.js';  // starting point for display of simulation parameters
 
 
@@ -33,6 +33,7 @@ let device = null;
 let txSaveOut = null;
 let txScreen = null;
 let txGoogleMap = null;
+let txDraw = null;
 let context = null;
 let adapter = null;
 
@@ -101,6 +102,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let { bathy2D, waveData } = await OrderedFunctions(configContent, bathymetryContent, waveContent);
 
     // Create buffers for storing uniform data. This buffer will be used to send parameter data to shaders.
+    const Pass0_uniformBuffer = createUniformBuffer(device);
     const Pass1_uniformBuffer = createUniformBuffer(device);
     const Pass2_uniformBuffer = createUniformBuffer(device);
     const Pass3_uniformBuffer = createUniformBuffer(device);
@@ -110,6 +112,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const UpdateTrid_uniformBuffer = createUniformBuffer(device);
     const CalcMeans_uniformBuffer = createUniformBuffer(device);
     const CalcWaveHeight_uniformBuffer = createUniformBuffer(device);
+    const AddDisturbance_uniformBuffer = createUniformBuffer(device);
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const Render_uniformBuffer = createUniformBuffer(device);
 
@@ -130,7 +133,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of H
     const txU = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of u
     const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of v
-    const txW = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of w (eta) - currrently not used
+    const txHnear = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of w (eta) - currrently not used
     const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
     const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores bottom friction info
     const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores passive tracer source map
@@ -147,6 +150,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR y-dir
     const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
     const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);    // temp storage for PCR y-dir
+    const txtemp_AddDisturbance = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for MouseClick shader
     const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for MouseClick shader
     const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // tridiagonal coefficients for x-dir (bous only)
     const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // tridiagonal coefficients for y-dir (bous only)
@@ -163,7 +167,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // used for bindary output
     txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for jpg output
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);  // used to store the loaded Google Maps image
-
+    txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for creating text & shapes on an HTML5 canvas
+    
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves);  // stores spectrum wave input
 
     // fill in the bathy texture
@@ -175,8 +180,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     // create initial condition
-    copyInitialConditionDataToTexture(calc_constants, device, txState);
-    copyInitialConditionDataToTexture(calc_constants, device, txstateUVstar);
+    copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState);
+    copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txstateUVstar);
 
     // create initial bottom friction surface
     copyConstantValueToTexture(calc_constants, device, txBottomFriction, calc_constants.friction, 0.0, 0.0, 0.0);
@@ -213,9 +218,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         calc_constants.IsGoogleMapLoaded = 1;
     }
 
-
-
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
+    // Pass0 Bindings & Uniforms Config
+    const Pass0_BindGroupLayout = create_Pass0_BindGroupLayout(device);
+    const Pass0_BindGroup = create_Pass0_BindGroup(device, Pass0_uniformBuffer, txState, txBottom, txHnear);
+    const Pass0_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let Pass0_view = new DataView(Pass0_uniforms);
+    Pass0_view.setInt32(0, calc_constants.WIDTH, true);          // u32
+    Pass0_view.setInt32(4, calc_constants.HEIGHT, true);          // u32
+    Pass0_view.setFloat32(8, calc_constants.epsilon, true);       // f32
+    Pass0_view.setFloat32(12, calc_constants.dt, true);           // f32
+    Pass0_view.setFloat32(16, calc_constants.base_depth, true);       // f32
+    Pass0_view.setFloat32(20, calc_constants.dx, true);           // f32
+    Pass0_view.setFloat32(24, calc_constants.dy, true);           // f32
 
     // Pass1 Bindings & Uniforms Config
     const Pass1_BindGroupLayout = create_Pass1_BindGroupLayout(device);
@@ -237,7 +252,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Pass2 Bindings & Uniforms Config
     const Pass2_BindGroupLayout = create_Pass2_BindGroupLayout(device);
-    const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txXFlux, txYFlux);
+    const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux);
     const Pass2_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass2_view = new DataView(Pass2_uniforms);
     Pass2_view.setUint32(0, calc_constants.WIDTH, true);          // u32
@@ -246,6 +261,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass2_view.setFloat32(12, calc_constants.half_g, true);       // f32
     Pass2_view.setFloat32(16, calc_constants.dx, true);           // f32
     Pass2_view.setFloat32(20, calc_constants.dy, true);           // f32
+    Pass2_view.setFloat32(24, calc_constants.delta, true);           // f32
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
@@ -278,6 +294,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setFloat32(92, calc_constants.dissipation_threshold, true);           // f32
     Pass3_view.setFloat32(96, calc_constants.whiteWaterDecayRate, true);           // f32
     Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
+    Pass3_view.setFloat32(104, calc_constants.delta, true);           // f32
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
@@ -304,6 +321,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
     BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
     BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
+    BoundaryPass_view.setFloat32(76, calc_constants.delta, true);           // f32
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -350,9 +368,28 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let CalcWaveHeight_view = new DataView(CalcWaveHeight_uniforms);
     CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
 
+
+    // AddDisturbance -  Bindings & Uniforms Config
+    const AddDisturbance_BindGroupLayout = create_AddDisturbance_BindGroupLayout(device);
+    const AddDisturbance_BindGroup = create_AddDisturbance_BindGroup(device, AddDisturbance_uniformBuffer, txBottom, txBottomFriction, txContSource, txstateUVstar, txtemp_AddDisturbance);
+    const AddDisturbance_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
+    let AddDisturbance_view = new DataView(AddDisturbance_uniforms);
+    AddDisturbance_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    AddDisturbance_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
+    AddDisturbance_view.setFloat32(8, calc_constants.dx, true);             // f32
+    AddDisturbance_view.setFloat32(12, calc_constants.dy, true);             // f32 
+    AddDisturbance_view.setFloat32(16, calc_constants.xClick, true);             // f32
+    AddDisturbance_view.setFloat32(20, calc_constants.yClick, true);             // f32
+    AddDisturbance_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
+    AddDisturbance_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32  
+    AddDisturbance_view.setInt32(32, calc_constants.surfaceToChange, true);             // f32  
+    AddDisturbance_view.setInt32(36, calc_constants.changeType, true);             // f32  
+    AddDisturbance_view.setFloat32(40, calc_constants.base_depth, true);             // f32  
+
+
     // MouseClickChange -  Bindings & Uniforms Config
     const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
-    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txBottomFriction, txContSource, txtemp_MouseClick);
+    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txBottomFriction, txContSource, txstateUVstar, txtemp_MouseClick);
     const MouseClickChange_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let MouseClickChange_view = new DataView(MouseClickChange_uniforms);
     MouseClickChange_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -369,7 +406,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, textureSampler);
+    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, txDraw, textureSampler);
     const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -384,16 +421,24 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(36, calc_constants.GMoffsetY, true);          // f32
     Render_view.setFloat32(40, calc_constants.dx, true);          // f32
     Render_view.setFloat32(44, calc_constants.dy, true);          // f32
-    Render_view.setInt32(48, calc_constants.WIDTH, true);          // f32
-    Render_view.setInt32(52, calc_constants.HEIGHT, true);          // f32  
+    Render_view.setInt32(48, calc_constants.WIDTH, true);          // i32
+    Render_view.setInt32(52, calc_constants.HEIGHT, true);          // i32  
     Render_view.setFloat32(56, calc_constants.rotationAngle_xy, true);          // f32  
     Render_view.setFloat32(60, calc_constants.shift_x, true);          // f32  
     Render_view.setFloat32(64, calc_constants.shift_y, true);          // f32  
     Render_view.setFloat32(68, calc_constants.forward, true);          // f32  
     Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
     Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
+    Render_view.setFloat32(80, calc_constants.delta, true);           // f32
+    Render_view.setInt32(84, calc_constants.CB_show, true);          // i32  
+    Render_view.setFloat32(88, calc_constants.CB_xbuffer_uv, true);          // i32  
+    Render_view.setFloat32(92, calc_constants.CB_xstart_uv, true);          // i32  
+    Render_view.setFloat32(96, calc_constants.CB_width_uv, true);          // i32  
+    Render_view.setInt32(100, calc_constants.CB_ystart, true);          // i32  
+    Render_view.setInt32(104, calc_constants.CB_label_height, true);          // i32  
 
     // Fetch the source code of various shaders used in the application.
+    const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
     const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
     const Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');
     const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
@@ -412,6 +457,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     console.log("Shaders loaded.");
 
     // Configure the pipelines, one for each shader.
+    const Pass0_Pipeline = createComputePipeline(device, Pass0_ShaderCode, Pass0_BindGroupLayout);
     const Pass1_Pipeline = createComputePipeline(device, Pass1_ShaderCode, Pass1_BindGroupLayout);
     const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout);
     const Pass3_Pipeline_NLSW = createComputePipeline(device, Pass3_ShaderCode_NLSW, Pass3_BindGroupLayout);
@@ -505,8 +551,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     new Float32Array(gridVertexBuffer.getMappedRange()).set(gridVertices);
     gridVertexBuffer.unmap();
     
-
-
     // Log that the buffers have been set up.
     console.log("Buffers set up.");
 
@@ -524,6 +568,20 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let clock_time_render_stop_old = -1.;
     let clock_time_render_stop_new = 0.;
     let render_update_n_since_change = 0;
+
+    // Create an offscreen canvas and draw text and various other items
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = canvas.width;
+    offscreenCanvas.height = canvas.height;
+    const ctx = offscreenCanvas.getContext('2d');
+    // Flip the canvas content vertically
+    ctx.translate(0, offscreenCanvas.height); // Move to the bottom
+    ctx.scale(1, -1); // Flip vertically
+    // Set the background to white
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    // create initial colorbar
+    update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw)
 
     console.log("Compute / Render loop starting.");
     // This function, `frame`, serves as the main loop of the application,
@@ -625,6 +683,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
             Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
             Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+            
+            update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) // update colorbar with new climits
+
             if (calc_constants.viewType == 1)
             {
                 // Render QUAD
@@ -665,6 +726,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 } else if(calc_constants.surfaceToChange == 3){  //when changing passive tracer
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txContSource)
+
+                } else if(calc_constants.surfaceToChange == 4){  //water surface elevation
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txstateUVstar)
                 }
             }
             else if (calc_constants.click_update == 2 && calc_constants.viewType == 2)
@@ -693,6 +757,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 total_time = frame_count * calc_constants.dt;  //simulation time
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
+                
+                // Pass0
+                runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                 // Pass1
                 runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -743,6 +810,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 {
                     // put txNewState into txState for the corrector equation, so gradients use the predicted values
                     runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
+
+                    // Pass0
+                    runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                     // Pass1
                     runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);

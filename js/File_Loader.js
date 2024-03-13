@@ -14,7 +14,7 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
 
     } catch (error) {
         console.log("Failed to parse uploaded bathymetry file, loading server side file");
-        filePath = 'modified_bathy.txt';
+        filePath = 'bathy.txt';
         try {
             response = await fetch(filePath);
         } catch (error) {
@@ -94,7 +94,7 @@ export async function loadWaveData(waveContent) {
 
     } catch (error) {
         console.log("Failed to parse uploaded waves file, loading server side file");
-        const filePath = 'irrWaves.txt';
+        const filePath = 'waves.txt';
         const response = await fetch(filePath);
         if (!response.ok) {
             throw new Error("Network response was not ok");
@@ -114,7 +114,7 @@ export async function loadWaveData(waveContent) {
         return { numberOfWaves, waveData };
 
     } catch (error) {
-        console.error("Error reading the irrWaves.txt file: ", error);
+        console.error("Error reading the waves.txt file: ", error);
         throw error;  // Propagate the error so the calling function can handle it.
     }
 }

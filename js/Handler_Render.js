@@ -73,8 +73,17 @@ export function createRenderBindGroupLayout(device) {
                 }
             },
             {
-                // 8th binding: A sampler describing how the texture will be sampled.
+                // 8th binding: A texture that the fragment shader will sample from.
                 binding: 8,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'bgra8unorm'  // imagedata for the google maps image
+                }
+            },
+            {
+                // 9th binding: A sampler describing how the texture will be sampled.
+                binding: 9,
                 visibility: GPUShaderStage.FRAGMENT,
                 sampler: {
                     type: 'non-filtering'  // Nearest-neighbor sampling (no interpolation)
@@ -85,7 +94,7 @@ export function createRenderBindGroupLayout(device) {
 }
 
 
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, textureSampler) {
+export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, txDraw, textureSampler) {
     return device.createBindGroup({
         layout: createRenderBindGroupLayout(device),
         entries: [
@@ -125,8 +134,86 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             },
             {
                 binding: 8,
+                resource: txDraw.createView()
+            },
+            {
+                binding: 9,
                 resource: textureSampler
             }
         ]
     });
+}
+
+export async function update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) {
+    // Set text styles
+    ctx.font = '18px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // colorbar text
+    ctx.fillStyle = '#D3D3D3'; // Light gray
+    ctx.fillRect(calc_constants.CB_xstart - calc_constants.CB_xbuffer, offscreenCanvas.height-calc_constants.CB_ystart, offscreenCanvas.width - 2 * (calc_constants.CB_xstart - calc_constants.CB_xbuffer), calc_constants.CB_ystart);
+    ctx.fillStyle = 'black'; // Text color, set to black for contrast
+
+    const textMapping = {
+        0: "Free Surface Elevation (m)",
+        6: "Bathymetry/Topography (m)",
+        15: "Bottom Friction Map",
+        1: "Fluid Speed (m/s)",
+        2: "East-West (x) Velocity (m/s)",
+        3: "North-South (y) Velocity (m/s)",
+        4: "Total Vertical Vorticity (m/s)",
+        5: "Foam / Tracer Concentration",
+        16: "Max Free Surface Elev (m)",
+        7: "Mean Free Surface Elev (m)",
+        8: "Mean Fluid Flux [Magn] (m^2/s)",
+        9: "Mean Fluid Flux [E-W] (m^2/s)",
+        10: "Mean Fluid Flux [N-S] (m^2/s)",
+        12: "RMS Wave Height (m)",
+        13: "Significant Wave Height (m)",
+        14: "Difference from Baseline Hs (m)"
+    };
+    
+    // Assuming calc_constants.surfaceToPlot is available and holds the current value
+    const labelText = textMapping[calc_constants.surfaceToPlot];
+    
+    // Draw the text on the canvas at the desired position
+    ctx.fillText(labelText, offscreenCanvas.width / 2, offscreenCanvas.height - calc_constants.CB_label_height);
+    
+    // colorbar line and tick marks
+    const lineStartX = calc_constants.CB_xstart; // Starting X coordinate of the horizontal line
+    const lineStartY = offscreenCanvas.height - calc_constants.CB_ystart; // Y coordinate of the horizontal line (and all tickmarks)
+    const lineLength = calc_constants.CB_width; // Length of the horizontal line
+    const tickMarkLength = 8; // Length of the tick marks, in pixels
+    const N_ticks = 5; // Number of tick marks
+    const tickInterval = lineLength / (N_ticks - 1); // Calculate interval between tick marks
+    // Draw the horizontal line
+    ctx.beginPath();
+    ctx.moveTo(lineStartX, lineStartY);
+    ctx.lineTo(lineStartX + lineLength, lineStartY);
+    ctx.stroke();
+    // Draw the tick marks
+    for (let i = 0; i < N_ticks; i++) {
+        const tickX = lineStartX + i * tickInterval; // Calculate X coordinate of each tick mark
+        ctx.beginPath();
+        ctx.moveTo(tickX, lineStartY);
+        ctx.lineTo(tickX, lineStartY + tickMarkLength);
+        ctx.stroke();
+    }
+    // add tick labels
+    ctx.font = '14px Arial';
+    ctx.textBaseline = 'top';
+    let ticklabel_shift = 20;
+
+    ctx.textAlign = 'left';
+    ctx.fillText(calc_constants.colorVal_min, lineStartX, lineStartY-tickMarkLength+ticklabel_shift);
+    ctx.textAlign = 'center';
+    ctx.fillText(calc_constants.colorVal_min + (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1), lineStartX + tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
+    ctx.fillText(calc_constants.colorVal_min + (N_ticks-2) * (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1), lineStartX + (N_ticks-2) * tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
+    ctx.textAlign = 'right';
+    ctx.fillText(calc_constants.colorVal_max, lineStartX+lineLength, lineStartY-tickMarkLength+ticklabel_shift);
+
+
+    // Upload this canvas content as a WebGPU texture
+    const imageBitmap = await createImageBitmap(offscreenCanvas);
+    device.queue.copyExternalImageToTexture({source: imageBitmap}, {texture: txDraw}, [imageBitmap.width, imageBitmap.height]);
 }

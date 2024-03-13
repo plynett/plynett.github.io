@@ -19,8 +19,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let update_frac = 1. / f32(globals.n_time_steps_means);
     let old_frac = 1.0 - update_frac;
 
-    let means_new = means_here*old_frac + state_here*update_frac;
+    let means_new = means_here.xyz*old_frac + state_here.xyz*update_frac;
 
-    textureStore(txtemp_Means, idx, means_new);
+    var max_new = 0.;
+    if (globals.n_time_steps_means > 1) {
+        max_new = max(means_here.a,state_here.x);
+    }
+
+    textureStore(txtemp_Means, idx, vec4<f32>(means_new, max_new));
 }
 

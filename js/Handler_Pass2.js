@@ -55,8 +55,17 @@ export function create_Pass2_BindGroupLayout(device) {
                 }
             },
             {
-                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                // 6th binding: A texture that the fragment shader will sample from.
                 binding: 6,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 7th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 7,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -65,8 +74,8 @@ export function create_Pass2_BindGroupLayout(device) {
                 }
             },
             {
-                // 7th binding: A storage texture. The compute shader will write results into this texture.
-                binding: 7,
+                // 8th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 8,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -79,7 +88,7 @@ export function create_Pass2_BindGroupLayout(device) {
 }
 
 
-export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBottom, txC, txXFlux, txYFlux) {
+export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux) {
     return device.createBindGroup({
         layout: create_Pass2_BindGroupLayout(device),
         entries: [
@@ -111,10 +120,14 @@ export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBo
             },
             {
                 binding: 6,
-                resource: txXFlux.createView()
+                resource: txHnear.createView()
             },
             {
                 binding: 7,
+                resource: txXFlux.createView()
+            },
+            {
+                binding: 8,
                 resource: txYFlux.createView()
             },
         ]

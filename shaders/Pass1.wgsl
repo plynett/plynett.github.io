@@ -34,21 +34,6 @@ fn MinMod(a: f32, b: f32, c: f32) -> f32 {
     }
 }
 
-
-fn Reconstruct_w(west: f32, here: f32, east: f32, TWO_THETAc: f32) -> vec2<f32> {
-    let z1 = TWO_THETAc * (here - west);
-    let z2 = (east - west);
-    let z3 = TWO_THETAc * (east - here);
-
-    let dx_grad_over_two = 0.25 * MinMod(z1, z2, z3);
-
-    let out_east = here + dx_grad_over_two;
-    let out_west = here - dx_grad_over_two;
-
-    return vec2(out_west, out_east);
-}
-
-
 fn Reconstruct(west: f32, here: f32, east: f32, TWO_THETAc: f32) -> vec2<f32> {
     let z1 = TWO_THETAc * (here - west);
     let z2 = (east - west);
@@ -92,6 +77,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let B_west = textureLoad(txBottom, leftIdx, 0).z;
     let B_east = textureLoad(txBottom, rightIdx, 0).z;
 
+    let dB_west = abs(B_here - B_west);
+    let dB_east = abs(B_here - B_east);
+    let dB_south = abs(B_here - B_south);
+    let dB_north = abs(B_here - B_north);
+    let dB_max = 0.5*vec4<f32>(dB_north, dB_east, dB_south, dB_west);
+
     let h_here = in_here.x - B_here;
     let h_south = in_south.x - B_south;
     let h_north = in_north.x - B_north;
@@ -104,22 +95,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var hu = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     var hv = vec4<f32>(0.0, 0.0, 0.0, 0.0);
 
-    // Prepare for water height reconstruction based on whether the flow is overland or not
-    let wetdry = min(B.w, min(B.z, min(B.y, B.x)));
+    // modify limiters based on whether near the inundation limit
+    let wetdry = min(h_here, min(h_south, min(h_north, min(h_west, h_east))));
     let rampcoef = min(max(0.0, wetdry / (0.02 * globals.base_depth)), 1.0);
     let TWO_THETAc = globals.TWO_THETA * rampcoef + 2.0 * (1.0 - rampcoef);  // transition to full upwinding with overland flow, start transition at base_depth/50.
 
-    if (wetdry >= 0.0) {
-        let hwy = Reconstruct(h_west, h_here, h_east, TWO_THETAc);
-        let hzx = Reconstruct(h_south, h_here, h_north, TWO_THETAc);
-        h = vec4<f32>(hzx.y, hwy.y, hzx.x, hwy.x);
-        w = h + B;
-    } else {
-        let wwy = Reconstruct_w(in_west.x, in_here.x, in_east.x, TWO_THETAc);
-        let wzx = Reconstruct_w(in_south.x, in_here.x, in_north.x, TWO_THETAc);
-        w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);
-        h = w - B;
-    }
+    let wwy = Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
+    let wzx = Reconstruct(in_south.x, in_here.x, in_north.x, TWO_THETAc);
+    w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);
+    h = w - B;
+    h = max(h, vec4<f32>(0.0, 0.0, 0.0, 0.0));
 
     let huwy = Reconstruct(in_west.y, in_here.y, in_east.y, TWO_THETAc);
     let huzx = Reconstruct(in_south.y, in_here.y, in_north.y, TWO_THETAc);
@@ -140,30 +125,30 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var v: vec4<f32>;
     var c: vec4<f32>;
     let h2 = h * h;
-    let divide_by_h = 2.0 * h / (h2 + max(h2, vec4<f32>(globals.epsilon)));
+    let epsilon_c = max(vec4<f32>(globals.epsilon), dB_max);
+    let divide_by_h = 2.0 * h / (h2 + max(h2, epsilon_c));  // this is important - the local depth used for the edges should not be less than the difference in water depth across the edge
     u = divide_by_h * hu;
     v = divide_by_h * hv;
     c = divide_by_h * hc;
+
+    // Froude number limiter 
     let speed = sqrt(u * u + v * v);
     let Fr = speed / sqrt(9.81 / divide_by_h);
     let Frumax = max(Fr.x, max(Fr.y, max(Fr.z, Fr.w)));
-    let Fr_maxallowed = 3.0;
+    let dBdx = abs(B_east - B_west) / (2.0 * globals.dx_global);
+    let dBdy = abs(B_north - B_south) / (2.0 * globals.dy_global);
+    let dBds_max = max(dBdx, dBdy);
+    let Fr_maxallowed = 3.0 / max(1.0, dBds_max);  // max Fr allowed on slopes less than 45 degrees is 3; for very steep slopes, artificially slow velocity - physics are just completely wrong here anyhow
     if (Frumax > Fr_maxallowed) {
         let Fr_red = Fr_maxallowed / Frumax;
         u = u * Fr_red;
         v = v * Fr_red;
     }
 
-    if (h_here <= 0.0) {
-        h = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        u = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        v = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    }
-
     textureStore(txH, idx, h);
     textureStore(txU, idx, u);
     textureStore(txV, idx, v);
-    textureStore(txC, idx, c);
+    textureStore(txC, idx, c);  //move this output texture to BC call, and keep the C calcs here
 
 }
 

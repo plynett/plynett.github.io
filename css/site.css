@@ -11,6 +11,12 @@ body, html {
     height: 100%;
 }
 
+#renderCanvas {
+    display: block;
+    width: 90%;
+    height: 100%;
+}
+
 /* This class will be added to the canvas when it's in full-screen */
 .fullscreen {
     width: 100%;

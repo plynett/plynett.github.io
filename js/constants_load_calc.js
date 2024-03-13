@@ -145,7 +145,8 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.one_over_d2y = calc_constants.one_over_dy * calc_constants.one_over_dy;
     calc_constants.one_over_d3y = calc_constants.one_over_d2y * calc_constants.one_over_dy;
     calc_constants.one_over_dxdy = calc_constants.one_over_dx * calc_constants.one_over_dy;
-    calc_constants.epsilon = Math.pow(calc_constants.base_depth / 1000.0, 2);
+    calc_constants.delta = calc_constants.base_depth / 1000.0;
+    calc_constants.epsilon = Math.pow(calc_constants.delta, 2);
     calc_constants.PI = Math.PI;
     calc_constants.boundary_epsilon = calc_constants.epsilon;
     calc_constants.boundary_nx = calc_constants.WIDTH - 1;
@@ -174,10 +175,22 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.elapsedTime = 0.0;
     calc_constants.changeRadius = 50. * calc_constants.dx;
     calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
-    
+
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
-    canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // widht needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+    canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
     canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
+
+    // colorbar properties
+    calc_constants.CB_show = 1; // show colorbar when = 1 
+    calc_constants.CB_xbuffer_uv = 0.01;  // 1% width buffer on either side of colorbar area
+    calc_constants.CB_xstart_uv = 0.05;  // colorbar starts at 5% of width
+    calc_constants.CB_width_uv = 1.0 - 2.0 * calc_constants.CB_xstart_uv;  // 4% width buffer on either side of colorbar area
+    calc_constants.CB_xbuffer = Math.floor(canvas.width*calc_constants.CB_xbuffer_uv);  // 1% width buffer on either side of colorbar area
+    calc_constants.CB_xstart = Math.floor(canvas.width*calc_constants.CB_xstart_uv)+1;  // colorbar starts at 5% of width
+    calc_constants.CB_width = Math.floor(canvas.width*calc_constants.CB_width_uv)-1;  // 4% width buffer on either side of colorbar area
+    calc_constants.CB_ystart = 30;  // colorbar starts at pixel 30 - this is where the tick marks will be plotted
+    calc_constants.CB_label_height = 10; // pixel index to place colorbar label
+        
 
     console.log("Simulation parameters set.");
 }
