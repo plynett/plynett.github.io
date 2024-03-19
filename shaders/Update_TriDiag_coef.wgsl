@@ -27,7 +27,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let upIdx = idx + vec2<i32>(0, 1);
 
     let d_here = -textureLoad(txBottom, idx, 0).z;
-    let near_dry = textureLoad(txBottom, idx, 0).w;
+    let near_dry = d_here; //textureLoad(txBottom, idx, 0).w;
 
     var a = 0.0;
     var b = 1.0;
@@ -35,7 +35,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // X-coefs
     var coefx = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    if (idx.x <= 2 || idx.x >= width - 3 || near_dry < 0) {
+    if (idx.x <= 2 || idx.x >= width - 3 || near_dry < 0.0) {
         a = 0.0;
         b = 1.0;
         c = 0.0;
@@ -57,7 +57,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Y-coefs
     var coefy = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    if (idx.y <= 2 || idx.y >= height - 3 || near_dry < 0) {
+    if (idx.y <= 2 || idx.y >= height - 3 || near_dry < 0.0) {
         a = 0.0;
         b = 1.0;
         c = 0.0;

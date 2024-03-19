@@ -25,8 +25,10 @@ struct Globals {
 @group(0) @binding(1) var txState: texture_2d<f32>;
 @group(0) @binding(2) var txBottom: texture_2d<f32>;
 @group(0) @binding(3) var txWaves: texture_2d<f32>;
+@group(0) @binding(4) var txState_Sed: texture_2d<f32>;
 
-@group(0) @binding(4) var txNewState: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(5) var txNewState: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(6) var txNewState_Sed: texture_storage_2d<rgba32float, write>;
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let shift = 4;
@@ -117,6 +119,9 @@ fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx: vec2<i32> = vec2<i32>(i32(id.x), i32(id.y));
     var BCState: vec4<f32> = textureLoad(txState, idx, 0);
+    var BCState_Sed: vec4<f32> = textureLoad(txState_Sed, idx, 0);
+    let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    BCState_Sed = max(BCState_Sed,zero);  // concentration can not go negative
     
     // Sponge Layers
     // west boundary
@@ -269,14 +274,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (sum_dry == 0) {  // freeze single point wet areas
             if (B_here <= 0.0) {
                 BCState = vec4<f32>(max(BCState.x,B_here), 0.0, 0.0, 0.0);
+                BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             }
             else {
                 BCState = vec4<f32>(B_here, 0.0, 0.0, 0.0);
+                BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             }
         }
         else if (sum_dry == 1) {  // freeze end of single grid channel, with free surface gradient equal to zero
             let wet_eta = (f32(dry_west)*eta_west + f32(dry_east)*eta_east + f32(dry_south)*eta_south + f32(dry_north)*eta_north) / f32(sum_dry);
             BCState = vec4<f32>(wet_eta, 0.0, 0.0, 0.0);
+            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         }
     }
 
@@ -289,7 +297,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             else {
                 BCState = vec4<f32>(B_here, 0.0, 0.0, 0.0);
             }
+            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }
 
     textureStore(txNewState, idx, BCState);
+    textureStore(txNewState_Sed, idx, BCState_Sed);
 }

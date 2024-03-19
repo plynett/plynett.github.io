@@ -68,7 +68,7 @@ export async function readTextureData(device, src_texture, channel) {
 
 export async function downloadTextureData(device, texture, channel) {
     // Read data from the texture
-    const data = await readTextureData(device, texture, channel);
+    const data = await readTextureData(device, texture, channel);  //copies texture to buffer, then copies buffer to data, which is a Float32Array(WIDTH * HEIGHT);
 
     // Create a Blob from the data
     const blob = new Blob([data.buffer], { type: 'application/octet-stream' }); // or another MIME type as appropriate
@@ -84,6 +84,40 @@ export async function downloadTextureData(device, texture, channel) {
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
 }
+
+
+// geotiff writer
+export async function downloadGeoTiffData(device, texture, channel,dx,dy) {
+  // Assuming readTextureData returns an array or typed array of values
+  const data = await readTextureData(device, texture, channel,dx,dy); // This should be compatible with the values expected by writeArrayBuffer
+
+  // Metadata: adjust these values to match your specific geospatial context
+  const metadata = {
+    GeographicTypeGeoKey: 4326, // Example: WGS84
+    height: texture.height, // Number of rows in your data
+    ModelPixelScale: [dx, dy, 0.0], // Adjust these values
+    ModelTiepoint: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // Adjust these values
+    width: texture.width // Number of columns in your data
+  };
+
+  // Convert your data to an ArrayBuffer using writeArrayBuffer
+  const arrayBuffer = await GeoTIFF.writeArrayBuffer(data, metadata);
+
+  // Create a Blob from the ArrayBuffer
+  const blob = new Blob([arrayBuffer], { type: 'image/tiff' });
+
+  // Download the Blob as a GeoTIFF file
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'textureData.tiff'; // Specifying .tiff extension for GeoTIFF
+  document.body.appendChild(a);
+  a.click();
+
+  // Clean up
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
 
 
 export function downloadObjectAsFile(obj) {

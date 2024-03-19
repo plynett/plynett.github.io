@@ -89,25 +89,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         dH = calc_dH(f,H,B_here.y);
         B_here.y = max(min_val,B_here.y + dH);
 
-        // update neardry
-        let lengthCheck = 3;    // check within three points
-        for (var yy = idx.y - lengthCheck; yy <= idx.y + lengthCheck; yy += 1) 
-        {
-            for (var xx = idx.x - lengthCheck; xx <= idx.x + lengthCheck; xx += 1) 
-            {
-                let xC = min(globals.width - 1, max(0, xx));
-                let yC = min(globals.height - 1, max(0, yy));
-
-                let idx_C = vec2<i32>(xC, yC);
-                let bathy_C = textureLoad(txBottom, idx_C, 0).z;
-                if (bathy_C >= 0.) 
-                {
-                     B_here.w = -99.;
-                }
-                
-            }
-        }
-
     } else if (globals.surfaceToChange == 2) {   // friction 
         var f = calc_radial_function(xloc,yloc,xo,yo,k);
         var dH = calc_dH(f,H,B_here.x);

@@ -6,6 +6,7 @@ struct Globals {
     dx: f32,
     dy: f32,
     delta: f32,
+    useSedTransModel: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -20,6 +21,13 @@ struct Globals {
 @group(0) @binding(7) var txXFlux: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(8) var txYFlux: texture_storage_2d<rgba32float, write>;
 
+@group(0) @binding(9) var txSed_C1: texture_2d<f32>;
+@group(0) @binding(10) var txSed_C2: texture_2d<f32>;
+@group(0) @binding(11) var txSed_C3: texture_2d<f32>;
+@group(0) @binding(12) var txSed_C4: texture_2d<f32>;
+
+@group(0) @binding(13) var txXFlux_Sed: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(14) var txYFlux_Sed: texture_storage_2d<rgba32float, write>;
 
 fn NumericalFlux(aplus: f32, aminus: f32, Fplus: f32, Fminus: f32, Udifference: f32) -> f32 {
     if (aplus - aminus != 0.0) {
@@ -103,10 +111,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (minH <= globals.delta) {
         mass_diff_x = 0.0;
         mass_diff_y = 0.0;
-//        P_diff_x = 0.0;
-//        P_diff_y = 0.0;
-//        Q_diff_x = 0.0;
-//        Q_diff_y = 0.0;
         phix = 1.0;
         phiy = 1.0;
     }
@@ -127,4 +131,40 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     textureStore(txXFlux, idx, xflux);
     textureStore(txYFlux, idx, yflux);
+
+    if(globals.useSedTransModel == 1){
+        // Sediment transport code
+        let c1_here = textureLoad(txSed_C1, idx, 0).xy;
+        let c1W_east = textureLoad(txSed_C1, rightIdx, 0).w;
+        let c1S_north = textureLoad(txSed_C1, upIdx, 0).z;
+
+        let c2_here = textureLoad(txSed_C2, idx, 0).xy;
+        let c2W_east = textureLoad(txSed_C2, rightIdx, 0).w;
+        let c2S_north = textureLoad(txSed_C2, upIdx, 0).z;
+
+        let c3_here = textureLoad(txSed_C3, idx, 0).xy;
+        let c3W_east = textureLoad(txSed_C3, rightIdx, 0).w;
+        let c3S_north = textureLoad(txSed_C3, upIdx, 0).z;
+
+        let c4_here = textureLoad(txSed_C4, idx, 0).xy;
+        let c4W_east = textureLoad(txSed_C4, rightIdx, 0).w;
+        let c4S_north = textureLoad(txSed_C4, upIdx, 0).z;
+
+        let xflux_Sed = vec4<f32>(
+            NumericalFlux(aplus, aminus, hW_east * uW_east * c1W_east, h_here.y * u_here.y * c1_here.y, phix * (hW_east * c1W_east - h_here.y * c1_here.y)),
+            NumericalFlux(aplus, aminus, hW_east * uW_east * c2W_east, h_here.y * u_here.y * c2_here.y, phix * (hW_east * c2W_east - h_here.y * c2_here.y)),
+            NumericalFlux(aplus, aminus, hW_east * uW_east * c3W_east, h_here.y * u_here.y * c3_here.y, phix * (hW_east * c3W_east - h_here.y * c3_here.y)),
+            NumericalFlux(aplus, aminus, hW_east * uW_east * c4W_east, h_here.y * u_here.y * c4_here.y, phix * (hW_east * c4W_east - h_here.y * c4_here.y))
+        );
+            
+        let yflux_Sed = vec4<f32>(
+            NumericalFlux(bplus, bminus, hS_north * c1S_north * vS_north, h_here.x * c1_here.x * v_here.x, phiy * (hS_north * c1S_north - h_here.x * c1_here.x)),
+            NumericalFlux(bplus, bminus, hS_north * c2S_north * vS_north, h_here.x * c2_here.x * v_here.x, phiy * (hS_north * c2S_north - h_here.x * c2_here.x)),
+            NumericalFlux(bplus, bminus, hS_north * c3S_north * vS_north, h_here.x * c3_here.x * v_here.x, phiy * (hS_north * c3S_north - h_here.x * c3_here.x)),
+            NumericalFlux(bplus, bminus, hS_north * c4S_north * vS_north, h_here.x * c4_here.x * v_here.x, phiy * (hS_north * c4S_north - h_here.x * c4_here.x))
+        );
+
+        textureStore(txXFlux_Sed, idx, xflux_Sed);
+        textureStore(txYFlux_Sed, idx, yflux_Sed);
+    }
 }

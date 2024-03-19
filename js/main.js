@@ -1,17 +1,21 @@
 ﻿// import source files
 import { calc_constants, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
 import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset } from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData } from './File_Writer.js';  // load depth surface and wave data file
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData, downloadGeoTiffData } from './File_Writer.js';  // load depth surface and wave data file
 import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar } from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
+import { create_SedTrans_Pass1_BindGroupLayout, create_SedTrans_Pass1_BindGroup } from './Handler_SedTrans_Pass1.js';  // group bindings for SedTrans_Pass1 shaders
 import { create_Pass2_BindGroupLayout, create_Pass2_BindGroup } from './Handler_Pass2.js';  // group bindings for Pass2 shaders
 import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup } from './Handler_Pass3.js';  // group bindings for Pass3 shaders
+import { create_SedTrans_Pass3_BindGroupLayout, create_SedTrans_Pass3_BindGroup } from './Handler_SedTrans_Pass3.js';  // group bindings for SedTrans_Pass3 shaders
 import { create_BoundaryPass_BindGroupLayout, create_BoundaryPass_BindGroup } from './Handler_BoundaryPass.js';  // group bindings for BoundaryPass shaders
 import { create_Tridiag_BindGroupLayout, create_Tridiag_BindGroup } from './Handler_Tridiag.js';  // group bindings for Tridiag X and Y shaders
 import { create_UpdateTrid_BindGroupLayout, create_UpdateTrid_BindGroup } from './Handler_UpdateTrid.js';  // group bindings for updating tridiag coef shader
+import { create_SedTrans_UpdateBottom_BindGroupLayout, create_SedTrans_UpdateBottom_BindGroup } from './Handler_SedTrans_UpdateBottom.js';  // group bindings for updating bottom ddue to sed transort model
+import { create_Updateneardry_BindGroupLayout, create_Updateneardry_BindGroup } from './Handler_Updateneardry.js';  // group bindings for updating neardry values
 import { create_CalcMeans_BindGroupLayout, create_CalcMeans_BindGroup } from './Handler_CalcMeans.js';  // group bindings for shader that calculates running means of state variables
 import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup } from './Handler_CalcWaveHeight.js';  // group bindings for shader that calculates running means of state variables
 import { create_AddDisturbance_BindGroupLayout, create_AddDisturbance_BindGroup } from './Handler_AddDisturbance.js';  // group bindings for adding a landslide or tsunami impulsive source
@@ -19,8 +23,7 @@ import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGr
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
-import { displayCalcConstants } from './display_parameters.js';  // starting point for display of simulation parameters
-
+import { displayCalcConstants, displaySimStatus } from './display_parameters.js';  // starting point for display of simulation parameters
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
@@ -104,11 +107,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Create buffers for storing uniform data. This buffer will be used to send parameter data to shaders.
     const Pass0_uniformBuffer = createUniformBuffer(device);
     const Pass1_uniformBuffer = createUniformBuffer(device);
+    const SedTrans_Pass1_uniformBuffer = createUniformBuffer(device);
     const Pass2_uniformBuffer = createUniformBuffer(device);
     const Pass3_uniformBuffer = createUniformBuffer(device);
+    const SedTrans_Pass3_uniformBuffer = createUniformBuffer(device);
+    const SedTrans_UpdateBottom_uniformBuffer = createUniformBuffer(device);
     const BoundaryPass_uniformBuffer = createUniformBuffer(device);
     const TridiagX_uniformBuffer = createUniformBuffer(device);
     const TridiagY_uniformBuffer = createUniformBuffer(device);
+    const Updateneardry_uniformBuffer = createUniformBuffer(device);
     const UpdateTrid_uniformBuffer = createUniformBuffer(device);
     const CalcMeans_uniformBuffer = createUniformBuffer(device);
     const CalcWaveHeight_uniformBuffer = createUniformBuffer(device);
@@ -128,6 +135,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores information about the bathy/topo
     const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) "state", or eta, P, Q, and c
     const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the next (n+1) "state"
+    const txState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) "state", or eta, P, Q, and c
+    const txNewState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the next (n+1) "state"
     const txstateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) bous-grouped state, or eta, U, V, and c
     const current_stateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // next bous-grouped state
     const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of H
@@ -135,17 +144,33 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of v
     const txHnear = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of w (eta) - currrently not used
     const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
-    const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores bottom friction info
+    const txSed_C1 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
+    const txSed_C2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
+    const txSed_C3 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
+    const txSed_C4 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
+    const erosion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // local erosion for all class "e"
+    const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // local depostion for all class "d"
+    const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cumulative bottom elevation change
+    const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores bottom friction info   
     const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores passive tracer source map
     const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores x-flux values along cell edges
     const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores y-flux values along cell edges
+    const txXFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores x-flux values along cell edges
+    const txYFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores y-flux values along cell edges
     const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values found in the predictor step
     const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values at previous time step
     const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values from two time steps ago
+    const predictedGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values found in the predictor step
+    const oldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values at previous time step
+    const oldOldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values from two time steps ago
     const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores F*, G* (bous only) found in predictor step
     const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT); // stores F*, G* (bous only) found at previous time step
     const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT); // stores F*, G* (bous only) found from two time steps ago
+    const txtemp_bottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
     const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
+    const txtemp_boundary_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
+    const txtemp_SedTrans_Botttom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for bottom update
+    const txtemp_SedTrans_Change = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for bottom update
     const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
     const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR y-dir
     const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
@@ -157,6 +182,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // PCR reduced tridiagonal coefficients for x-dir (bous only) 
     const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // PCR reduced tridiagonal coefficients for y-dir (bous only) 
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values output from Pass3 calls
+    const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values output from Pass3 calls
     const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores ship pressure - not used in WebGPU yet
     const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores various mean values
     const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -250,9 +276,27 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
     Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
 
+    //  SedTrans_Pass1 Bindings & Uniforms Config
+    const SedTrans_Pass1_BindGroupLayout = create_SedTrans_Pass1_BindGroupLayout(device);
+    const SedTrans_Pass1_BindGroup = create_SedTrans_Pass1_BindGroup(device, SedTrans_Pass1_uniformBuffer, txState_Sed, txBottom, txH, txSed_C1, txSed_C2, txSed_C3, txSed_C4);
+    const SedTrans_Pass1_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let SedTrans_Pass1_view = new DataView(SedTrans_Pass1_uniforms);
+    SedTrans_Pass1_view.setUint32(0, calc_constants.WIDTH, true);          // u32
+    SedTrans_Pass1_view.setUint32(4, calc_constants.HEIGHT, true);          // u32
+    SedTrans_Pass1_view.setFloat32(8, calc_constants.one_over_dx, true);             // f32
+    SedTrans_Pass1_view.setFloat32(12, calc_constants.one_over_dy, true);       // f32
+    SedTrans_Pass1_view.setFloat32(16, calc_constants.dissipation_threshold, true);           // f32
+    SedTrans_Pass1_view.setFloat32(20, calc_constants.TWO_THETA, true);           // f32
+    SedTrans_Pass1_view.setFloat32(24, calc_constants.epsilon, true);       // f32
+    SedTrans_Pass1_view.setFloat32(28, calc_constants.whiteWaterDecayRate, true);           // f32
+    SedTrans_Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
+    SedTrans_Pass1_view.setFloat32(36, calc_constants.base_depth, true);       // f32
+    SedTrans_Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
+    SedTrans_Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+
     // Pass2 Bindings & Uniforms Config
     const Pass2_BindGroupLayout = create_Pass2_BindGroupLayout(device);
-    const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux);
+    const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux, txSed_C1, txSed_C2, txSed_C3, txSed_C4, txXFlux_Sed, txYFlux_Sed);
     const Pass2_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass2_view = new DataView(Pass2_uniforms);
     Pass2_view.setUint32(0, calc_constants.WIDTH, true);          // u32
@@ -262,6 +306,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass2_view.setFloat32(16, calc_constants.dx, true);           // f32
     Pass2_view.setFloat32(20, calc_constants.dy, true);           // f32
     Pass2_view.setFloat32(24, calc_constants.delta, true);           // f32
+    Pass2_view.setInt32(28, calc_constants.useSedTransModel, true);   //i32
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
@@ -296,10 +341,37 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
     Pass3_view.setFloat32(104, calc_constants.delta, true);           // f32
 
+    // SedTrans_Pass3 Bindings & Uniforms Config
+    const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
+    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed);
+    const SedTrans_Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let SedTrans_Pass3_view = new DataView(SedTrans_Pass3_uniforms);
+    SedTrans_Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
+    SedTrans_Pass3_view.setInt32(4, calc_constants.HEIGHT, true);          // u32
+    SedTrans_Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
+    SedTrans_Pass3_view.setFloat32(12, calc_constants.dx, true);       // f32
+    SedTrans_Pass3_view.setFloat32(16, calc_constants.dy, true);           // f32
+    SedTrans_Pass3_view.setFloat32(20, calc_constants.one_over_dx, true);           // f32
+    SedTrans_Pass3_view.setFloat32(24, calc_constants.one_over_dy, true);       // f32
+    SedTrans_Pass3_view.setInt32(28, calc_constants.timeScheme, true);       // f32
+    SedTrans_Pass3_view.setInt32(32, calc_constants.pred_or_corrector, true);       // i32
+    SedTrans_Pass3_view.setFloat32(36, calc_constants.one_over_d2x, true);       // f32
+    SedTrans_Pass3_view.setFloat32(40, calc_constants.one_over_d2y, true);           // f32
+    SedTrans_Pass3_view.setFloat32(44, calc_constants.one_over_dxdy, true);           // f32
+    SedTrans_Pass3_view.setFloat32(48, calc_constants.epsilon, true);           // f32
+    SedTrans_Pass3_view.setInt32(52, calc_constants.isManning, true);       // i32
+    SedTrans_Pass3_view.setFloat32(56, calc_constants.friction, true);       // f32
+    SedTrans_Pass3_view.setFloat32(60, calc_constants.sedC1_shields, true);           // f32
+    SedTrans_Pass3_view.setFloat32(64, calc_constants.sedC1_criticalshields, true);           // f32
+    SedTrans_Pass3_view.setFloat32(68, calc_constants.sedC1_erosion, true);           // f32
+    SedTrans_Pass3_view.setFloat32(72, calc_constants.sedC1_n, true);           // f32
+    SedTrans_Pass3_view.setFloat32(76, calc_constants.sedC1_fallvel, true);           // f32
+
+
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
-    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp_boundary);
-    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txtemp_boundary);
+    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed);
+    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed);
     const BoundaryPass_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
     BoundaryPass_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -342,6 +414,29 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     TridiagY_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
     TridiagY_view.setInt32(8, calc_constants.Py, true);             // i32, holds "p"
     TridiagY_view.setInt32(12, 1, true);            // i32, hols "s"
+
+    // SedTrans_UpdateBottom -  Bindings & Uniforms Config
+    const SedTrans_UpdateBottom_BindGroupLayout = create_SedTrans_UpdateBottom_BindGroupLayout(device);
+    const SedTrans_UpdateBottom_BindGroup = create_SedTrans_UpdateBottom_BindGroup(device, SedTrans_UpdateBottom_uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change);
+    const SedTrans_UpdateBottom_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let SedTrans_UpdateBottom_view = new DataView(SedTrans_UpdateBottom_uniforms);
+    SedTrans_UpdateBottom_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    SedTrans_UpdateBottom_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
+    SedTrans_UpdateBottom_view.setFloat32(8, calc_constants.dt, true);             // f32
+    SedTrans_UpdateBottom_view.setFloat32(12, calc_constants.dx, true);       // f32
+    SedTrans_UpdateBottom_view.setFloat32(16, calc_constants.dy, true);           // f32
+    SedTrans_UpdateBottom_view.setFloat32(20, calc_constants.base_depth, true);             // f32  
+    SedTrans_UpdateBottom_view.setInt32(24, calc_constants.timeScheme, true);       // f32
+    SedTrans_UpdateBottom_view.setInt32(28, calc_constants.pred_or_corrector, true);       // i32
+    SedTrans_UpdateBottom_view.setFloat32(32, calc_constants.sedC1_n, true);           // f32
+
+    // Updateneardry -  Bindings & Uniforms Config
+    const Updateneardry_BindGroupLayout = create_Updateneardry_BindGroupLayout(device);
+    const Updateneardry_BindGroup = create_Updateneardry_BindGroup(device, Updateneardry_uniformBuffer, txBottom, txtemp_bottom);
+    const Updateneardry_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
+    let Updateneardry_view = new DataView(Updateneardry_uniforms);
+    Updateneardry_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    Updateneardry_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
 
     // UpdateTrid -  Bindings & Uniforms Config
     const UpdateTrid_BindGroupLayout = create_UpdateTrid_BindGroupLayout(device);
@@ -406,7 +501,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, txDraw, textureSampler);
+    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler);
     const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -440,12 +535,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
     const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
+    const SedTrans_Pass1_ShaderCode = await fetchShader('/shaders/SedTrans_Pass1.wgsl');
     const Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');
     const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
     const Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
+    const SedTrans_Pass3_ShaderCode = await fetchShader('/shaders/SedTrans_Pass3.wgsl')
     const BoundaryPass_ShaderCode = await fetchShader('/shaders/BoundaryPass.wgsl');
     const TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
     const TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
+    const SedTrans_UpdateBottom_ShaderCode = await fetchShader('/shaders/SedTrans_UpdateBottom.wgsl');
+    const Updateneardry_ShaderCode = await fetchShader('/shaders/Update_neardry.wgsl');
     const UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
     const CalcMeans_ShaderCode = await fetchShader('/shaders/CalcMeans.wgsl');
     const CalcWaveHeight_ShaderCode = await fetchShader('/shaders/CalcWaveHeight.wgsl');
@@ -459,12 +558,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Configure the pipelines, one for each shader.
     const Pass0_Pipeline = createComputePipeline(device, Pass0_ShaderCode, Pass0_BindGroupLayout);
     const Pass1_Pipeline = createComputePipeline(device, Pass1_ShaderCode, Pass1_BindGroupLayout);
+    const SedTrans_Pass1_Pipeline = createComputePipeline(device, SedTrans_Pass1_ShaderCode, SedTrans_Pass1_BindGroupLayout);
     const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout);
     const Pass3_Pipeline_NLSW = createComputePipeline(device, Pass3_ShaderCode_NLSW, Pass3_BindGroupLayout);
     const Pass3_Pipeline_Bous = createComputePipeline(device, Pass3_ShaderCode_Bous, Pass3_BindGroupLayout);
+    const SedTrans_Pass3_Pipeline = createComputePipeline(device, SedTrans_Pass3_ShaderCode, SedTrans_Pass3_BindGroupLayout);
     const BoundaryPass_Pipeline = createComputePipeline(device, BoundaryPass_ShaderCode, BoundaryPass_BindGroupLayout);
     const TridiagX_Pipeline = createComputePipeline(device, TridiagX_ShaderCode, TridiagX_BindGroupLayout);
     const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout);
+    const SedTrans_UpdateBottom_Pipeline = createComputePipeline(device, SedTrans_UpdateBottom_ShaderCode, SedTrans_UpdateBottom_BindGroupLayout);
+    const Updateneardry_Pipeline = createComputePipeline(device, Updateneardry_ShaderCode, Updateneardry_BindGroupLayout);
     const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout);
     const CalcMeans_Pipeline = createComputePipeline(device, CalcMeans_ShaderCode, CalcMeans_BindGroupLayout);
     const CalcWaveHeight_Pipeline = createComputePipeline(device, CalcWaveHeight_ShaderCode, CalcWaveHeight_BindGroupLayout);
@@ -588,6 +691,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // executing repeatedly to update simulation state and render the results.
 
     var startTime = new Date();  // This captures the current time, or the time at the start of rendering
+    var startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
 
     function frame() {
 
@@ -655,8 +759,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
             calc_constants.render_step = Math.round(calc_constants.render_step);
 
+            calc_constants.sedC1_erosion = calc_constants.sedC1_psi*Math.pow(calc_constants.sedC1_d50/1000.,-0.2);
+            calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * 9.81 * calc_constants.sedC1_d50/1000.);
+            let fall_vel_a = 4.0 / 3.0 * 9.81 * calc_constants.sedC1_d50/1000. / 0.2 * (calc_constants.sedC1_denrat - 1.0); 
+            calc_constants.sedC1_fallvel = Math.pow(fall_vel_a, 0.5);            
+
             Pass1_view.setFloat32(20, calc_constants.TWO_THETA, true);           // f32
             Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
+            SedTrans_Pass1_view.setFloat32(20, calc_constants.TWO_THETA, true);           // f32
+            SedTrans_Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
+            Pass2_view.setInt32(28, calc_constants.useSedTransModel, true);   //i32
             Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
             Pass3_view.setUint32(36, calc_constants.timeScheme, true);       // f32
             Pass3_view.setUint32(44, calc_constants.isManning, true);           // f32
@@ -665,6 +777,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Pass3_view.setFloat32(92, calc_constants.dissipation_threshold, true);           // f32
             Pass3_view.setFloat32(96, calc_constants.whiteWaterDecayRate, true);           // f32
             Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
+            SedTrans_Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
+            SedTrans_Pass3_view.setInt32(28, calc_constants.timeScheme, true);       // f32
+            SedTrans_Pass3_view.setInt32(52, calc_constants.isManning, true);       // i32
+            SedTrans_Pass3_view.setFloat32(56, calc_constants.friction, true);       // f32
+            SedTrans_Pass3_view.setFloat32(60, calc_constants.sedC1_shields, true);           // f32
+            SedTrans_Pass3_view.setFloat32(64, calc_constants.sedC1_criticalshields, true);           // f32
+            SedTrans_Pass3_view.setFloat32(68, calc_constants.sedC1_erosion, true);           // f32
+            SedTrans_Pass3_view.setFloat32(72, calc_constants.sedC1_n, true);           // f32
+            SedTrans_Pass3_view.setFloat32(76, calc_constants.sedC1_fallvel, true);           // f32
 
             if(calc_constants.clearConc == 1){  // remove all passive tracer sources when changing overlay
                 runCopyTextures(device, commandEncoder, calc_constants, txzeros, txContSource)
@@ -697,7 +818,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
             }
 
-            startTime = new Date();  // This captures the current time, or the time at the start of rendering
+            startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
             frame_count_since_http_update = 0;
 
             calc_constants.html_update = -1;
@@ -718,7 +839,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
                     if (calc_constants.NLSW_or_Bous > 0) {
-                        console.log('Updating tridiag coef due to change in depth')
+                        console.log('Updating neardry & tridiag coef due to change in depth')
+                        runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                         runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                     }
                 } else if(calc_constants.surfaceToChange == 2){  //when changing friction
@@ -755,14 +878,25 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 frame_count += 1;
                 frame_count_since_http_update += 1;
 
-                total_time = frame_count * calc_constants.dt;  //simulation time
+                total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
                 
+                runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
+                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+   
+
+
                 // Pass0
                 runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                 // Pass1
                 runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+
+                // SedTrans_Pass1
+                if(calc_constants.useSedTransModel == 1){
+                    runComputeShader(device, commandEncoder, SedTrans_Pass1_uniformBuffer, SedTrans_Pass1_uniforms, SedTrans_Pass1_Pipeline, SedTrans_Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                }
 
                 // Pass2
                 runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -776,15 +910,23 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 else { //NLSW
                     runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 }
-
                 // put DuDt from predictor into predicted gradients
                 runCopyTextures(device, commandEncoder, calc_constants, dU_by_dt, predictedGradients)
+
+                // SedTrans Pass3
+                if(calc_constants.useSedTransModel == 1){
+                    runComputeShader(device, commandEncoder, SedTrans_Pass3_uniformBuffer, SedTrans_Pass3_uniforms, SedTrans_Pass3_Pipeline, SedTrans_Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runCopyTextures(device, commandEncoder, calc_constants, dU_by_dt_Sed, predictedGradients_Sed)
+                }
 
                 // BoundaryPass
                 BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
                 runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 // updated texture is stored in txtemp_boundary, but back into current_stateUVstar
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
+                if(calc_constants.useSedTransModel == 1){
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
+                }   
 
                 //Tridiag Solver for Bous, or copy for NLSW
                 runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -796,26 +938,32 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
                 if (calc_constants.NLSW_or_Bous > 0) { //BOUS
                     runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
-                    // updated texture is stored in txtemp, but back into txNewState
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
                 }
+                // updated texture is stored in txtemp, but back into txNewState - this needs to be done for both NLSW and Bous.  Even though these are the same in NLSW, some passes use State, and these must be updated with bc's
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
 
                 // Shift back FG textures - only have to do this for Bous, and only after predictor step
                 runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
                 runCopyTextures(device, commandEncoder, calc_constants, predictedF_G_star, F_G_star_oldGradients)
 
-                total_time = (frame_count + 1) * calc_constants.dt;  // boundary needs to be applied at time level n+1, since this is done on predicted values
-
                 if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
                 {
                     // put txNewState into txState for the corrector equation, so gradients use the predicted values
                     runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
+                    if(calc_constants.useSedTransModel == 1){
+                        runCopyTextures(device, commandEncoder, calc_constants, txNewState_Sed, txState_Sed)
+                    }                       
 
                     // Pass0
                     runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                     // Pass1
                     runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+
+                    // SedTrans_Pass1
+                    if(calc_constants.useSedTransModel == 1){
+                        runComputeShader(device, commandEncoder, SedTrans_Pass1_uniformBuffer, SedTrans_Pass1_uniforms, SedTrans_Pass1_Pipeline, SedTrans_Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    }
 
                     // Pass2
                     runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -830,11 +978,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                         runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     }
 
+                    // SedTrans Pass3
+                    if(calc_constants.useSedTransModel == 1){
+                        runComputeShader(device, commandEncoder, SedTrans_Pass3_uniformBuffer, SedTrans_Pass3_uniforms, SedTrans_Pass3_Pipeline, SedTrans_Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    }
+
                     // BoundaryPass
-                    BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
                     runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     // updated texture is stored in txtemp, but back into current_stateUVstar
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
+                    if(calc_constants.useSedTransModel == 1){
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
+                    }                    
 
                     //Tridiag Solver for Bous, or copy for NLSW
                     runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -846,8 +1001,21 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
                     if (calc_constants.NLSW_or_Bous > 0) { //BOUS
                         runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
-                        // updated texture is stored in txtemp, but back into txNewState
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
+                    }
+                    // updated texture is stored in txtemp, but back into txNewState - this needs to be done for both NLSW and Bous.  Even though these are the same in NLSW, some passes use State, and these must be updated with bc's
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
+                }
+
+                // Update Bottom from Sed Transport
+                if(calc_constants.useSedTransModel == 1){
+                    runComputeShader(device, commandEncoder, SedTrans_UpdateBottom_uniformBuffer, SedTrans_UpdateBottom_uniforms, SedTrans_UpdateBottom_Pipeline, SedTrans_UpdateBottom_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Botttom, txBottom)
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Change, txBotChange_Sed)
+                    if (calc_constants.NLSW_or_Bous > 0) {
+                     //   console.log('Updating neardry & tridiag coef sediment transport depth change')
+                        runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
+                        runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                     }
                 }
 
@@ -869,6 +1037,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // Copy future_ocean_texture back to ocean_texture
                 runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
                 runCopyTextures(device, commandEncoder, calc_constants, current_stateUVstar, txstateUVstar)
+
+                // shift/Copy SedTrans
+                if(calc_constants.useSedTransModel == 1){
+                    runCopyTextures(device, commandEncoder, calc_constants, oldGradients_Sed, oldOldGradients_Sed)
+                    runCopyTextures(device, commandEncoder, calc_constants, predictedGradients_Sed, oldGradients_Sed)
+                    runCopyTextures(device, commandEncoder, calc_constants, txNewState_Sed, txState_Sed)
+                }
             }
         }
 
@@ -943,6 +1118,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // determine elapsed time
         const now = new Date();
         calc_constants.elapsedTime = (now - startTime) / 1000;
+        calc_constants.elapsedTime_update = (now - startTime_update) / 1000;
 
         // Update the output texture
         runCopyTextures(device, commandEncoder, calc_constants, txNewState, txSaveOut)
@@ -952,6 +1128,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
 
         displayCalcConstants(calc_constants, total_time_since_http_update);
+        displaySimStatus(calc_constants, total_time, total_time_since_http_update);
     }
 
 
@@ -1185,7 +1362,14 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'changeAmplitude-button', input: 'changeAmplitude-input', property: 'changeAmplitude' },
         { id: 'changeRadius-button', input: 'changeRadius-input', property: 'changeRadius' },
         { id: 'render_step-button', input: 'render_step-input', property: 'render_step' },
-    ];
+        { id: 'sedC1_d50-button', input: 'sedC1_d50-input', property: 'sedC1_d50' },
+        { id: 'sedC1_n-button', input: 'sedC1_n-input', property: 'sedC1_n' },
+        { id: 'sedC1_psi-button', input: 'sedC1_psi-input', property: 'sedC1_psi' },
+        { id: 'sedC1_criticalshields-button', input: 'sedC1_criticalshields-input', property: 'sedC1_criticalshields' },
+        { id: 'sedC1_denrat-button', input: 'sedC1_denrat-input', property: 'sedC1_denrat' },
+    ]; 
+
+    
 
     // Specify the inputs for the drop-down menus
     const button_dropdown_Actions = [
@@ -1203,6 +1387,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'viewType-select', property: 'viewType' },
         { input: 'surfaceToChange-select', property: 'surfaceToChange' },
         { input: 'changeType-select', property: 'changeType' },
+        { input: 'useSedTransModel-select', property: 'useSedTransModel' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -1264,6 +1449,40 @@ document.addEventListener('DOMContentLoaded', function () {
             calc_constants.canvas_height_ratio = 1.0; 
         }
     }
+
+
+    // function to minimize and expand the user input containers
+    const windows = document.querySelectorAll('.window-content');
+
+    windows.forEach(windowContent => {
+        const button = windowContent.previousElementSibling.querySelector('.minimize-button');
+        // Check for the data attribute and set the initial state
+        if (windowContent.getAttribute('data-default') === 'minimized') {
+            windowContent.style.display = 'none';
+            button.textContent = '+';
+        } else {
+            windowContent.style.display = 'block';
+            button.textContent = '-';
+        }
+
+        // The .window-content to toggle is the next sibling of the button's parent .window-header
+        button.addEventListener('click', function() {
+            if (windowContent.style.display === 'none') {
+                windowContent.style.display = 'block';
+                this.textContent = '-';
+            } else {
+                windowContent.style.display = 'none';
+                this.textContent = '+';
+            }
+        });
+    });
+
+
+
+
+
+    
+
 
     fullscreenButton.addEventListener('click', function () {
         if (!document.fullscreenElement) {
@@ -1359,6 +1578,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Download channel from txSaveOut Texture
     document.getElementById('downloadWaveElev-button').addEventListener('click', function () {
         downloadTextureData(device, txSaveOut, 1);  // last number is the channel 1 = .r, 2 = .g, etc.
+     //   downloadGeoTiffData(device, txSaveOut, 1, calc_constants.dx, calc_constants.dy);  // current implemntation does not allow writing of float32, only uint8
+     //  can update to write an RGB geotiff, but that doesnt seem too useful
     });
 
 

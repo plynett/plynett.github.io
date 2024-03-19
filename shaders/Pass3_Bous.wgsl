@@ -240,7 +240,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + (G_star - F_G_star_oldOldies.z) / globals.dt * 0.5;
     }
    
-    let friction_ = FrictionCalc(in_state_here.x, in_state_here.y, h_here);
+    let friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here);
 
     // Pressure stencil calculations
     let P_left = textureLoad(txShipPressure, leftIdx, 0).x;

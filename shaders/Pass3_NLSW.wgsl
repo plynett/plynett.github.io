@@ -129,7 +129,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var yflux_here = textureLoad(txYFlux, idx, 0);
     var yflux_south = textureLoad(txYFlux, downIdx, 0);
    
-    let friction_ = FrictionCalc(in_state_here.x, in_state_here.y, h_here);
+    let friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here);
 
     // Pressure stencil calculations
     let P_left = textureLoad(txShipPressure, leftIdx, 0).x;

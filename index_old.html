@@ -1,0 +1,472 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celeris-WebGPU</title>
+    <style>
+        /* Add internal CSS here (or you could link to an external stylesheet) */
+        #main-container {
+            width: 100vw; /* viewport width units make the container responsive to the full width of the screen */
+            height: 100vh; /* viewport height units make it responsive to the height of the screen */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            overflow: auto; /* Adds scroll if content overflows */
+        }
+
+        #webgpuCanvas {
+            /* Add any specific styles for your canvas */
+            width: 100%;
+            height: auto; /* Adjust based on your design */
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        #renderCanvas {
+            /* Add any specific styles for your canvas */
+            width: 90%;
+            height: auto; /* Adjust based on your design */
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        #horizontalbar {
+            margin-left: 20px;
+            margin-right: 20px;
+            width: 100%; /* Adjust based on your design and content */
+            display: flex;
+            flex-direction: row; /* stack the children vertically */
+        }
+
+        #constants-container, #mods-container, #downloads-container, #uploads-container {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-left: 20px;
+            margin-right: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            overflow-y: auto;
+            line-height: 0.7; /* This is a multiplier of the default line height. */
+        }
+
+        #uploads-container {
+            /* Additional specific styles for the controls container if needed */
+            line-height: 1.2; /* This is a multiplier of the default line height. */
+        }
+
+        #mods-container {
+            /* Additional specific styles for the controls container if needed */
+            line-height: 1.2; /* This is a multiplier of the default line height. */
+        }
+
+        #downloads-container {
+            /* Additional specific styles for the controls container if needed */
+            line-height: 1.2; /* This is a multiplier of the default line height. */
+        }
+
+        #constants-container {
+            /* Additional specific styles for the controls container if needed */
+            width: auto;
+        }
+
+        .custom-file-upload-button {
+            display: inline-block;
+            padding: 2px 2px;
+            cursor: pointer; /* the click hand cursor */
+            border: 1px solid #cccccc; /* typical button border color */
+            border-radius: 0px; /* slightly rounded corners */
+            text-align: center;
+            white-space: nowrap;
+            /*   background-color: darkgrey; /* typical light-gray button color */
+            /*   color: #333333; /* typical button text color */
+            font-size: 14px; /* match the font size of your buttons */
+            font-family: Arial, sans-serif;
+        }
+
+            .custom-file-upload-button:hover {
+                /*      background-color: dimgray; /* slightly darker background for hover */
+                border-color: #adadad; /* slightly darker border for hover */
+            }
+
+
+    </style>
+</head>
+<body>
+    <div id="main-container">
+
+        <div id="horizontalbar">
+            <div id="uploads-container">
+
+                <html4f><center>------- Start Here: Upload Simulation Parameters -------</center></html4f>
+                <br />
+                <html4f>
+                    Download Example Configurations <a href="https://www.dropbox.com/scl/fi/dgi9r9ufwz5kcfwef2z1h/Example_Configs.zip?rlkey=oqtu2q5b3lkhx8kngc8u7zdqy&dl=0" target="_blank" rel="noopener noreferrer">here</a>
+                </html4f>
+                <br />
+                <br />
+                <div>
+                    <input type="file" id="configFile" accept="application/json" style="display: none;" />
+                    <label for="configFile" class="custom-file-upload-button">
+                        Load JSON Config File
+                    </label>
+                    <br />
+                    <br />
+                    <input type="file" id="bathymetryFile" accept="application/txt" style="display: none;" />
+                    <label for="bathymetryFile" class="custom-file-upload-button">
+                        Load Bathymetry Data File
+                    </label>
+                    <br />
+                    <br />
+                    <input type="file" id="waveFile" accept="application/txt" style="display: none;" />
+                    <label for="waveFile" class="custom-file-upload-button">
+                        Load Wave [amp,period,dir] Data File
+                    </label>
+                    <br />
+                    <br />
+                    <button id="start-simulation-btn">Start Simulation</button>
+                    <br />
+                    <br />
+
+
+                    <!-- Updates go to calc_constants.simPause-->
+                    <label for="simPause-select">Pause / Resume Simulation:</label>
+                    <select id="simPause-select" name="simPauseValue">
+                        <option value="1">Pause</option>
+                        <option value="-1">Resume</option>
+                    </select>
+                    <br />
+                    <br />
+
+
+                    <!-- Restart simulation-->
+                    <button id="refresh-button">Reload or Load New Configuration</button>
+                    <br />
+                    <br />
+
+                    <!-- run example simulation using server-side configurations files-->
+                    <button id="run-example-simulation-btn">Run Example Simulation</button>
+                    <br />
+                    <br />
+
+
+                </div>
+
+            </div>
+
+            <div id="mods-container">
+
+                <html4f><center>------------ Modify Visualization ------------</center></html4f>
+                <br />
+                <!-- Updates go to calc_constants.surfaceToPlot-->
+                <label for="surfaceToPlot-select">Property to Plot:</label>
+                <select id="surfaceToPlot-select" name="surfaceToPlotValue">
+                    <option value="0">Free Surface Elevation (m)</option>
+                    <option value="6">Bathymetry/Topography (m)</option>
+                    <option value="15">Bottom Friction Map </option>
+                    <option value="1">Fluid Speed (m/s)</option>
+                    <option value="2">East-West (x) Velocity (m/s)</option>
+                    <option value="3">North-South (y) Velocity (m/s)</option>
+                    <option value="4">Total Vertical Vorticity (m/s)</option>
+                    <option value="5">Foam / Tracer Concentration</option>
+                    <option value="16">Max Free Surface Elev (m)</option>
+                    <option value="7">Mean Free Surface Elev (m)</option>
+                    <option value="8">Mean Fluid Flux [Magn] (m^2/s)</option>
+                    <option value="9">Mean Fluid Flux [E-W] (m^2/s)</option>
+                    <option value="10">Mean Fluid Flux [N-S] (m^2/s)</option>
+                 <!--     <option value="11">Mean Turb Intensity (m^2/s)</option> -->
+                    <option value="12">RMS Wave Height (m)</option>
+                    <option value="13">Significant Wave Height (m)</option>
+                    <option value="14">Difference from Baseline Hs (m) </option>
+                    <option value="17">Sediment Class 1 Concentration </option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.colorMap_choice-->
+                <label for="colorMap_choice-select">Colorbar Choices:</label>
+                <select id="colorMap_choice-select" name="colorMap_choiceValue">
+                    <option value="0">Ocean</option>
+                    <option value="1">Parula</option>
+                    <option value="2">Turbo</option>
+                    <option value="3">HSV</option>
+                    <option value="4">Gray</option>
+                    <option value="5">Pink</option>
+                    <option value="6">Bathy/Topo</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.colorVal_max-->
+                <label for="colorVal_max-input">Maximum Color Axis Value (in units of plotted property):</label>
+                <br />
+                <input type="number" id="colorVal_max-input" name="colorVal_maxValue">
+                <button id="colorVal_max-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.colorVal_min-->
+                <label for="colorVal_min-input">Minimum Color Axis Value (in units of plotted property):</label>
+                <br />
+                <input type="number" id="colorVal_min-input" name="colorVal_minValue">
+                <button id="colorVal_min-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.showBreaking-->
+                <label for="showBreaking-select">Transport Overlays:</label>
+                <select id="showBreaking-select" name="showBreakingValue">
+                    <option value="0">No Foam or Tracer</option>
+                    <option value="1">Show Areas of Foam</option>
+                    <option value="2">Passive Tracer Conc</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.GoogleMapOverlay-->
+                <label for="GoogleMapOverlay-select">Google Maps Image Overlay:</label>
+                <select id="GoogleMapOverlay-select" name="GoogleMapOverlayValue">
+                    <option value="0">No Overlay</option>
+                    <option value="1">Include Overlay</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.viewType-->
+                <label for="viewType-select">View Mode:</label>
+                <select id="viewType-select" name="viewTypeValue">
+                    <option value="1">Design - 2D plan-view, modify surfaces</option>
+                    <option value="2">Explorer - 2D plan-view, navigate scene</option>
+                    <option value="3">Drone - 3D view, fly-trough scene</option>
+                </select>
+                <br />
+                <br />
+                
+                <!-- Full Screen Canvas-->
+                <button id="fullscreen-button">View Simulation in Full Screen</button>
+                <br />
+                <br />
+
+            </div>
+            <div id="mods-container">
+
+                <html4f><center>--------- Modify Model Surface Data ---------</center></html4f>
+                <br />
+                <!-- Updates go to calc_constants.surfaceToChange-->
+                <label for="surfaceToChange-select">Property to Edit:</label>
+                <select id="surfaceToChange-select" name="surfaceToChangeValue">
+                    <option value="1">Bathymetry/Topography (m)</option>
+                    <option value="4">Ocean Surface Elevation</option>
+                    <option value="2">Bottom Friction</option>
+                    <option value="3">Passive Tracer Sources</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.changeType-->
+                <label for="changeType-select">Change Property Continuously or Set to Specific Value:</label>
+                <br />
+                <select id="changeType-select" name="changeTypeValue">
+                    <option value="1">Increase/Decrease on Click</option>
+                    <option value="2">Set to Value on Click</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.changeAmplitude-->
+                <label for="changeAmplitude-input">Amount of Property to Change-on-Click / Value to Set on Click:</label>
+                <br />
+                <input type="number" id="changeAmplitude-input" name="changeAmplitudeValue">
+                <button id="changeAmplitude-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.changeRadius-->
+                <label for="changeRadius-input">Lengthscale (m) of Change-on-Click :</label>
+                <br />
+                <input type="number" id="changeRadius-input" name="changeRadiusValue">
+                <button id="changeRadius-button" type="button">Update</button>
+                <br />
+                <br />
+
+
+            </div>
+
+            <div id="downloads-container">
+
+                <html4f><center>------------ Model Data and Output ------------</center></html4f>
+                <br />
+                 <!-- save baseline wave height -->
+                <button id="save-baseline-texture-btn">Store Baseline Wave Height Surface in Memory</button>
+                <br />
+                <br />
+
+                <!-- reset mean textures-->
+                <button id="reset-mean-texture-btn">Reset Mean & Max Surfaces</button>
+                <br />
+                <br />
+
+                <!-- reset wave height textures-->
+                <button id="reset-waveheight-texture-btn">Reset Wave Height Surface</button>
+                <br />
+                <br />
+                <html4f>------------------</html4f>
+                <br />
+                <br />
+                <!-- Download JSON button-->
+                <button id="download-button">Download Simulation Parameters JSON file</button>
+                <br />
+                <br />
+                <!-- Download texture button-->
+                <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
+                <br />
+                <br />
+                <!-- Download JPG button-->
+                <button id="downloadJPG-button">Download Current Simulation Image (JPG)</button>
+
+            </div>
+
+        </div>
+
+        <div id="horizontalbar">
+            <div>
+                <canvas id="webgpuCanvas"></canvas>
+            </div>
+            <div id="constants-container">
+                <!-- Constants will be dynamically filled in by JavaScript -->
+            </div>
+        </div>
+
+        <!--div id="horizontalbar">
+                <canvas id="renderCanvas"></canvas>
+        </div> -->
+
+
+        <div id="horizontalbar">
+            <div id="mods-container">
+
+                <html4f>------------ Modify Simulation Parameters ------------</html4f>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.NLSW_or_Bous-->
+                <label for="nlsw-select">Simulation Type:</label>
+                <select id="nlsw-select" name="nlswValue">
+                    <option value="0">NLSW</option>
+                    <option value="1">Boussinesq</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.Theta-->
+                <label for="Theta-input">Theta value for MinMod, ranges from 1.0 (most dissipative, upwind differences) to 2.0 (least dissipative, centered differences) [default: 1.5]:</label>
+                <br />
+                <input type="number" id="Theta-input" name="ThetaValue" min="0">
+                <button id="theta-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.Courant_num-->
+                <label for="courant-input">Change Courant Number (0.1 or less for Explicit Scheme, 0.2 or less for Implicit Scheme):</label>
+                <br />
+                <input type="number" id="courant-input" name="courantValue" min="0">
+                <button id="courant-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.west_boundary_type-->
+                <label for="west_boundary_type-select">West Boundary Type: </label>
+                <select id="west_boundary_type-select" name="west_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.east_boundary_type-->
+                <label for="east_boundary_type-select">East Boundary Type: </label>
+                <select id="east_boundary_type-select" name="east_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.south_boundary_type-->
+                <label for="south_boundary_type-select">South Boundary Type: </label>
+                <select id="south_boundary_type-select" name="south_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.north_boundary_type-->
+                <label for="north_boundary_type-select">North Boundary Type: </label>
+                <select id="north_boundary_type-select" name="north_boundary_typeValue">
+                    <option value="0">Solid Wall</option>
+                    <option value="1">Sponge Layer</option>
+                    <option value="2">Incoming Waves</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.isManning-->
+                <label for="isManning-select">Bottom Friction Model: </label>
+                <select id="isManning-select" name="isManningValue">
+                    <option value="0">Quadratic Friction Drag</option>
+                    <option value="1">Mannings Equation</option>
+                </select>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.friction-->
+                <label for="friction-input">Change Mannings n (typical value ~0.025) or Friction Factor (typical value ~0.002):</label>
+                <br />
+                <input type="number" id="friction-input" name="frictionValue" min="0">
+                <button id="friction-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.dissipation_threshold-->
+                <label for="dissipation_threshold-input">Wave Slope (rise/run) Threshold to Start Wave Breaking:</label>
+                <br />
+                <input type="number" id="dissipation_threshold-input" name="dissipation_thresholdValue" min="0">
+                <button id="dissipation_threshold-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.whiteWaterDecayRate-->
+                <label for="whiteWaterDecayRate-input">Turbulence Decay Coefficient (1st Order Decay):</label>
+                <br />
+                <input type="number" id="whiteWaterDecayRate-input" name="whiteWaterDecayRateValue" min="0">
+                <button id="whiteWaterDecayRate-button" type="button">Update</button>
+                <br />
+                <br />
+
+                <!-- Updates go to calc_constants.render_step-->
+                <label for="render_step-input">Time Steps Between each Render Frame (1 or greater, 0 for auto-determine for max sim speed):</label>
+                <br />
+                <input type="number" id="render_step-input" name="render_stepValue" min="0">
+                <button id="render_step-button" type="button">Update</button>
+                <br />
+                <br />
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Import Babylon.js library into project
+    <script src="https://cdn.babylonjs.com/babylon.js"></script> -->
+
+    <!-- Wave solution control script - everything runs from this -->
+    <script type="module" src="js/main.js"></script>
+
+</body>
+</html>

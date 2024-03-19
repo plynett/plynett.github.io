@@ -59,9 +59,40 @@ export function displayCalcConstants(calc_constants, total_time) {
     addTextToContainer(`Turbulent Decay Coefficient: ${calc_constants.whiteWaterDecayRate}`, container);
     addSpacerToContainer(container);
     addTextToContainer(`--- Runtime Parameters ---`, container);
-    addTextToContainer(`Simulated Time (min): ${Math.round(total_time / 60. * 1000) / 1000}`, container);
-    addTextToContainer(`Faster-than-Realtime Ratio: ${Math.round(total_time / calc_constants.elapsedTime * 10) / 10}`, container);
+    addTextToContainer(`Simulated Time (min) Since Config Change: ${Math.round(total_time / 60. * 1000) / 1000}`, container);
+    addTextToContainer(`Faster-than-Realtime Ratio: ${Math.round(total_time / calc_constants.elapsedTime_update * 10) / 10}`, container);
     addTextToContainer(`Render Frame Interval: ${calc_constants.render_step}`, container);
+    
+}
+
+export function displaySimStatus(calc_constants, total_time, total_time_since_http_update) {
+    // Make sure the DOM is fully loaded before trying to access elements
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', displayCalcConstants);
+        return;
+    }
+
+    // Get the container where we want to display the constants
+    const container = document.getElementById('simstatus-container');
+
+    // Check if container is found in the DOM
+    if (!container) {
+        console.error("Constants container not found in the DOM.");
+        return;
+    }
+
+    // Clear the previous contents
+     container.innerHTML = '';
+
+    // Add text 
+    if (calc_constants.NLSW_or_Bous == 0) {
+        addTextToContainer(`NLSW Simulation`, container);
+    }
+    else {
+        addTextToContainer(`Boussinesq Simulation`, container);
+    }
+    addTextToContainer(`,      Simulated Time (min): ${Math.round(total_time / 60. * 10) / 10}`, container);
+    addTextToContainer(`,      Faster-than-Realtime Ratio: ${Math.round(total_time_since_http_update / calc_constants.elapsedTime_update * 10) / 10}`, container);
     
 }
 

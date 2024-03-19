@@ -40,9 +40,14 @@ struct Globals {
 @group(0) @binding(4) var txWaveHeight: texture_2d<f32>; 
 @group(0) @binding(5) var txBaseline_WaveHeight: texture_2d<f32>; 
 @group(0) @binding(6) var txBottomFriction: texture_2d<f32>; 
-@group(0) @binding(7) var txGoogleMap: texture_2d<f32>;
-@group(0) @binding(8) var txDraw: texture_2d<f32>;
-@group(0) @binding(9) var textureSampler: sampler;
+@group(0) @binding(7) var txNewState_Sed: texture_2d<f32>; 
+@group(0) @binding(8) var erosion_Sed: texture_2d<f32>; 
+@group(0) @binding(9) var depostion_Sed: texture_2d<f32>; 
+@group(0) @binding(10) var txBotChange_Sed: texture_2d<f32>; 
+@group(0) @binding(11) var txGoogleMap: texture_2d<f32>;
+@group(0) @binding(12) var txDraw: texture_2d<f32>;
+@group(0) @binding(13) var textureSampler: sampler;
+
 
 @fragment
 fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
@@ -272,10 +277,22 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (surfaceToPlot == 15) {  // bottom friction map
         render_surface = textureSample(txBottomFriction, textureSampler, uv).r; 
     } else if (surfaceToPlot == 16) {  // max free surface map
-        render_surface = textureSample(txMeans, textureSampler, uv).a; 
+        render_surface = textureSample(txMeans, textureSampler, uv).a;  
+    } else if (surfaceToPlot == 17) {  // sed C1 concentration
+        render_surface = textureSample(txNewState_Sed, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 18) {  // sed C1 erosion
+        render_surface = textureSample(erosion_Sed, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 19) {  // sed C1 deposition
+        render_surface = textureSample(depostion_Sed, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 20) {  // sed C1 net deposition 
+        render_surface = textureSample(depostion_Sed, textureSampler, uv).r - textureSample(erosion_Sed, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 21) {  // sed C1 net deposition 
+        render_surface = textureSample(txBotChange_Sed, textureSampler, uv).r; 
     }
     
     
+    
+
     var color_rgb: vec3<f32>;
     if (bottom + globals.delta >= waves && surfaceToPlot != 6) {
         if(globals.GoogleMapOverlay == 1) {

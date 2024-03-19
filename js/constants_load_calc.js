@@ -49,6 +49,14 @@ var calc_constants = {
     ship_draft: 2.0,  // max draft in m
     ship_heading: 0.0,  // 0=moving to the east
 
+    // Sediment transport parameters
+    useSedTransModel: 0, // sed model on or off [0]
+    sedC1_d50: 0.2,   // D50 for Class 1 sed
+    sedC1_n: 0.40,   // porosity for Class 1 sed
+    sedC1_psi: 0.00005,   // psi for Class 1 sed
+    sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
+    sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
+
     // plotting parameters
     colorVal_max: 1.0,  // value that maps to the "highest" color
     colorVal_min: -1.0,  // value that maps to the "lowest" color
@@ -173,9 +181,15 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.ship_c3a = 1.0 / (2.0 * Math.pow(calc_constants.ship_length / Math.PI, 2));
     calc_constants.ship_c3b = 1.0 / (2.0 * Math.pow(calc_constants.ship_width / Math.PI, 2));
     calc_constants.elapsedTime = 0.0;
+    calc_constants.elapsedTime_update = 0.0;
     calc_constants.changeRadius = 50. * calc_constants.dx;
     calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
 
+    calc_constants.sedC1_erosion = calc_constants.sedC1_psi*Math.pow(calc_constants.sedC1_d50/1000.,-0.2);
+    calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * 9.81 * calc_constants.sedC1_d50/1000.);
+    let fall_vel_a = 4.0 / 3.0 * 9.81 * calc_constants.sedC1_d50/1000. / 0.2 * (calc_constants.sedC1_denrat - 1.0); 
+    calc_constants.sedC1_fallvel = Math.pow(fall_vel_a, 0.5);
+ 
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
     canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
     canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);

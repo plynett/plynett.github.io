@@ -82,13 +82,69 @@ export function create_Pass2_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
+            },
+            {
+                // 9th binding: A texture that the fragment shader will sample from.
+                binding: 9,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 10th binding: A texture that the fragment shader will sample from.
+                binding: 10,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 11th binding: A texture that the fragment shader will sample from.
+                binding: 11,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 12th binding: A texture that the fragment shader will sample from.
+                binding: 12,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 13th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 13,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 14th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 14,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
             }
         ]
     });
 }
 
 
-export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux) {
+export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux, txSed_C1, txSed_C2, txSed_C3, txSed_C4, txXFlux_Sed, txYFlux_Sed) {
     return device.createBindGroup({
         layout: create_Pass2_BindGroupLayout(device),
         entries: [
@@ -129,6 +185,30 @@ export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBo
             {
                 binding: 8,
                 resource: txYFlux.createView()
+            },
+            {
+                binding: 9,
+                resource: txSed_C1.createView()
+            },
+            {
+                binding: 10,
+                resource: txSed_C2.createView()
+            },
+            {
+                binding: 11,
+                resource: txSed_C3.createView()
+            },
+            {
+                binding: 12,
+                resource: txSed_C4.createView()
+            },
+            {
+                binding: 13,
+                resource: txXFlux_Sed.createView()
+            },
+            {
+                binding: 14,
+                resource: txYFlux_Sed.createView()
             },
         ]
     });

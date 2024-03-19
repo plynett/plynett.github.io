@@ -69,12 +69,39 @@ export function createRenderBindGroupLayout(device) {
                 visibility: GPUShaderStage.FRAGMENT,
                 texture: {
                     sampleType: 'unfilterable-float',
-                    format: 'bgra8unorm'  // imagedata for the google maps image
+                    format: 'rgba32float'  
                 }
             },
             {
-                // 8th binding: A texture that the fragment shader will sample from.
+                // 9th binding: A texture that the fragment shader will sample from.
                 binding: 8,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float' 
+                }
+            },
+            {
+                // 10th binding: A texture that the fragment shader will sample from.
+                binding: 9,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'  
+                }
+            },
+            {
+                // 11th binding: A texture that the fragment shader will sample from.
+                binding: 10,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'  
+                }
+            },
+            {
+                // 12th binding: A texture that the fragment shader will sample from.
+                binding: 11,
                 visibility: GPUShaderStage.FRAGMENT,
                 texture: {
                     sampleType: 'unfilterable-float',
@@ -82,8 +109,17 @@ export function createRenderBindGroupLayout(device) {
                 }
             },
             {
-                // 9th binding: A sampler describing how the texture will be sampled.
-                binding: 9,
+                // 13th binding: A texture that the fragment shader will sample from.
+                binding: 12,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'bgra8unorm'  // imagedata for the google maps image
+                }
+            },
+            {
+                // 14th binding: A sampler describing how the texture will be sampled.
+                binding: 13,
                 visibility: GPUShaderStage.FRAGMENT,
                 sampler: {
                     type: 'non-filtering'  // Nearest-neighbor sampling (no interpolation)
@@ -94,7 +130,7 @@ export function createRenderBindGroupLayout(device) {
 }
 
 
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txGoogleMap, txDraw, textureSampler) {
+export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler) {
     return device.createBindGroup({
         layout: createRenderBindGroupLayout(device),
         entries: [
@@ -130,14 +166,30 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             },
             {
                 binding: 7,
-                resource: txGoogleMap.createView()
+                resource: txNewState_Sed.createView()
             },
             {
                 binding: 8,
-                resource: txDraw.createView()
+                resource: erosion_Sed.createView()
             },
             {
                 binding: 9,
+                resource: depostion_Sed.createView()
+            },
+            {
+                binding: 10,
+                resource: txBotChange_Sed.createView()
+            },
+            {
+                binding: 11,
+                resource: txGoogleMap.createView()
+            },
+            {
+                binding: 12,
+                resource: txDraw.createView()
+            },
+            {
+                binding: 13,
                 resource: textureSampler
             }
         ]

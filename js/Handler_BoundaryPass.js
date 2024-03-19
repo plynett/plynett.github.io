@@ -37,8 +37,27 @@ export function create_BoundaryPass_BindGroupLayout(device) {
                 }
             },
             {
-                // 4th binding: A storage texture. The compute shader will write results into this texture.
+                // 4th binding: A texture that the fragment shader will sample from.
                 binding: 4,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 5th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 5,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 6,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -51,7 +70,7 @@ export function create_BoundaryPass_BindGroupLayout(device) {
 }
 
 
-export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txtemp) {
+export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed) {
     return device.createBindGroup({
         layout: create_BoundaryPass_BindGroupLayout(device),
         entries: [
@@ -75,7 +94,15 @@ export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_sta
             },
             {
                 binding: 4,
+                resource: txNewState_Sed.createView()
+            },
+            {
+                binding: 5,
                 resource: txtemp.createView()
+            },
+            {
+                binding: 6,
+                resource: txtemp_Sed.createView()
             },
         ]
     });
