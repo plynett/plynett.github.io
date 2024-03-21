@@ -172,6 +172,10 @@
                     </html4f>
                     <br />
                     <br />
+                    <html4f>
+                        ---------------------- <br>
+                        Upload Custom Configuration Files here:</a>
+                    </html4f>                    
                     <div>
                         <input type="file" id="configFile" accept="application/json" style="display: none;" />
                         <label for="configFile" class="custom-file-upload-button">
@@ -194,28 +198,55 @@
                         <button id="start-simulation-btn">Start Simulation</button>
                         <br />
                         <br />
-    
-    
-                        <!-- Updates go to calc_constants.simPause-->
-                        <label for="simPause-select">Pause / Resume Simulation:</label>
-                        <select id="simPause-select" name="simPauseValue">
-                            <option value="1">Pause</option>
-                            <option value="-1">Resume</option>
-                        </select>
-                        <br />
-                        <br />
-    
-    
-                        <!-- Restart simulation-->
-                        <button id="refresh-button">Reload or Load New Configuration</button>
-                        <br />
-                        <br />
-    
+                        <html4f>
+                            ---------------------- <br>
+                            or, Load Pre-configured Examples here:</a>
+                        </html4f>
                         <!-- run example simulation using server-side configurations files-->
+                         <!-- Updates go to calc_constants.simPause-->
+                         <label for="run_example-select">Choose Example:</label>
+                         <select id="run_example-select" name="run_exampleValue">
+                             <option value="0">Ventura Harbor (CA), wind waves</option>
+                             <option value="1">Santa Cruz Harbor (CA), wind waves</option>
+                             <option value="2">Santa Cruz Harbor (CA), tsunami</option>
+                             <option value="3">Barry Arm (PWS, AK), tsunami</option>
+                             <option value="4">Crescent City Harbor (CA), tsunami</option>
+                             <option value="5">FRF Duck (NC), wind waves</option>
+                             <option value="6">Greenland (Karrat), tsunami</option>
+                             <option value="7">Pillar Point Harbor (CA), wind waves</option>
+                             <option value="8">Hania (Crete) Harbor, wind waves</option>
+                             <option value="9">Miami Beach (FL), wind waves</option>
+                             <option value="10">Miami Inlet (FL), wind waves</option>
+                             <option value="11">Newport (OR), wind waves</option>
+                             <option value="12">Port of LA/LB (CA), tsunami</option>
+                             <option value="13">Santa Barbara (CA), tsunami</option>
+                             <option value="14">Taan Fjord (AK), tsunami</option>
+                             <option value="15">OSU Directional Wave Basin</option>
+                         </select>
+                         <br />
+                         <br />                        
                         <button id="run-example-simulation-btn">Run Example Simulation</button>
                         <br />
                         <br />
-    
+      
+                        <html4f>
+                            ----------------------
+                        </html4f>
+                        <br />
+                         <!-- Updates go to calc_constants.simPause-->
+                         <label for="simPause-select">Pause / Resume Simulation:</label>
+                         <select id="simPause-select" name="simPauseValue">
+                             <option value="1">Pause</option>
+                             <option value="-1">Resume</option>
+                         </select>
+                         <br />
+                         <br />
+ 
+                        <!-- Restart simulation-->
+                        <button id="refresh-button">Clear Memory / Reset Simulator</button>
+                        <br />
+                        <br />    
+                        
     
                     </div>
 
@@ -334,6 +365,11 @@
                 </div>
                 <div class="window-content"  data-default="minimized">
 
+                    <html4f>
+                    BETA - currently no feedback w/ hydro
+                    </html4f>
+                    <br />
+                    <br />
                     <!-- Updates go to calc_constants.sedC1_d50-->
                     <label for="sedC1_d50-input">Sediment Class 1 D50 (mm):</label>
                     <br />

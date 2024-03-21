@@ -19,6 +19,7 @@ struct Globals {
     north_boundary_type: i32,
     boundary_g: f32,
     delta: f32,
+    boundary_shift: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -31,8 +32,7 @@ struct Globals {
 @group(0) @binding(6) var txNewState_Sed: texture_storage_2d<rgba32float, write>;
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
-    let shift = 4;
-    let real_idx = vec2<i32>(shift  - idx.x, idx.y); 
+    let real_idx = vec2<i32>(globals.boundary_shift  - idx.x, idx.y); 
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, -in_state_real.g, in_state_real.b, in_state_real.a);
 }
@@ -44,8 +44,7 @@ fn EastBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
 }
 
 fn SouthBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
-    let shift = 4;
-    let real_idx = vec2<i32>(idx.x, shift  - idx.y);
+    let real_idx = vec2<i32>(idx.x, globals.boundary_shift  - idx.y);
     let in_state_real = textureLoad(txState, real_idx, 0);
     return vec4<f32>(in_state_real.r, in_state_real.g, -in_state_real.b, in_state_real.a);
 }
@@ -117,9 +116,9 @@ fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let idx: vec2<i32> = vec2<i32>(i32(id.x), i32(id.y));
-    var BCState: vec4<f32> = textureLoad(txState, idx, 0);
-    var BCState_Sed: vec4<f32> = textureLoad(txState_Sed, idx, 0);
+    let idx = vec2<i32>(i32(id.x), i32(id.y));
+    var BCState = textureLoad(txState, idx, 0);
+    var BCState_Sed = textureLoad(txState_Sed, idx, 0);
     let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     BCState_Sed = max(BCState_Sed,zero);  // concentration can not go negative
     
@@ -127,21 +126,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // west boundary
     if (globals.west_boundary_type == 1 && idx.x <= 2 + (globals.BoundaryWidth)) {
         BCState = WestBoundarySponge(idx);
+        BCState_Sed = zero;
     }
 
     // east boundary
     if (globals.east_boundary_type == 1 && idx.x >= globals.width - (globals.BoundaryWidth) - 1) {
         BCState = EastBoundarySponge(idx);
+        BCState_Sed = zero;
     }
 
     // south boundary
     if (globals.south_boundary_type == 1 && idx.y <= 2 + (globals.BoundaryWidth)) {
         BCState = SouthBoundarySponge(idx);
+        BCState_Sed = zero;
     }
 
     // north boundary
     if (globals.north_boundary_type == 1 && idx.y >= globals.height - (globals.BoundaryWidth) - 1) {
         BCState = NorthBoundarySponge(idx);
+        BCState_Sed = zero;
     }
 
     // Solid Walls
@@ -149,8 +152,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.west_boundary_type <= 1) {
         if (idx.x <= 1) {
             BCState = WestBoundarySolid(idx);
+            BCState_Sed = zero;
         } else if (idx.x == 2) {
             BCState.y = 0.0;
+            BCState_Sed = zero;
         }
     }
 
@@ -158,8 +163,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.east_boundary_type <= 1) {
         if (idx.x >= globals.width - 2) {
             BCState = EastBoundarySolid(idx);
+            BCState_Sed = zero;
         } else if (idx.x == globals.width - 3) {
             BCState.y = 0.0;
+            BCState_Sed = zero;
         }
     }
 
@@ -167,8 +174,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.south_boundary_type <= 1) {
         if (idx.y <= 1) {
             BCState = SouthBoundarySolid(idx);
+            BCState_Sed = zero;
         } else if (idx.y == 2) {
             BCState.z = 0.0;
+            BCState_Sed = zero;
         }
     }
 
@@ -176,8 +185,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.north_boundary_type <= 1) {
         if (idx.y >= globals.height - 2) {
             BCState = NorthBoundarySolid(idx);
+            BCState_Sed = zero;
         } else if (idx.y == globals.height - 3) {
             BCState.z = 0.0;
+            BCState_Sed = zero;
         }
     }
 
@@ -185,21 +196,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // west boundary
     if (globals.west_boundary_type == 2 && idx.x <= 2) {
         BCState = BoundarySineWave(idx);
+        BCState_Sed = zero;
     }
 
     // east boundary
     if (globals.east_boundary_type == 2 && idx.x >= globals.width - 3) {
         BCState = BoundarySineWave(idx);
+        BCState_Sed = zero;
     }
 
     // south boundary
     if (globals.south_boundary_type == 2 && idx.y <= 2) {
         BCState = BoundarySineWave(idx);
+        BCState_Sed = zero;
     }
 
     // north boundary
     if (globals.north_boundary_type == 2 && idx.y >= globals.height - 3) {
         BCState = BoundarySineWave(idx);
+        BCState_Sed = zero;
     }
 
     let leftIdx = idx + vec2<i32>(-1, 0);
@@ -270,21 +285,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let nearshore = min(B_here, min(B_south, min(B_north, min(B_west, B_east))));
 
     // remove islands
-    if( dry_here == 1) {
+    if( dry_here == 1) {  // point is wet
         if (sum_dry == 0) {  // freeze single point wet areas
             if (B_here <= 0.0) {
                 BCState = vec4<f32>(max(BCState.x,B_here), 0.0, 0.0, 0.0);
-                BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+                BCState_Sed = zero;
             }
             else {
                 BCState = vec4<f32>(B_here, 0.0, 0.0, 0.0);
-                BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+                BCState_Sed = zero;
             }
         }
         else if (sum_dry == 1) {  // freeze end of single grid channel, with free surface gradient equal to zero
             let wet_eta = (f32(dry_west)*eta_west + f32(dry_east)*eta_east + f32(dry_south)*eta_south + f32(dry_north)*eta_north) / f32(sum_dry);
             BCState = vec4<f32>(wet_eta, 0.0, 0.0, 0.0);
-            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            BCState_Sed = zero;
         }
     }
 
@@ -297,7 +312,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             else {
                 BCState = vec4<f32>(B_here, 0.0, 0.0, 0.0);
             }
-            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            BCState_Sed = zero;
     }
 
     textureStore(txNewState, idx, BCState);

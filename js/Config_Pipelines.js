@@ -3,14 +3,19 @@
 
 
 // computePipelineConfig.js
-export function createComputePipeline(device, computeShaderCode, computeBindGroupLayout) {
-    return device.createComputePipeline({
+export function createComputePipeline(device, computeShaderCode, computeBindGroupLayout, allComputePipelines) {
+    const pipeline = device.createComputePipeline({
         layout: device.createPipelineLayout({ bindGroupLayouts: [computeBindGroupLayout] }),
         compute: {
             module: device.createShaderModule({ code: computeShaderCode }),
             entryPoint: 'main'
         }
     });
+
+    // Add the created pipeline to the global tracking set
+    allComputePipelines.add(pipeline);
+
+    return pipeline;
 }
 
 

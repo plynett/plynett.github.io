@@ -201,7 +201,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     let waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
     let GoogleMap = textureSample(txGoogleMap, textureSampler, uv_mod).rgb;
     let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
-    let H = max(0.01, waves - bottom);
+    let H = max(globals.delta, waves - bottom);
     var render_surface = waves;
 
     // if not just plotting waves, load the other stuff
@@ -279,7 +279,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (surfaceToPlot == 16) {  // max free surface map
         render_surface = textureSample(txMeans, textureSampler, uv).a;  
     } else if (surfaceToPlot == 17) {  // sed C1 concentration
-        render_surface = textureSample(txNewState_Sed, textureSampler, uv).r; 
+        render_surface = textureSample(txNewState_Sed, textureSampler, uv).r / H; 
     } else if (surfaceToPlot == 18) {  // sed C1 erosion
         render_surface = textureSample(erosion_Sed, textureSampler, uv).r; 
     } else if (surfaceToPlot == 19) {  // sed C1 deposition

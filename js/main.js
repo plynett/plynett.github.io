@@ -40,6 +40,11 @@ let txDraw = null;
 let context = null;
 let adapter = null;
 
+// Initialize a global set to track texture, pipeline objects
+const allTextures = new Set();
+const allComputePipelines = new Set();
+
+
 // Check if WebGPU is supported in the user's browser.
 if (!gpu) {
     // If it's not supported, log an error message to the console.
@@ -58,7 +63,7 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     // Load depth surface file, place into 2D array bathy2D
     let bathy2D = await loadDepthSurface(bathymetryContent, calc_constants);  // Start this only after the first function completes
     // Load wave data file, place into waveArray 
-    let { numberOfWaves, waveData } = await loadWaveData(waveContent);  // Start this only after the first function completes
+    let { numberOfWaves, waveData } = await loadWaveData(waveContent, calc_constants);  // Start this only after the first function completes
     calc_constants.numberOfWaves = numberOfWaves; 
     return { bathy2D, waveData };
 }
@@ -67,6 +72,20 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
 async function initializeWebGPUApp(configContent, bathymetryContent, waveContent) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting WebGPU App Initialization...");
+
+    console.log("Clearing / destroying any data from previous run...");
+    allTextures.forEach(texture => {
+        texture.destroy(); // Destroy each texture
+    });
+    allTextures.clear(); // Clear the set for the next run
+    allComputePipelines.clear(); // Clear pipelines
+    RenderPipeline = null; 
+
+    device = null;
+    adapter = null;
+    context = null;
+    calc_constants.GoogleMapOverlay = 0; // not all configs have this declared, so can create issue when switching back and forth
+    calc_constants.render_step = 1; // for new sim, force render step back to zero
 
     // Request an adapter. The adapter represents the GPU device, or a software fallback.
     const options = { powerPreference: "high-performance" };
@@ -131,71 +150,72 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Create a texturse with the desired dimensions (WIDTH, HEIGHT) and format 'rgba32float'.
     // Textures will have multiple usages, allowing it to be read/written by shaders, copied from/to, and used as a render target.
+
     console.log("Creating 2D textures.");
-    const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores information about the bathy/topo
-    const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) "state", or eta, P, Q, and c
-    const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the next (n+1) "state"
-    const txState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) "state", or eta, P, Q, and c
-    const txNewState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the next (n+1) "state"
-    const txstateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // the values of the current (n) bous-grouped state, or eta, U, V, and c
-    const current_stateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // next bous-grouped state
-    const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of H
-    const txU = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of u
-    const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of v
-    const txHnear = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of w (eta) - currrently not used
-    const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
-    const txSed_C1 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
-    const txSed_C2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
-    const txSed_C3 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
-    const txSed_C4 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cell edge values of c
-    const erosion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // local erosion for all class "e"
-    const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // local depostion for all class "d"
-    const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // cumulative bottom elevation change
-    const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores bottom friction info   
-    const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores passive tracer source map
-    const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores x-flux values along cell edges
-    const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores y-flux values along cell edges
-    const txXFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores x-flux values along cell edges
-    const txYFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores y-flux values along cell edges
-    const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values found in the predictor step
-    const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values at previous time step
-    const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values from two time steps ago
-    const predictedGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values found in the predictor step
-    const oldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values at previous time step
-    const oldOldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values from two time steps ago
-    const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores F*, G* (bous only) found in predictor step
-    const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT); // stores F*, G* (bous only) found at previous time step
-    const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT); // stores F*, G* (bous only) found from two time steps ago
-    const txtemp_bottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
-    const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
-    const txtemp_boundary_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for boundary pass - probably all these temps can be combined
-    const txtemp_SedTrans_Botttom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for bottom update
-    const txtemp_SedTrans_Change = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage texture for bottom update
-    const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
-    const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR y-dir
-    const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for PCR x-dir
-    const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);    // temp storage for PCR y-dir
-    const txtemp_AddDisturbance = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for MouseClick shader
-    const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // temp storage for MouseClick shader
-    const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // tridiagonal coefficients for x-dir (bous only)
-    const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // tridiagonal coefficients for y-dir (bous only)
-    const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // PCR reduced tridiagonal coefficients for x-dir (bous only) 
-    const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // PCR reduced tridiagonal coefficients for y-dir (bous only) 
-    const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values output from Pass3 calls
-    const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores d(state)/dt values output from Pass3 calls
-    const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores ship pressure - not used in WebGPU yet
-    const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores various mean values
-    const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores current wave height surface
-    const txtemp_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);
-    const txBaseline_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores "baseline" wave height surface
-    const txzeros = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // stores a zeros texture, for reseting textures to zero
-    txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT);  // used for bindary output
-    txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for jpg output
-    txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);  // used to store the loaded Google Maps image
-    txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height);  // used for creating text & shapes on an HTML5 canvas
+    const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores information about the bathy/topo
+    const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the current (n) "state", or eta, P, Q, and c
+    const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the next (n+1) "state"
+    const txState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the current (n) "state", or eta, P, Q, and c
+    const txNewState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the next (n+1) "state"
+    const txstateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the current (n) bous-grouped state, or eta, U, V, and c
+    const current_stateUVstar = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // next bous-grouped state
+    const txH = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of H
+    const txU = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of u
+    const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of v
+    const txHnear = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of w (eta) - currrently not used
+    const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C1 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C3 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C4 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const erosion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local erosion for all class "e"
+    const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local depostion for all class "d"
+    const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cumulative bottom elevation change
+    const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores bottom friction info   
+    const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores passive tracer source map
+    const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores x-flux values along cell edges
+    const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores y-flux values along cell edges
+    const txXFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores x-flux values along cell edges
+    const txYFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores y-flux values along cell edges
+    const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values found in the predictor step
+    const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values at previous time step
+    const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values from two time steps ago
+    const predictedGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values found in the predictor step
+    const oldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values at previous time step
+    const oldOldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values from two time steps ago
+    const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores F*, G* (bous only) found in predictor step
+    const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures); // stores F*, G* (bous only) found at previous time step
+    const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures); // stores F*, G* (bous only) found from two time steps ago
+    const txtemp_bottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for boundary pass - probably all these temps can be combined
+    const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for boundary pass - probably all these temps can be combined
+    const txtemp_boundary_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for boundary pass - probably all these temps can be combined
+    const txtemp_SedTrans_Botttom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for bottom update
+    const txtemp_SedTrans_Change = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for bottom update
+    const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for PCR x-dir
+    const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for PCR y-dir
+    const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for PCR x-dir
+    const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);    // temp storage for PCR y-dir
+    const txtemp_AddDisturbance = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for MouseClick shader
+    const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for MouseClick shader
+    const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // tridiagonal coefficients for x-dir (bous only)
+    const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // tridiagonal coefficients for y-dir (bous only)
+    const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // PCR reduced tridiagonal coefficients for x-dir (bous only) 
+    const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // PCR reduced tridiagonal coefficients for y-dir (bous only) 
+    const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
+    const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
+    const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
+    const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
+    const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
+    const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores current wave height surface
+    const txtemp_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
+    const txBaseline_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores "baseline" wave height surface
+    const txzeros = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores a zeros texture, for reseting textures to zero
+    txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // used for bindary output
+    txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for jpg output
+    txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
+    txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for creating text & shapes on an HTML5 canvas
     
-    const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves);  // stores spectrum wave input
+    const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
 
     // fill in the bathy texture
     let bathy2Dvec = copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
@@ -393,7 +413,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
     BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
     BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
-    BoundaryPass_view.setFloat32(76, calc_constants.delta, true);           // f32
+    BoundaryPass_view.setFloat32(76, calc_constants.delta, true);           // f32 
+    BoundaryPass_view.setInt32(80, calc_constants.boundary_shift, true);           // f32 
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -556,22 +577,22 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     console.log("Shaders loaded.");
 
     // Configure the pipelines, one for each shader.
-    const Pass0_Pipeline = createComputePipeline(device, Pass0_ShaderCode, Pass0_BindGroupLayout);
-    const Pass1_Pipeline = createComputePipeline(device, Pass1_ShaderCode, Pass1_BindGroupLayout);
-    const SedTrans_Pass1_Pipeline = createComputePipeline(device, SedTrans_Pass1_ShaderCode, SedTrans_Pass1_BindGroupLayout);
-    const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout);
-    const Pass3_Pipeline_NLSW = createComputePipeline(device, Pass3_ShaderCode_NLSW, Pass3_BindGroupLayout);
-    const Pass3_Pipeline_Bous = createComputePipeline(device, Pass3_ShaderCode_Bous, Pass3_BindGroupLayout);
-    const SedTrans_Pass3_Pipeline = createComputePipeline(device, SedTrans_Pass3_ShaderCode, SedTrans_Pass3_BindGroupLayout);
-    const BoundaryPass_Pipeline = createComputePipeline(device, BoundaryPass_ShaderCode, BoundaryPass_BindGroupLayout);
-    const TridiagX_Pipeline = createComputePipeline(device, TridiagX_ShaderCode, TridiagX_BindGroupLayout);
-    const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout);
-    const SedTrans_UpdateBottom_Pipeline = createComputePipeline(device, SedTrans_UpdateBottom_ShaderCode, SedTrans_UpdateBottom_BindGroupLayout);
-    const Updateneardry_Pipeline = createComputePipeline(device, Updateneardry_ShaderCode, Updateneardry_BindGroupLayout);
-    const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout);
-    const CalcMeans_Pipeline = createComputePipeline(device, CalcMeans_ShaderCode, CalcMeans_BindGroupLayout);
-    const CalcWaveHeight_Pipeline = createComputePipeline(device, CalcWaveHeight_ShaderCode, CalcWaveHeight_BindGroupLayout);
-    const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout);
+    const Pass0_Pipeline = createComputePipeline(device, Pass0_ShaderCode, Pass0_BindGroupLayout, allComputePipelines);
+    const Pass1_Pipeline = createComputePipeline(device, Pass1_ShaderCode, Pass1_BindGroupLayout, allComputePipelines);
+    const SedTrans_Pass1_Pipeline = createComputePipeline(device, SedTrans_Pass1_ShaderCode, SedTrans_Pass1_BindGroupLayout, allComputePipelines);
+    const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout, allComputePipelines);
+    const Pass3_Pipeline_NLSW = createComputePipeline(device, Pass3_ShaderCode_NLSW, Pass3_BindGroupLayout, allComputePipelines);
+    const Pass3_Pipeline_Bous = createComputePipeline(device, Pass3_ShaderCode_Bous, Pass3_BindGroupLayout, allComputePipelines);
+    const SedTrans_Pass3_Pipeline = createComputePipeline(device, SedTrans_Pass3_ShaderCode, SedTrans_Pass3_BindGroupLayout, allComputePipelines);
+    const BoundaryPass_Pipeline = createComputePipeline(device, BoundaryPass_ShaderCode, BoundaryPass_BindGroupLayout, allComputePipelines);
+    const TridiagX_Pipeline = createComputePipeline(device, TridiagX_ShaderCode, TridiagX_BindGroupLayout, allComputePipelines);
+    const TridiagY_Pipeline = createComputePipeline(device, TridiagY_ShaderCode, TridiagY_BindGroupLayout, allComputePipelines);
+    const SedTrans_UpdateBottom_Pipeline = createComputePipeline(device, SedTrans_UpdateBottom_ShaderCode, SedTrans_UpdateBottom_BindGroupLayout, allComputePipelines);
+    const Updateneardry_Pipeline = createComputePipeline(device, Updateneardry_ShaderCode, Updateneardry_BindGroupLayout, allComputePipelines);
+    const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout, allComputePipelines);
+    const CalcMeans_Pipeline = createComputePipeline(device, CalcMeans_ShaderCode, CalcMeans_BindGroupLayout, allComputePipelines);
+    const CalcWaveHeight_Pipeline = createComputePipeline(device, CalcWaveHeight_ShaderCode, CalcWaveHeight_BindGroupLayout, allComputePipelines);
+    const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout, allComputePipelines);
 
     var RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
     console.log("Pipelines set up.");
@@ -787,6 +808,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             SedTrans_Pass3_view.setFloat32(72, calc_constants.sedC1_n, true);           // f32
             SedTrans_Pass3_view.setFloat32(76, calc_constants.sedC1_fallvel, true);           // f32
 
+            SedTrans_UpdateBottom_view.setFloat32(8, calc_constants.dt, true);             // f32
+            SedTrans_UpdateBottom_view.setInt32(24, calc_constants.timeScheme, true);       // f32
+            SedTrans_UpdateBottom_view.setInt32(28, calc_constants.pred_or_corrector, true);       // i32
+            SedTrans_UpdateBottom_view.setFloat32(32, calc_constants.sedC1_n, true);           // f32            
+
             if(calc_constants.clearConc == 1){  // remove all passive tracer sources when changing overlay
                 runCopyTextures(device, commandEncoder, calc_constants, txzeros, txContSource)
             }
@@ -881,12 +907,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
                 
-                runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
-                runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-   
-
-
                 // Pass0
                 runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
@@ -1388,6 +1408,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'surfaceToChange-select', property: 'surfaceToChange' },
         { input: 'changeType-select', property: 'changeType' },
         { input: 'useSedTransModel-select', property: 'useSedTransModel' },
+        { input: 'run_example-select', property: 'run_example' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -1476,13 +1497,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-
-
-
-
-
-    
-
 
     fullscreenButton.addEventListener('click', function () {
         if (!document.fullscreenElement) {
@@ -1601,7 +1615,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
     document.getElementById('run-example-simulation-btn').addEventListener('click', function () {
-
         initializeWebGPUApp();
         const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
         setTimeout(updateAllUIElements, delay);

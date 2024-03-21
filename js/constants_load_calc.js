@@ -57,6 +57,27 @@ var calc_constants = {
     sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
     sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
 
+    // define which "Example" to run
+    run_example: 0, // see below
+    exampleDirs: [
+        "./examples/Ventura/",
+        "./examples/Santa_Cruz/",
+        "./examples/Santa_Cruz_tsunami/",
+        "./examples/Barry_Arm/",
+        "./examples/Crescent_City/",
+        "./examples/DuckFRF_NC/",
+        "./examples/Greenland/",
+        "./examples/Half_Moon_Bay/",
+        "./examples/Hania_Greece/",
+        "./examples/Miami_Beach_FL/",
+        "./examples/Miami_FL/",
+        "./examples/Newport_OR/",
+        "./examples/POLALB/",
+        "./examples/SantaBarbara/",
+        "./examples/Taan_fjord/",
+        "./examples/OSU_WaveBasin/",
+      ],
+
     // plotting parameters
     colorVal_max: 1.0,  // value that maps to the "highest" color
     colorVal_min: -1.0,  // value that maps to the "lowest" color
@@ -107,7 +128,8 @@ var calc_constants = {
 let loadedConfig = null;
 async function loadConfig() {
     try {
-        const response = await fetch('config.json');
+        const filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'config.json';
+        const response = await fetch(filePath);
         if (!response.ok) {
             throw new Error("HTTP error " + response.status);
         }
@@ -161,6 +183,7 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.boundary_ny = calc_constants.HEIGHT - 1;
     calc_constants.reflect_x = 2 * (calc_constants.WIDTH - 3);
     calc_constants.reflect_y = 2 * (calc_constants.HEIGHT - 3);
+    calc_constants.boundary_shift =  4;
     calc_constants.BoundaryWidth = 50.0;
     calc_constants.boundary_g = calc_constants.g;
     calc_constants.Px = Math.ceil(Math.log(calc_constants.WIDTH)  / Math.log(2));

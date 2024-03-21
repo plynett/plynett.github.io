@@ -74,9 +74,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let C_state_down_left = textureLoad(txState_Sed, downleftIdx, 0);
     let C_state_down_right = textureLoad(txState_Sed, downrightIdx, 0);
 
-    let Dxx = 10.0;
-    let Dxy = 10.0;
-    let Dyy = 10.0;
+    let Dxx = 1.0;
+    let Dxy = 1.0;
+    let Dyy = 1.0;
 
     let hc_by_dx_dx = Dxx * globals.one_over_d2x * (C_state_right - 2.0 * C_state_here + C_state_left);
     let hc_by_dy_dy = Dyy * globals.one_over_d2y * (C_state_up - 2.0 * C_state_here + C_state_down);
