@@ -27,26 +27,8 @@ export function create_AddDisturbance_BindGroupLayout(device) {
                 }
             },
             {
-                // 3rd binding:  A texture that the fragment shader will sample from.
+                // 3rd binding: A storage texture. The compute shader will write results into this texture.
                 binding: 3,
-                visibility: GPUShaderStage.COMPUTE,
-                texture: {
-                    sampleType: 'unfilterable-float',
-                    format: 'rgba32float'
-                }
-            },
-            {
-                // 4th binding:  A texture that the fragment shader will sample from.
-                binding: 4,
-                visibility: GPUShaderStage.COMPUTE,
-                texture: {
-                    sampleType: 'unfilterable-float',
-                    format: 'rgba32float'
-                }
-            },
-            {
-                // 5th binding: A storage texture. The compute shader will write results into this texture.
-                binding: 5,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -58,7 +40,7 @@ export function create_AddDisturbance_BindGroupLayout(device) {
     });
 }
 
-export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txtemp_AddDisturbance) {
+export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom, txState, txtemp_AddDisturbance) {
     return device.createBindGroup({
         layout: create_AddDisturbance_BindGroupLayout(device),
         entries: [
@@ -74,18 +56,10 @@ export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom,
             },
             {
                 binding: 2,
-                resource: txBottomFriction.createView() 
+                resource: txState.createView() 
             },
             {
                 binding: 3,
-                resource: txContSource.createView()
-            },
-            {
-                binding: 4,
-                resource: txState.createView()
-            },
-            {
-                binding: 5,
                 resource: txtemp_AddDisturbance.createView()
             },
         ]

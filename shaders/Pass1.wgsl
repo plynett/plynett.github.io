@@ -81,7 +81,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let dB_east = abs(B_here - B_east);
     let dB_south = abs(B_here - B_south);
     let dB_north = abs(B_here - B_north);
-    let dB_max = 0.5*vec4<f32>(dB_north, dB_east, dB_south, dB_west);
+    var dB_max = vec4<f32>(0.0, 0.0, 0.0, 0.0);
 
     let h_here = in_here.x - B_here;
     let h_south = in_south.x - B_south;
@@ -99,6 +99,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let wetdry = min(h_here, min(h_south, min(h_north, min(h_west, h_east))));
     let rampcoef = min(max(0.0, wetdry / (0.02 * globals.base_depth)), 1.0);
     let TWO_THETAc = globals.TWO_THETA * rampcoef + 2.0 * (1.0 - rampcoef);  // transition to full upwinding near the shoreline / inundation limit, start transition with a total water depth of base_depth/50.
+
+    if(wetdry <= globals.epsilon){
+        dB_max = 0.5*vec4<f32>(dB_north, dB_east, dB_south, dB_west);
+    }
 
     let wwy = Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
     let wzx = Reconstruct(in_south.x, in_here.x, in_north.x, TWO_THETAc);
@@ -138,7 +142,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let dBdx = abs(B_east - B_west) / (2.0 * globals.dx_global);
     let dBdy = abs(B_north - B_south) / (2.0 * globals.dy_global);
     let dBds_max = max(dBdx, dBdy);
-    let Fr_maxallowed = 6.0 / max(1.0, dBds_max);  // max Fr allowed on slopes less than 45 degrees is 3; for very steep slopes, artificially slow velocity - physics are just completely wrong here anyhow
+    let Fr_maxallowed = 3.0 / max(1.0, dBds_max);  // max Fr allowed on slopes less than 45 degrees is 3; for very steep slopes, artificially slow velocity - physics are just completely wrong here anyhow
     if (Frumax > Fr_maxallowed) {
         let Fr_red = Fr_maxallowed / Frumax;
         u = u * Fr_red;

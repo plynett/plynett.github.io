@@ -46,7 +46,7 @@
         #verticalbar {
             margin-left: 1%;
             margin-right: 1%;
-            width: 70%; /* Adjust based on your design and content */
+            width: 60%; /* Adjust based on your design and content */
             display: flex;
             flex-direction: column; /* stack the children vertically */
         }
@@ -154,8 +154,7 @@
 
     </style>
 
-    <!-- Bootstrap CSS --><link rel=”stylesheet” href=”https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css”rel=”nofollow” integrity=”sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm” crossorigin=”anonymous”>
-</head>
+ </head>
 <body>
     <div id="main-container">
 
@@ -343,7 +342,7 @@
                     <select id="viewType-select" name="viewTypeValue">
                         <option value="1">Design - 2D view, modify surfaces</option>
                         <option value="2">Explorer - 2D view, navigate scene</option>
-                        <option value="3">Drone - 3D view, fly-trough scene</option>
+                        <!--  option value="3">Drone - 3D view, fly-trough scene</option -->
                     </select>
                     <br />
                     <br />
@@ -356,6 +355,96 @@
 
             </div>
 
+            <div id="mods-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Add Disturbance </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
+                    <!-- Updates go to calc_constants.disturbanceType-->
+                    <label for="disturbanceType-select">Wave Disturbance to Add:</label>
+                    <select id="disturbanceType-select" name="disturbanceType">
+                        <option value="1">Solitary Wave</option>
+                        <option value="2">Earthquake</option>
+                        <option value="3">Submerged Landslide</option>
+                        <option value="4">Subaerial Landslide</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.disturbanceXpos-->
+                    <label for="disturbanceXpos-input">X-Coordinate of Source (m):</label>
+                    <br />
+                    <input type="number" id="disturbanceXpos-input" name="disturbanceXposValue">
+                    <button id="disturbanceXpos-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.disturbanceYpos-->
+                    <label for="disturbanceYpos-input">Y-Coordinate of Source (m):</label>
+                    <br />
+                    <input type="number" id="disturbanceYpos-input" name="disturbanceYposValue">
+                    <button id="disturbanceYpos-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.disturbanceCrestamp-->
+                    <label for="disturbanceCrestamp-input">Crest Amplitude / Earthquake Slip / Average Slide Thickness (m):</label>
+                    <br />
+                    <input type="number" id="disturbanceCrestamp-input" name="disturbanceCrestampValue">
+                    <button id="disturbanceCrestamp-button" type="button">Update</button>
+                    <br />
+                    <br />   
+ 
+                    <!-- Updates go to calc_constants.disturbanceDir-->
+                    <label for="disturbanceDir-input">Direction / Orientation / Strike of Source (deg CCW from E [-180 to 180]):</label>
+                    <br />
+                    <input type="number" id="disturbanceDir-input" name="disturbanceDirValue">
+                    <button id="disturbanceDir-button" type="button">Update</button>
+                    <br />
+                    <br />       
+ 
+                    <!-- Updates go to calc_constants.disturbanceWidth-->
+                    <label for="disturbanceWidth-input">Width of Source (m, not used for Solitary Wave):</label>
+                    <br />
+                    <input type="number" id="disturbanceWidth-input" name="disturbanceWidthValue">
+                    <button id="disturbanceWidth-button" type="button">Update</button>
+                    <br />
+                    <br />       
+ 
+                    <!-- Updates go to calc_constants.disturbanceLength-->
+                    <label for="disturbanceLength-input">Length of Source (m, not used for Solitary Wave):</label>
+                    <br />
+                    <input type="number" id="disturbanceLength-input" name="disturbanceLengthValue">
+                    <button id="disturbanceLength-button" type="button">Update</button>
+                    <br />
+                    <br />       
+ 
+                    <!-- Updates go to calc_constants.disturbanceRake-->
+                    <label for="disturbanceRake-input">Rake of Source (deg, only used for Earthquake):</label>
+                    <br />
+                    <input type="number" id="disturbanceRake-input" name="disturbanceRakeValue">
+                    <button id="disturbanceRake-button" type="button">Update</button>
+                    <br />
+                    <br />       
+ 
+                    <!-- Updates go to calc_constants.disturbanceDip-->
+                    <label for="disturbanceDip-input">Dip of Source (deg, only used for Earthquake):</label>
+                    <br />
+                    <input type="number" id="disturbanceDip-input" name="disturbanceDipValue">
+                    <button id="disturbanceDip-button" type="button">Update</button>
+                    <br />
+                    <br />    
+
+                    <!-- Add disturbance-->
+                    <button id="disturbance-button">Add Disturbance</button>
+                    <br />
+                    <br />
+
+                </div>
+
+            </div>            
 
 
             <div id="mods-container" class="custom-window">
@@ -469,6 +558,100 @@
                 </div>
 
             </div>
+
+
+            <div id="mods-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Plot Time Series </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
+                    <!-- Updates go to calc_constants.NumberOfTimeSeries-->
+                    <label for="NumberOfTimeSeries-select">Total Number of Time Series:</label>
+                    <select id="NumberOfTimeSeries-select" name="NumberOfTimeSeriesValue">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                    </select>
+                    <br />
+                    <br />
+                    
+                    <!-- Updates go to calc_constants.timelimplotTimeSeries-->
+                    <label for="maxdurationTimeSeries-input">Duration of Time Series to Plot (sec) :</label>
+                    <br />
+                    <input type="number" id="maxdurationTimeSeries-input" name="maxdurationTimeSeriesValue">
+                    <button id="maxdurationTimeSeries-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.changethisTimeSeries-->
+                    <label for="changethisTimeSeries-select">Time Series Location to Update:</label>
+                    <select id="changethisTimeSeries-select" name="changethisTimeSeriesValue">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                    </select>
+                    <br />
+                    <br />
+                    
+                    <html4f>
+                        Right-click on time series location (in Design Mode) or input coordinates below</a>
+                    </html4f> 
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.changeXTimeSeries-->
+                    <label for="changeXTimeSeries-input">New Time Series x-location (m) :</label>
+                    <br />
+                    <input type="number" id="changeXTimeSeries-input" name="changeXTimeSeriesValue">
+                    <button id="changeXTimeSeries-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.changeYTimeSeries-->
+                    <label for="changeYTimeSeries-input">New Time Series y-location (m) :</label>
+                    <br />
+                    <input type="number" id="changeYTimeSeries-input" name="changeYTimeSeriesValue">
+                    <button id="changeYTimeSeries-button" type="button">Update</button>
+                    <br />
+                    <br />
+  
+                    <div id="timeserieslocs-container" class="flex-container">
+                        <!-- Constants will be dynamically filled in by JavaScript -->
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
 
             <div id="downloads-container" class="custom-window">
                 <div class="window-header">
@@ -627,27 +810,49 @@
         </div>
 
         <div id="verticalbar">
+            <br>
             <div id="simstatus-container" class="flex-container">
                 <!-- Constants will be dynamically filled in by JavaScript -->
             </div>
-            <div>
+
+
+            <div class="window-header">
+                <span><center>  Simulation Window  </center></span>
+                <button class="minimize-button">-</button>
+            </div>            
+            <div class="window-content">
                 <canvas id="webgpuCanvas"></canvas>
+                <div id="tooltip" style="position: absolute; display: none;"></div>
             </div>
-            <div id="constants-container">
+
+
+            <div class="window-header">
+                <span><center>  Time Series Plots  </center></span>
+                <button class="minimize-button">-</button>
+            </div>
+            <div class="window-content"  data-default="minimized">
+                <canvas id="timeseriesChart"></canvas>
+            </div>
+            
+
+            <div class="window-header">
+                <span><center>  Simulation Parameters  </center></span>
+                <button class="minimize-button">-</button>
+            </div>
+            <div  id="constants-container" class="window-content"  data-default="minimized">
                 <!-- Constants will be dynamically filled in by JavaScript -->
             </div>
+            <br>
+            <br>
         </div>
 
-        <!--div id="horizontalbar">
-                <canvas id="renderCanvas"></canvas>
-        </div> -->
 
     </div>
 
     <!-- Optional Bootstrap JavaScript; include popper.js for tooltips & popovers -->
     <!-- Include this in the bottom of your body tag, but before you use any Bootstrap JS components -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.1/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/5.1.3/js/bootstrap.min.js"></script>   
+    <!-- script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/5.1.3/js/bootstrap.min.js"></script> -->
 
     <!-- Import Babylon.js library into project
     <script src="https://cdn.babylonjs.com/babylon.js"></script> -->
@@ -655,6 +860,9 @@
     <!-- Import geotiff library into project
     <script src="https://cdn.jsdelivr.net/npm/geotiff@latest/dist-browser/geotiff.js"></script>
     bring back if we want to update or add geotiff output ability -->
+
+    <!-- Using Chart.js for simple time series plots  -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Wave solution control script - everything runs from this -->
     <script type="module" src="js/main.js"></script>

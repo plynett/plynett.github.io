@@ -30,6 +30,8 @@ struct Globals {
     CB_width_uv: f32,
     CB_ystart: i32,
     CB_label_height: i32,
+    base_depth: f32,
+    NumberOfTimeSeries: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -47,6 +49,7 @@ struct Globals {
 @group(0) @binding(11) var txGoogleMap: texture_2d<f32>;
 @group(0) @binding(12) var txDraw: texture_2d<f32>;
 @group(0) @binding(13) var textureSampler: sampler;
+@group(0) @binding(14) var txTimeSeries_Locations: texture_2d<f32>;
 
 
 @fragment
@@ -290,8 +293,6 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = textureSample(txBotChange_Sed, textureSampler, uv).r; 
     }
     
-    
-    
 
     var color_rgb: vec3<f32>;
     if (bottom + globals.delta >= waves && surfaceToPlot != 6) {
@@ -331,8 +332,40 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
     }
 
+    // Add dots for time series
+    let ts_colors = array<vec3<f32>, 15>(
+    vec3<f32>(0.2941, 0.7529, 0.7529),
+    vec3<f32>(1.0000, 0.3882, 0.5176),
+    vec3<f32>(0.2118, 0.6353, 0.9216),
+    vec3<f32>(1.0000, 0.8078, 0.3373),
+    vec3<f32>(0.2941, 0.7529, 0.2941),
+    vec3<f32>(0.6000, 0.4000, 1.0000),
+    vec3<f32>(1.0000, 0.6235, 0.2510),
+    vec3<f32>(0.7804, 0.7804, 0.7804),
+    vec3<f32>(0.3255, 0.4000, 1.0000),
+    vec3<f32>(0.1569, 0.6235, 0.2510),
+    vec3<f32>(0.8235, 0.1765, 0.0000),
+    vec3<f32>(0.0000, 0.5020, 0.5020),
+    vec3<f32>(0.5020, 0.0000, 0.5020),
+    vec3<f32>(0.5020, 0.5020, 0.0000),
+    vec3<f32>(0.0000, 0.0000, 0.5020));
+
+    for (var i: i32 = 0; i < globals.NumberOfTimeSeries; i = i + 1) {  // cycle through all time series
+        let idx = vec2<i32>(i + 1, 0);
+        let ts_location = textureLoad(txTimeSeries_Locations, idx, 0).xy;
+        let uv_tsx_diff = uv.x - ts_location.x / f32(globals.WIDTH);
+        let uv_tsy_diff = (uv.y - ts_location.y / f32(globals.HEIGHT)) * f32(globals.HEIGHT) / f32(globals.WIDTH);
+        let uv_dist = sqrt(uv_tsx_diff * uv_tsx_diff + uv_tsy_diff * uv_tsy_diff);
+        if (uv_dist <= 0.005){
+            color_rgb = ts_colors[i];
+        }
+        else if (uv_dist <= 0.0075){
+            color_rgb = vec3<f32>(0., 0., 0.);
+        }
+    }
+
+    // Add colorbar
     if (globals.CB_show == 1) {
-        // Add colorbar
         let colorbar_LL = vec2<f32>(globals.CB_xstart_uv, 0.0);
         let colorbar_width = globals.CB_width_uv;
         let colorbar_height = f32(globals.CB_ystart + 20) / f32(globals.HEIGHT); // 20 pixels above tick marks
@@ -369,8 +402,24 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         }
     }
 
+    // deprecated - data now stored in seperate texture - below can be deleted
+    // tooltip hover - encode values to a corner pixel.  This is a bit of a hack, but I think it is still faster than
+    // creating a new compute shader, since this value-extract is dependent on the current state of the rendered texture
+    // which can change in explorer mode (and thus would require re-doing all the calcs in the vertex shader transformation)
+    // let uv_mouse = vec2<f32>(globals.mouse_current_canvas_positionX, globals.mouse_current_canvas_positionY);
+    // let bottom_hover = (globals.base_depth + textureSample(bottomTexture, textureSampler, uv_mouse).b) / (2.0 * globals.base_depth);  // Bottom elevation, need to scale by some value that will keep value between [0 1]
+    // let waves_hover = (0.1*globals.base_depth + textureSample(etaTexture, textureSampler, uv_mouse).r) / (0.2 * globals.base_depth);  // Free surface elevation
+    // let hsig_hover = textureSample(txWaveHeight, textureSampler, uv_mouse).b / (0.2 * globals.base_depth);   // Significant wave height
+    // let friction_hover = textureSample(txBottomFriction, textureSampler, uv_mouse).r * 20.;   // friction factor, always between [0 and 1], no normalization needed
+    // Determine if this fragment is close to the bottom-left corner
+    // if (uv.x < 1.0 / f32(globals.WIDTH) && uv.y > 1.0 - 1.0 / f32(globals.HEIGHT)) {
+        // Encode data into this pixel's color channels
+    //     out.color = vec4<f32>(bottom_hover, waves_hover, hsig_hover, friction_hover);
+    // } else {
+    //     out.color = vec4<f32>(color_rgb, 1.0); // Normal shader output
+    // }
 
-
-    out.color = vec4<f32>(color_rgb, 1.0); //vec4<f32>(color_rgb, 1.0);
+    out.color = vec4<f32>(color_rgb, 1.0); // Normal shader output
+    
     return out;
 }

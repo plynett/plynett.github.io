@@ -329,4 +329,3 @@ export async function TexturetoImageData(device, texture, width, height) {
     return imageData;
 }
 
-

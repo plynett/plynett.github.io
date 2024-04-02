@@ -132,6 +132,49 @@ function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
 }
 
 
+function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
+    // copy time series lcations into txTimeSeries_Locations
+
+    // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
+    // awesomely, the copy function requires that the buffer has a row size (in bytes) that is a multiple of 256
+    // this will generally not be the case, so the 1D array that will go into the buffer must be padded so that there is the 256 multiple
+
+    const actualBytesPerRow = calc_constants.maxNumberOfTimeSeries * 4 * 4; // 4 channels and 4 bytes per float
+    const requiredBytesPerRow = actualBytesPerRow; 
+    const paddedFlatData = new Float32Array(requiredBytesPerRow);
+
+    for (let x = 0; x < calc_constants.maxNumberOfTimeSeries; x++) {
+
+        const paddedIndex = x * 4; 
+
+        paddedFlatData[paddedIndex] = Math.round(calc_constants.locationOfTimeSeries[x].xts / calc_constants.dx);
+        paddedFlatData[paddedIndex + 1] = Math.round(calc_constants.locationOfTimeSeries[x].yts / calc_constants.dy);
+        paddedFlatData[paddedIndex + 2] = 0.0;
+        paddedFlatData[paddedIndex + 3] = 0.0;
+    }
+
+    const buffer = device.createBuffer({
+        size: paddedFlatData.byteLength,
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
+    buffer.unmap();
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyBufferToTexture({
+        buffer: buffer,
+        bytesPerRow: requiredBytesPerRow,
+        rowsPerImage: 1,
+    }, {
+        texture: txTimeSeries_Locations
+    }, {
+        width: calc_constants.maxNumberOfTimeSeries,
+        height: 1,
+        depthOrArrayLayers: 1
+    });
+    device.queue.submit([commandEncoder.finish()]);
+}
+
 
 function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState) {
     // create and place initial condition into txState
@@ -380,4 +423,4 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, ba
 
 
 
-export { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture };
+export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture };

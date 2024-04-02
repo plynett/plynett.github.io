@@ -96,6 +96,31 @@ export function displaySimStatus(calc_constants, total_time, total_time_since_ht
     
 }
 
+
+export function displayTimeSeriesLocations(calc_constants) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => displayTimeSeriesLocations(calc_constants));
+        return;
+    }
+
+    const container = document.getElementById('timeserieslocs-container');
+    if (!container) {
+        console.error("Constants container not found in the DOM.");
+        return;
+    }
+
+    container.innerHTML = ''; // Clear previous contents
+
+    for (let i = 1; i < calc_constants.NumberOfTimeSeries+1; i++) {
+        const locationInfo = `Location ${Math.round(i)}, ` +
+                             `X: ${Math.round(calc_constants.locationOfTimeSeries[i].xts * 100) / 100}, ` +
+                             `Y: ${Math.round(calc_constants.locationOfTimeSeries[i].yts * 100) / 100}<br>`;
+        container.innerHTML += locationInfo; // Append location info directly with line breaks
+    }
+}
+
+
+
 function addTextToContainer(text, container) {
     // Create a paragraph element
     const paragraph = document.createElement('p');

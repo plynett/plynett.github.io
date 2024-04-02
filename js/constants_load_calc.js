@@ -1,5 +1,14 @@
 // constants_load_calc.js
-
+    //
+var timeSeriesData = [];
+for (let i = 0; i < 16; i++) {
+    timeSeriesData.push({
+        time: [],
+        eta: [],
+        P: [],
+        Q: []
+    });
+}  
 
 // set simulation parameters to default values
 var calc_constants = {
@@ -57,8 +66,20 @@ var calc_constants = {
     sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
     sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
 
+    //  add disturbence parameters
+    add_Disturbance: -1, // will be changed to 1 when user clicks "Add"
+    disturbanceType: 1, // for various choices, 1= solitary wave, etc.
+    disturbanceXpos: 0.0,
+    disturbanceYpos: 0.0,
+    disturbanceCrestamp: 0.0,
+    disturbanceDir: 0.0,
+    disturbanceWidth: 0.0,
+    disturbanceLength: 0.0,
+    disturbanceDip: 0.0,
+    disturbanceRake: 0.0,
+
     // define which "Example" to run
-    run_example: 0, // see below
+    run_example: 0, // index corresponding to examples below
     exampleDirs: [
         "./examples/Ventura/",
         "./examples/Santa_Cruz/",
@@ -104,6 +125,34 @@ var calc_constants = {
     n_time_steps_means: 0,  // time steps counter for means calculation
     n_time_steps_waveheight: 0, // time steps counter for wave height calculation
     save_baseline: 0, // store baseline wave height texture when = 1
+    countTimeSeries: 0, // count of points stored in time series
+    durationTimeSeries: 0., // current time series duration
+    maxdurationTimeSeries: 120., // time series duration to plot, time series resets after this time.
+    maxNumberOfTimeSeries: 16, // max number of time series allowed, inlcuding tooltip, if greater than 16, need to update readToolTipTextureData bytesperrow.  SHould be 16*N time series
+    NumberOfTimeSeries: 3, //  number of time series right now
+    changethisTimeSeries: 1, // changing location of this time series
+    changeXTimeSeries: 0.0,  // updated x-coordinate of time series
+    changeYTimeSeries: 0.0,  // updated y-coordinate of time series
+    updateTimeSeriesTx: 0, // set to one to update time series locations texture
+    chartDataUpdate: 0, // update the chart dataset if == 1
+    locationOfTimeSeries: [  // coordinates of time series.  If change to >16, probably need to make this loop driven
+        { xts: 0.0, yts: 0.0 },  // first index is used by the tooltip, so only maxNumberOfTimeSeries-1 time series 
+        { xts: 100.0, yts: 1000.0 },
+        { xts: 100.0, yts: 1500.0 },
+        { xts: 100.0, yts: 2000.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 }
+      ],
 
     // canvas interaction parameters
     xClick: 0, // pixel coordinate of x-click
@@ -122,6 +171,14 @@ var calc_constants = {
     full_screen: 0, // = 0 regular, = 1 in fullscreen
     canvas_width_ratio: 1.0, // for full screen asepct ratio correction
     canvas_height_ratio: 1.0, // for full screen asepct ratio correction
+    mouse_current_canvas_positionX: 0.0, // for tooltip hover
+    mouse_current_canvas_positionY: 0.0, // for tooltip hover
+    mouse_current_canvas_indX: 0, // for tooltip hover
+    mouse_current_canvas_indY: 0, // for tooltip hover
+    tooltipVal_eta: 0.0, // tooltip value 1
+    tooltipVal_bottom: 0.0, // tooltip value 2
+    tooltipVal_Hs: 0.0, // tooltip value 3
+    tooltipVal_friction: 0.0, // tooltip value 4
 };
 
 // load the control file
@@ -175,7 +232,7 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.one_over_d2y = calc_constants.one_over_dy * calc_constants.one_over_dy;
     calc_constants.one_over_d3y = calc_constants.one_over_d2y * calc_constants.one_over_dy;
     calc_constants.one_over_dxdy = calc_constants.one_over_dx * calc_constants.one_over_dy;
-    calc_constants.delta = calc_constants.base_depth / 1000.0;
+    calc_constants.delta = calc_constants.base_depth / 10000.0;
     calc_constants.epsilon = Math.pow(calc_constants.delta, 2);
     calc_constants.PI = Math.PI;
     calc_constants.boundary_epsilon = calc_constants.epsilon;
@@ -232,4 +289,4 @@ async function init_sim_parameters(canvas, configContent) {
     console.log("Simulation parameters set.");
 }
 
-export { calc_constants, loadConfig, init_sim_parameters };
+export { calc_constants, timeSeriesData, loadConfig, init_sim_parameters };

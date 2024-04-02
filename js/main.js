@@ -1,9 +1,10 @@
 ﻿// import source files
-import { calc_constants, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
+import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
 import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset } from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData, downloadGeoTiffData } from './File_Writer.js';  // load depth surface and wave data file
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData, downloadGeoTiffData} from './File_Writer.js';  // load depth surface and wave data file
+import { readCornerPixelData, readToolTipTextureData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar } from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
@@ -20,10 +21,11 @@ import { create_CalcMeans_BindGroupLayout, create_CalcMeans_BindGroup } from './
 import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup } from './Handler_CalcWaveHeight.js';  // group bindings for shader that calculates running means of state variables
 import { create_AddDisturbance_BindGroupLayout, create_AddDisturbance_BindGroup } from './Handler_AddDisturbance.js';  // group bindings for adding a landslide or tsunami impulsive source
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
+import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_BindGroup } from './Handler_ExtractTimeSeries.js';  // group bindings for storing single pixel / time series values
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
-import { displayCalcConstants, displaySimStatus } from './display_parameters.js';  // starting point for display of simulation parameters
+import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations } from './display_parameters.js';  // starting point for display of simulation parameters
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
@@ -68,7 +70,8 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     return { bathy2D, waveData };
 }
 
-// This is an asynchronous function to set up the WebGPU context and resources.
+// This is an asynchronous function to set up and run the WebGPU context and resources.
+// All of the compute pipelines are included in this function
 async function initializeWebGPUApp(configContent, bathymetryContent, waveContent) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting WebGPU App Initialization...");
@@ -140,6 +143,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const CalcWaveHeight_uniformBuffer = createUniformBuffer(device);
     const AddDisturbance_uniformBuffer = createUniformBuffer(device);
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
+    const ExtractTimeSeries_uniformBuffer = createUniformBuffer(device);
     const Render_uniformBuffer = createUniformBuffer(device);
 
     // Create a sampler for texture sampling. This defines how the texture will be sampled (e.g., nearest-neighbor sampling).  Used only for render pipeline
@@ -216,6 +220,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for creating text & shapes on an HTML5 canvas
     
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
+    const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
+    const txTimeSeries_Data = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
 
     // fill in the bathy texture
     let bathy2Dvec = copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
@@ -224,6 +230,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     if (calc_constants.numberOfWaves > 0) {
         copyWaveDataToTexture(calc_constants, waveData, device, txWaves);
     }
+
+    // fill in the time series location texture
+    copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations)  
 
     // create initial condition
     copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState);
@@ -487,21 +496,24 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // AddDisturbance -  Bindings & Uniforms Config
     const AddDisturbance_BindGroupLayout = create_AddDisturbance_BindGroupLayout(device);
-    const AddDisturbance_BindGroup = create_AddDisturbance_BindGroup(device, AddDisturbance_uniformBuffer, txBottom, txBottomFriction, txContSource, txstateUVstar, txtemp_AddDisturbance);
+    const AddDisturbance_BindGroup = create_AddDisturbance_BindGroup(device, AddDisturbance_uniformBuffer, txBottom, txstateUVstar, txtemp_AddDisturbance);
     const AddDisturbance_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let AddDisturbance_view = new DataView(AddDisturbance_uniforms);
     AddDisturbance_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     AddDisturbance_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
     AddDisturbance_view.setFloat32(8, calc_constants.dx, true);             // f32
     AddDisturbance_view.setFloat32(12, calc_constants.dy, true);             // f32 
-    AddDisturbance_view.setFloat32(16, calc_constants.xClick, true);             // f32
-    AddDisturbance_view.setFloat32(20, calc_constants.yClick, true);             // f32
-    AddDisturbance_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
-    AddDisturbance_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32  
-    AddDisturbance_view.setInt32(32, calc_constants.surfaceToChange, true);             // f32  
-    AddDisturbance_view.setInt32(36, calc_constants.changeType, true);             // f32  
-    AddDisturbance_view.setFloat32(40, calc_constants.base_depth, true);             // f32  
-
+    AddDisturbance_view.setInt32(16, calc_constants.disturbanceType, true);             // f32
+    AddDisturbance_view.setFloat32(20, calc_constants.disturbanceXpos, true);             // f32
+    AddDisturbance_view.setFloat32(24, calc_constants.disturbanceYpos, true);             // f32
+    AddDisturbance_view.setFloat32(28, calc_constants.disturbanceCrestamp, true);             // f32  
+    AddDisturbance_view.setFloat32(32, calc_constants.disturbanceDir, true);             // f32  
+    AddDisturbance_view.setFloat32(36, calc_constants.disturbanceWidth, true);             // f32  
+    AddDisturbance_view.setFloat32(40, calc_constants.disturbanceLength, true);             // f32  
+    AddDisturbance_view.setFloat32(44, calc_constants.disturbanceDip, true);             // f32  
+    AddDisturbance_view.setFloat32(48, calc_constants.disturbanceRake, true);             // f32  
+    AddDisturbance_view.setFloat32(52, calc_constants.base_depth, true);             // f32  
+    AddDisturbance_view.setFloat32(56, calc_constants.g, true);             // f32  
 
     // MouseClickChange -  Bindings & Uniforms Config
     const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
@@ -520,9 +532,22 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // f32  
     MouseClickChange_view.setFloat32(40, calc_constants.base_depth, true);             // f32  
 
+    // ExtractTimeSeries -  Bindings & Uniforms Config
+    const ExtractTimeSeries_BindGroupLayout = create_ExtractTimeSeries_BindGroupLayout(device);
+    const ExtractTimeSeries_BindGroup = create_ExtractTimeSeries_BindGroup(device, ExtractTimeSeries_uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data);
+    const ExtractTimeSeries_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
+    let ExtractTimeSeries_view = new DataView(ExtractTimeSeries_uniforms);
+    ExtractTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    ExtractTimeSeries_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
+    ExtractTimeSeries_view.setFloat32(8, calc_constants.dx, true);             // f32
+    ExtractTimeSeries_view.setFloat32(12, calc_constants.dy, true);             // f32
+    ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
+    ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
+    ExtractTimeSeries_view.setFloat32(24, 0.0, true);             // f32, total_time
+
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler);
+    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler, txTimeSeries_Locations);
     const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -552,6 +577,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(96, calc_constants.CB_width_uv, true);          // i32  
     Render_view.setInt32(100, calc_constants.CB_ystart, true);          // i32  
     Render_view.setInt32(104, calc_constants.CB_label_height, true);          // i32  
+    Render_view.setFloat32(108, calc_constants.base_depth, true);             // f32  
+    Render_view.setInt32(112, calc_constants.NumberOfTimeSeries, true);             // i32  
+
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
@@ -569,7 +597,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
     const CalcMeans_ShaderCode = await fetchShader('/shaders/CalcMeans.wgsl');
     const CalcWaveHeight_ShaderCode = await fetchShader('/shaders/CalcWaveHeight.wgsl');
+    const AddDisturbance_ShaderCode = await fetchShader('/shaders/AddDisturbance.wgsl');
     const MouseClickChange_ShaderCode = await fetchShader('/shaders/MouseClickChange.wgsl');
+    const ExtractTimeSeries_ShaderCode = await fetchShader('/shaders/ExtractTimeSeries.wgsl');
 
     const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
     const vertex3DShaderCode = await fetchShader('/shaders/vertex3D.wgsl');
@@ -592,7 +622,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const UpdateTrid_Pipeline = createComputePipeline(device, UpdateTrid_ShaderCode, UpdateTrid_BindGroupLayout, allComputePipelines);
     const CalcMeans_Pipeline = createComputePipeline(device, CalcMeans_ShaderCode, CalcMeans_BindGroupLayout, allComputePipelines);
     const CalcWaveHeight_Pipeline = createComputePipeline(device, CalcWaveHeight_ShaderCode, CalcWaveHeight_BindGroupLayout, allComputePipelines);
+    const AddDisturbance_Pipeline = createComputePipeline(device, AddDisturbance_ShaderCode, AddDisturbance_BindGroupLayout, allComputePipelines);
     const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout, allComputePipelines);
+    const ExtractTimeSeries_Pipeline = createComputePipeline(device, ExtractTimeSeries_ShaderCode, ExtractTimeSeries_BindGroupLayout, allComputePipelines);
 
     var RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
     console.log("Pipelines set up.");
@@ -682,6 +714,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let frame_count = 0;   // Counter to keep track of the number of rendered frames.
     let frame_count_since_http_update = 0;   // Counter to keep track of the number of rendered frames.
     let total_time_since_http_update = 0;          // Initialize time, which might be used for animations or simulations.
+    let frame_count_time_series = 0;   // Counter for time series
+    let total_time_time_series = 0;          // duration for time series
     let frame_count_find_render_step = 0;   // Counter to keep track of the number of rendered frames.
 
     // variables needed for the "render_step" optimziation
@@ -830,19 +864,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
             Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
             Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+            Render_view.setInt32(112, calc_constants.NumberOfTimeSeries, true);             // i32  
             
             update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) // update colorbar with new climits
-
-            if (calc_constants.viewType == 1)
-            {
-                // Render QUAD
-                RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
-            }
-            else if (calc_constants.viewType == 2)
-            {
-                // Render Vertex grid
-                RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
-            }
 
             startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
             frame_count_since_http_update = 0;
@@ -894,6 +918,26 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             calc_constants.click_update = -1;
         }
+        
+
+        // add impluse or disturbance
+        if(calc_constants.add_Disturbance > 0) {
+            AddDisturbance_view.setInt32(16, calc_constants.disturbanceType, true);             // f32
+            AddDisturbance_view.setFloat32(20, calc_constants.disturbanceXpos, true);             // f32
+            AddDisturbance_view.setFloat32(24, calc_constants.disturbanceYpos, true);             // f32
+            AddDisturbance_view.setFloat32(28, calc_constants.disturbanceCrestamp, true);             // f32  
+            AddDisturbance_view.setFloat32(32, calc_constants.disturbanceDir, true);             // f32  
+            AddDisturbance_view.setFloat32(36, calc_constants.disturbanceWidth, true);             // f32  
+            AddDisturbance_view.setFloat32(40, calc_constants.disturbanceLength, true);             // f32  
+            AddDisturbance_view.setFloat32(44, calc_constants.disturbanceDip, true);             // f32  
+            AddDisturbance_view.setFloat32(48, calc_constants.disturbanceRake, true);             // f32  
+
+            runComputeShader(device, commandEncoder, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
+            runCopyTextures(device, commandEncoder, calc_constants, txtemp_AddDisturbance, txstateUVstar)
+
+            calc_constants.add_Disturbance = -1;
+        }
+
 
          // loop through the compute shaders "render_step" times.  
         var commandEncoder;  // init the encoder
@@ -903,10 +947,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // Increment the frame counter and the simulation time.
                 frame_count += 1;
                 frame_count_since_http_update += 1;
+                frame_count_time_series += 1;
 
                 total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
-                
+
                 // Pass0
                 runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
@@ -1068,6 +1113,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
         // Define the settings for the render pass.
+        if (calc_constants.viewType == 1)
+        {
+            // Render QUAD
+            RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+        }
+        else if (calc_constants.viewType == 2)
+        {
+            // Render Vertex grid
+            RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+        }
+
         // The render target is the current swap chain texture.
         const RenderPassDescriptor = {
             colorAttachments: [{
@@ -1111,11 +1167,32 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
         // Submit the recorded commands to the GPU for execution.
         device.queue.submit([commandEncoder.finish()]);
-        // end screen render
+        // end screen render    
+
+        // for the tooltip & time series, extract pixel values
+        if(calc_constants.updateTimeSeriesTx == 1 || calc_constants.chartDataUpdate == 1) {  // update the time series locations texture, and reset plot
+            copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) 
+            frame_count_time_series = 0; 
+            total_time_time_series = 0.0;
+            calc_constants.updateTimeSeriesTx = 0;
+        }
+
+        total_time_time_series = frame_count_time_series * calc_constants.dt; // step up time series time vector
+        if(total_time_time_series > calc_constants.maxdurationTimeSeries ){  // reset display if greater than max time
+            frame_count_time_series = 0; 
+            total_time_time_series = 0.0;
+        }
+        
+        ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
+        ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
+        ExtractTimeSeries_view.setFloat32(24,  total_time_time_series, true);             // f32, total_time
+        runComputeShader(device, commandEncoder, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture        
+        readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
 
         // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations, only when not fullscreen
         if(calc_constants.full_screen == 0){
-            const current_render = context.getCurrentTexture();
+            const current_render = context.getCurrentTexture();    
+
             commandEncoder = device.createCommandEncoder();
 
             commandEncoder.copyTextureToTexture(
@@ -1123,7 +1200,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 { texture: txScreen },  //dst
                 { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
             );
-            device.queue.submit([commandEncoder.finish()]);
+            device.queue.submit([commandEncoder.finish()]);            
         }
         // end image store
 
@@ -1149,15 +1226,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
         displayCalcConstants(calc_constants, total_time_since_http_update);
         displaySimStatus(calc_constants, total_time, total_time_since_http_update);
-    }
+        displayTimeSeriesLocations(calc_constants);
 
+    }
 
     // Invoke the `frame` function once to start the main loop.
     frame();
 
 }
+// end compute pipeline
 
-// All the functions below this are for UI - this is also where the wave simulation is started
+// All the functions below this are for web page UI - this is also where the wave simulation is started
 document.addEventListener('DOMContentLoaded', function () {
     // Get a reference to your canvas element.
     var canvas = document.getElementById('webgpuCanvas');
@@ -1196,7 +1275,15 @@ document.addEventListener('DOMContentLoaded', function () {
             lastMouseX_left = event.clientX;
             lastMouseY_left = event.clientY;
             calc_constants.click_update = 2;
-        } else if (event.button === 2) { // Right mouse button
+        } else if (event.button === 2 && calc_constants.viewType == 1) { // right mouse button, Design mode
+            rightMouseIsDown = true;
+            lastMouseX_right = event.clientX;
+            lastMouseY_right = event.clientY;
+            calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = x_position;
+            calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].yts = y_position;
+            calc_constants.click_update = 2;
+            calc_constants.updateTimeSeriesTx = 1;  // by setting to one, will tell timesereies shader to run and update chart
+        } else if (event.button === 2 && calc_constants.viewType == 2) { // right mouse button, Explorer mode
             rightMouseIsDown = true;
             lastMouseX_right = event.clientX;
             lastMouseY_right = event.clientY;
@@ -1303,6 +1390,59 @@ document.addEventListener('DOMContentLoaded', function () {
     }, { passive: false }); // Explicitly mark the listener as not passive    
     // end scroll wheel interaction
 
+
+    // tooltip hover box near mouse point to display information
+    const tooltip = document.getElementById('tooltip');
+    
+    let x_position = 0.0;
+    let y_position = 0.0;
+    canvas.addEventListener('mousemove', async (event) => {
+        const bounds = canvas.getBoundingClientRect(); // Get the bounding rectangle of the canvas
+    
+        // Calculate coordinates relative to the canvas
+        const x = event.clientX;
+        const y = event.clientY;
+        
+        // Normalize the coordinates to [0, 1]
+        const canvas_width = bounds.right - bounds.left;
+        const canvas_height = bounds.bottom - bounds.top;
+        const normalizedX = (x - bounds.left) / canvas_width; //normalizedX;
+        const normalizedY = 1.0 - (y - bounds.top) / canvas_height; //normalizedY;
+        
+        // Update your constants for WebGPU
+        //calc_constants.mouse_current_canvas_positionX = normalizedX;
+        //calc_constants.mouse_current_canvas_positionY = normalizedY;
+        
+        calc_constants.mouse_current_canvas_indX = Math.round(normalizedX * calc_constants.WIDTH);
+        calc_constants.mouse_current_canvas_indY = Math.round(normalizedY * calc_constants.HEIGHT);
+
+        // Use WebGPU to read the data at (canvasX, canvasY)
+        x_position = normalizedX * calc_constants.WIDTH * calc_constants.dx;
+        y_position = normalizedY * calc_constants.HEIGHT * calc_constants.dy;
+     
+        // Adjust tooltip position considering the page scroll
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${x + window.scrollX }px`; // Adjusted for page scroll
+        tooltip.style.top = `${y + window.scrollY + 20}px`; // Adjusted for page scroll
+        tooltip.style.backgroundColor = 'gray'; // Gray background
+        tooltip.style.color = 'white'; // White text color
+        tooltip.style.padding = '8px';
+        tooltip.style.borderRadius = '4px';
+    });
+    
+    function updateTooltip() {
+        // Assuming x_position and y_position are updated elsewhere in your code and accessible here
+        tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+    }
+    
+    // Set this function to be called every 100 milliseconds
+    const updateInterval = 100; // Adjust the interval as needed
+    setInterval(updateTooltip, updateInterval);
+
+    canvas.addEventListener('mouseout', () => {
+      tooltip.style.display = 'none';
+    });
+
     // html input fields
     // Define a helper function to update calc_constants and potentially re-initialize components
     function updateCalcConstants(property, newValue) {
@@ -1387,10 +1527,21 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'sedC1_psi-button', input: 'sedC1_psi-input', property: 'sedC1_psi' },
         { id: 'sedC1_criticalshields-button', input: 'sedC1_criticalshields-input', property: 'sedC1_criticalshields' },
         { id: 'sedC1_denrat-button', input: 'sedC1_denrat-input', property: 'sedC1_denrat' },
-    ]; 
+        { id: 'disturbanceXpos-button', input: 'disturbanceXpos-input', property: 'disturbanceXpos' },
+        { id: 'disturbanceYpos-button', input: 'disturbanceYpos-input', property: 'disturbanceYpos' },
+        { id: 'disturbanceCrestamp-button', input: 'disturbanceCrestamp-input', property: 'disturbanceCrestamp' },
+        { id: 'disturbanceDir-button', input: 'disturbanceDir-input', property: 'disturbanceDir' },
+        { id: 'disturbanceWidth-button', input: 'disturbanceWidth-input', property: 'disturbanceWidth' },
+        { id: 'disturbanceLength-button', input: 'disturbanceLength-input', property: 'disturbanceLength' },
+        { id: 'disturbanceDip-button', input: 'disturbanceDip-input', property: 'disturbanceDip' },
+        { id: 'disturbanceRake-button', input: 'disturbanceRake-input', property: 'disturbanceRake' },
+        { id: 'changeXTimeSeries-button', input: 'changeXTimeSeries-input', property: 'changeXTimeSeries' },
+        { id: 'changeYTimeSeries-button', input: 'changeYTimeSeries-input', property: 'changeYTimeSeries' },
+        { id: 'maxdurationTimeSeries-button', input: 'maxdurationTimeSeries-input', property: 'maxdurationTimeSeries' },
+    ];         
+
 
     
-
     // Specify the inputs for the drop-down menus
     const button_dropdown_Actions = [
         { input: 'nlsw-select', property: 'NLSW_or_Bous' },
@@ -1409,6 +1560,9 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'changeType-select', property: 'changeType' },
         { input: 'useSedTransModel-select', property: 'useSedTransModel' },
         { input: 'run_example-select', property: 'run_example' },
+        { input: 'disturbanceType-select', property: 'disturbanceType' },
+        { input: 'NumberOfTimeSeries-select', property: 'NumberOfTimeSeries' },
+        { input: 'changethisTimeSeries-select', property: 'changethisTimeSeries' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -1559,6 +1713,28 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // add time series listener, to update time series location texture changeXTimeSeries-button
+    document.getElementById('changeXTimeSeries-button').addEventListener('click', function () {
+        calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = calc_constants.changeXTimeSeries;
+        calc_constants.updateTimeSeriesTx = 1;  // by setting to one, will tell timesereies shader to run
+    });
+    document.getElementById('changeYTimeSeries-button').addEventListener('click', function () {
+        calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].yts = calc_constants.changeYTimeSeries;
+        calc_constants.updateTimeSeriesTx = 1;  // by setting to one, will tell timesereies shader to run
+    });
+    document.getElementById('NumberOfTimeSeries-select').addEventListener('change', function () {
+        calc_constants.chartDataUpdate = 1;  // Indicate that the number of time series changed, need to update chart legends, etc.
+    
+        console.log(calc_constants.chartDataUpdate);
+    });
+
+
+
+    // Add disturbance button
+    document.getElementById('disturbance-button').addEventListener('click', function () {
+        calc_constants.add_Disturbance = 1;  // by setting to one, will add disturbance at start of next time step
+    });
+
     // Save baseline wave height surface
     document.getElementById('save-baseline-texture-btn').addEventListener('click', function () {
         calc_constants.save_baseline = 1;  // store baseline wave height
@@ -1684,5 +1860,120 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 });
+// end web GUI code
+
+// the code below is for the time series plotting, using Chart.js// Assuming timeSeriesData is being updated elsewhere in your code
+const ctx = document.getElementById('timeseriesChart').getContext('2d');
+
+// Function to generate a unique color for each dataset
+// This is a simple function and can be replaced with any logic you prefer for color generation
+function getBorderColor(index) {
+  const colors = [
+    'rgb(75, 192, 192)',
+    'rgb(255, 99, 132)',
+    'rgb(54, 162, 235)',
+    'rgb(255, 206, 86)',
+    'rgb(75, 192, 75)',
+    'rgb(153, 102, 255)',
+    'rgb(255, 159, 64)',
+    'rgb(199, 199, 199)',
+    'rgb(83, 102, 255)',
+    'rgb(40, 159, 64)',
+    'rgb(210, 45, 0)',
+    'rgb(0, 128, 128)',
+    'rgb(128, 0, 128)',
+    'rgb(128, 128, 0)',
+    'rgb(0, 0, 128)'
+  ];
+  return colors[index % colors.length]; // Cycle through colors if more than 15 locations
+}
+
+// Dynamically create datasets for each location
+let datasets = timeSeriesData.slice(0, calc_constants.NumberOfTimeSeries).map((location, index) => ({
+  label: `Location ${index+1}`,
+  data: location.eta,
+  borderColor: getBorderColor(index),
+  borderWidth: 1,
+  fill: false,
+  tension: 0.4,
+  pointRadius: 0
+}));
+
+const timeseriesChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: timeSeriesData[0].time, // Assuming the time vector is the same for all locations
+        datasets: datasets
+    },
+    options: {
+        scales: {
+            x: {
+                type: 'linear',
+                position: 'bottom',
+                min: 0,
+                max: calc_constants.maxdurationTimeSeries,
+                ticks: {
+                    stepSize: 30,
+                },
+                title: {
+                    display: true,
+                    text: 'Time (s)'
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Elevation (m)'
+                },
+                beginAtZero: true
+            }
+        },
+        animation: {
+            duration: 0
+        },
+        hover: {
+            animationDuration: 0
+        },
+        responsiveAnimationDuration: 0,
+    }
+});
 
 
+// Function to update chart data
+function updateChartData() {
+    // Check if there's a need to update the chart data based on the flag
+    if(calc_constants.chartDataUpdate == 1){
+        // Regenerate datasets for the new number of time series
+        const newDatasets = timeSeriesData.slice(0, calc_constants.NumberOfTimeSeries).map((location, index) => ({
+            label: `Location ${index+1}`,
+            data: location.eta,
+            borderColor: getBorderColor(index),
+            borderWidth: 1,
+            fill: false,
+            tension: 0.4,
+            pointRadius: 0
+        }));
+
+        // Apply the new datasets to the chart
+        timeseriesChart.data.datasets = newDatasets;
+        calc_constants.chartDataUpdate = 0; // Reset the update flag
+    } else {
+        // If no new datasets but data might have been updated
+        timeseriesChart.data.datasets.forEach((dataset, index) => {
+            if(timeSeriesData[index]) { // Ensure there's corresponding data
+                dataset.data = timeSeriesData[index].eta; // Update existing dataset data
+            }
+        });
+    }
+
+    // Always update the labels and x-axis limit to reflect any changes in the time vector or chart configuration
+    timeseriesChart.data.labels = timeSeriesData[0].time;
+    timeseriesChart.options.scales.x.max = calc_constants.maxdurationTimeSeries;
+
+    // Update the chart to apply changes
+    timeseriesChart.update();
+}
+
+
+// Set an interval to update the chart every second (1000 milliseconds)
+setInterval(updateChartData, 1000);
