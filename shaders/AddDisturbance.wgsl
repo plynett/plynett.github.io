@@ -23,13 +23,41 @@ struct Globals {
 @group(0) @binding(3) var txtemp_AddDisturbance: texture_storage_2d<rgba32float, write>;
 
 
-fn solitary_wave(xloc: f32, yloc: f32, amplitude: f32, angle: f32, depth: f32) -> vec4<f32> {
+fn solitary_wave(xloc: f32, yloc: f32, amplitude: f32, angle: f32, depth: f32, bottom: f32) -> vec4<f32> {
     let k = sqrt(0.75 * abs(amplitude)/pow(depth,3.0));
     let c = sqrt(globals.g * (amplitude+depth));
 
-    let eta = amplitude / pow(cosh(k * (xloc * cos(angle) + yloc * sin(angle))),2);
+    var eta = amplitude / pow(cosh(k * (xloc * cos(angle) + yloc * sin(angle))),2.0);
     let P = eta * c * cos(angle);
     let Q = eta * c * sin(angle);
+    
+    if(bottom > 0.0){
+        eta = max(0.0, eta - bottom);  // since this is added to the existing state - which for dry areas, eta = bottom already
+    }
+
+    return vec4(eta, P, Q, 0.0);
+}
+
+fn landslide_subaerial(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom: f32, width: f32, length: f32) -> vec4<f32> {
+    let kL = 3.1415 / length;
+    let kW = 3.1415 / width;
+
+    let sin_c = sin(angle);
+    let cos_c = cos(angle);
+
+    let xc = xloc * cos_c + yloc * sin_c;
+    let x_sin = xloc * sin_c;
+    let y_cos = yloc * cos_c;
+	let yc = sqrt( x_sin * x_sin + y_cos * y_cos);
+
+    var eta = thickness * (exp(-( xc * xc * kL * kL ))) * exp(-( yc * yc * kW * kW ));
+    let h = max(1.e-5, (eta - bottom));
+	let P = eta * sqrt( globals.g * h) * cos_c;
+	let Q = eta * sqrt( globals.g * h) * sin_c;
+
+    if(bottom > 0.0){
+        eta = max(0.0, eta - bottom);  // since this is added to the existing state - which for dry areas, eta = bottom already
+    }
 
     return vec4(eta, P, Q, 0.0);
 }
@@ -54,30 +82,30 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.disturbanceType == 1) {      // solitary wave
         let amplitude = globals.disturbanceCrestamp;
         let angle = globals.disturbanceDir * 3.1415 / 180.;
-        disturbance = solitary_wave(xloc, yloc, amplitude, angle, depth);
+        disturbance = solitary_wave(xloc, yloc, amplitude, angle, depth, bottom);
 
     } else if (globals.disturbanceType == 2) {   // earthquake 
         let slip = globals.disturbanceCrestamp;
-        let strike = globals.disturbanceDir * 3.1415 / 180.;;
+        let strike = globals.disturbanceDir * 3.1415 / 180.;
         let width = globals.disturbanceWidth;
         let length = globals.disturbanceLength;
-        let dip = globals.disturbanceDip * 3.1415 / 180.;;
-        let rake = globals.disturbanceRake * 3.1415 / 180.;;
+        let dip = globals.disturbanceDip * 3.1415 / 180.;
+        let rake = globals.disturbanceRake * 3.1415 / 180.;
   //      disturbance = earthquake(xloc, yloc, slip, strike, width, length, dip, rake);
 
     } else if (globals.disturbanceType == 3) {   // submerged landslide
         let thickness = globals.disturbanceCrestamp;
-        let angle = globals.disturbanceDir * 3.1415 / 180.;;
+        let angle = globals.disturbanceDir * 3.1415 / 180.;
         let width = globals.disturbanceWidth;
         let length = globals.disturbanceLength;
    //     disturbance = landslide_submerged(xloc, yloc, thickness, angle, bottom, width, length);
 
     } else if (globals.disturbanceType == 4) {   // subaerial landslide
         let thickness = globals.disturbanceCrestamp;
-        let angle = globals.disturbanceDir * 3.1415 / 180.;;
+        let angle = globals.disturbanceDir * 3.1415 / 180.;
         let width = globals.disturbanceWidth;
         let length = globals.disturbanceLength;
-  //      disturbance = landslide_subaerial(xloc, yloc, thickness, angle, bottom, width, length);
+        disturbance = landslide_subaerial(xloc, yloc, thickness, angle, bottom, width, length);
 
     }
 

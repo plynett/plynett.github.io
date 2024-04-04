@@ -1724,8 +1724,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     document.getElementById('NumberOfTimeSeries-select').addEventListener('change', function () {
         calc_constants.chartDataUpdate = 1;  // Indicate that the number of time series changed, need to update chart legends, etc.
-    
-        console.log(calc_constants.chartDataUpdate);
     });
 
 
@@ -1885,6 +1883,7 @@ function getBorderColor(index) {
     'rgb(128, 128, 0)',
     'rgb(0, 0, 128)'
   ];
+
   return colors[index % colors.length]; // Cycle through colors if more than 15 locations
 }
 
@@ -1913,7 +1912,7 @@ const timeseriesChart = new Chart(ctx, {
                 min: 0,
                 max: calc_constants.maxdurationTimeSeries,
                 ticks: {
-                    stepSize: 30,
+                    stepSize: calc_constants.maxdurationTimeSeries / 20.,
                 },
                 title: {
                     display: true,
@@ -1970,10 +1969,15 @@ function updateChartData() {
     timeseriesChart.data.labels = timeSeriesData[0].time;
     timeseriesChart.options.scales.x.max = calc_constants.maxdurationTimeSeries;
 
+    // Dynamically adjust the stepSize if needed
+    const desiredNumberOfTicks = 20; // Example: aim for 10 ticks
+    const range = calc_constants.maxdurationTimeSeries - 0; // Assuming min is 0
+    const stepSize = range / desiredNumberOfTicks;
+    timeseriesChart.options.scales.x.ticks.stepSize = stepSize;
+
     // Update the chart to apply changes
     timeseriesChart.update();
 }
-
 
 // Set an interval to update the chart every second (1000 milliseconds)
 setInterval(updateChartData, 1000);

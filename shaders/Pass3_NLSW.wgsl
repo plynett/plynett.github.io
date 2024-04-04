@@ -62,7 +62,10 @@ fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
         f = globals.friction / 2.0;
     }
 
-    f = f * sqrt(hu * hu + hv * hv) * divide_by_h * divide_by_h;
+    let u = hu * divide_by_h;
+    let v = hv * divide_by_h;
+
+    f = f * sqrt(u * u + v * v) * divide_by_h;
 
     return f;
 }

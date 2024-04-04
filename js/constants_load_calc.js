@@ -33,9 +33,9 @@ var calc_constants = {
     g: 9.80665,  // Gravitational constant.
     seaLevel: 0.0,  // Water level shift from given datum.
     base_depth: 20.0,  // characteristic_depth (m), used to estimate time step, use depth in area of wave generation, or expected largest depth in domain.
-    Theta: 1.3,  // Midmod limiter parameter. 1.0 most dissipative(upwind) to 2.0 least dissipative(centered).
-    friction: 0.001,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
-    isManning: 1,  // A boolean friction model value, if==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
+    Theta: 2.0,  // Midmod limiter parameter. 1.0 most dissipative(upwind) to 2.0 least dissipative(centered).
+    friction: 0.000,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
+    isManning: 0,  // A boolean friction model value, if==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
 
     // Boundary condition parameters
     west_boundary_type: 0,  // Type of boundary condition at the west boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
@@ -97,6 +97,7 @@ var calc_constants = {
         "./examples/SantaBarbara/",
         "./examples/Taan_fjord/",
         "./examples/OSU_WaveBasin/",
+        "./examples/SF_Bay_tides/"
       ],
 
     // plotting parameters
@@ -129,7 +130,7 @@ var calc_constants = {
     durationTimeSeries: 0., // current time series duration
     maxdurationTimeSeries: 120., // time series duration to plot, time series resets after this time.
     maxNumberOfTimeSeries: 16, // max number of time series allowed, inlcuding tooltip, if greater than 16, need to update readToolTipTextureData bytesperrow.  SHould be 16*N time series
-    NumberOfTimeSeries: 3, //  number of time series right now
+    NumberOfTimeSeries: 0, //  number of time series right now
     changethisTimeSeries: 1, // changing location of this time series
     changeXTimeSeries: 0.0,  // updated x-coordinate of time series
     changeYTimeSeries: 0.0,  // updated y-coordinate of time series
@@ -137,9 +138,9 @@ var calc_constants = {
     chartDataUpdate: 0, // update the chart dataset if == 1
     locationOfTimeSeries: [  // coordinates of time series.  If change to >16, probably need to make this loop driven
         { xts: 0.0, yts: 0.0 },  // first index is used by the tooltip, so only maxNumberOfTimeSeries-1 time series 
-        { xts: 100.0, yts: 1000.0 },
-        { xts: 100.0, yts: 1500.0 },
-        { xts: 100.0, yts: 2000.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
+        { xts: 0.0, yts: 0.0 },
         { xts: 0.0, yts: 0.0 },
         { xts: 0.0, yts: 0.0 },
         { xts: 0.0, yts: 0.0 },
@@ -284,7 +285,8 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.CB_width = Math.floor(canvas.width*calc_constants.CB_width_uv)-1;  // 4% width buffer on either side of colorbar area
     calc_constants.CB_ystart = 30;  // colorbar starts at pixel 30 - this is where the tick marks will be plotted
     calc_constants.CB_label_height = 10; // pixel index to place colorbar label
-        
+    
+    calc_constants.chartDataUpdate = 1; // update chart to start
 
     console.log("Simulation parameters set.");
 }
