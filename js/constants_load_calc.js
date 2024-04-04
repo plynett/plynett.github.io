@@ -42,6 +42,7 @@ var calc_constants = {
     east_boundary_type: 0,  // Type of boundary condition at the east boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
     south_boundary_type: 0,  // Type of boundary condition at the south boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
     north_boundary_type: 0,  // Type of boundary condition at the north boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
+    BoundaryWidth: 20, //  number of grid points for sponge layer
 
     // generic wave parameters used mostly for debug
     amplitude: 0.0,
@@ -242,7 +243,6 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.reflect_x = 2 * (calc_constants.WIDTH - 3);
     calc_constants.reflect_y = 2 * (calc_constants.HEIGHT - 3);
     calc_constants.boundary_shift =  4;
-    calc_constants.BoundaryWidth = 50.0;
     calc_constants.boundary_g = calc_constants.g;
     calc_constants.Px = Math.ceil(Math.log(calc_constants.WIDTH)  / Math.log(2));
     calc_constants.Py = Math.ceil(Math.log(calc_constants.HEIGHT) / Math.log(2));

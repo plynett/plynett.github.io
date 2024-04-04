@@ -39,8 +39,8 @@ fn solitary_wave(xloc: f32, yloc: f32, amplitude: f32, angle: f32, depth: f32, b
 }
 
 fn landslide_subaerial(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom: f32, width: f32, length: f32) -> vec4<f32> {
-    let kL = 3.1415 / length;
-    let kW = 3.1415 / width;
+    let kL = 1.0 / length;
+    let kW = 1.0 / width;
 
     let sin_c = sin(angle);
     let cos_c = cos(angle);
@@ -50,7 +50,7 @@ fn landslide_subaerial(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom:
     let y_cos = yloc * cos_c;
 	let yc = sqrt( x_sin * x_sin + y_cos * y_cos);
 
-    var eta = thickness * (exp(-( xc * xc * kL * kL ))) * exp(-( yc * yc * kW * kW ));
+    var eta = 2.0 * thickness * (exp(-( xc * xc * kL * kL ))) * exp(-( yc * yc * kW * kW ));
     let h = max(1.e-5, (eta - bottom));
 	let P = eta * sqrt( globals.g * h) * cos_c;
 	let Q = eta * sqrt( globals.g * h) * sin_c;

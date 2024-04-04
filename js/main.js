@@ -1749,6 +1749,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Add disturbance button
     document.getElementById('disturbance-button').addEventListener('click', function () {
         calc_constants.add_Disturbance = 1;  // by setting to one, will add disturbance at start of next time step
+        calc_constants.chartDataUpdate = 1;  // update time vector on chart to be zero when adding impluse
     });
 
     // Save baseline wave height surface
