@@ -51,21 +51,21 @@ struct Globals {
 @group(0) @binding(17) var txContSource: texture_2d<f32>;
 
 
+
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
-    let h2 = h * h;
-    let divide_by_h = 2.0 * h / sqrt(h2 + max(h2, globals.epsilon));
+   
+    let divide_by_h = 1. / max(h, 10.*globals.delta); 
 
     var f: f32;
     if (globals.isManning == 1) {
         f = globals.g * pow(globals.friction, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
     } else {
-        f = globals.friction / 2.0;
+        f = globals.friction;
     }
 
-    let u = hu * divide_by_h;
-    let v = hv * divide_by_h;
+    f = min(f, 0.1);  // non-physical above 0.1
 
-    f = f * sqrt(u * u + v * v) * divide_by_h;
+    f = f * sqrt(hu * hu + hv * hv) * divide_by_h * divide_by_h;
 
     return f;
 }

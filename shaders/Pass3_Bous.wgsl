@@ -52,21 +52,22 @@ struct Globals {
 
 
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
-    let h2 = h * h;
-    let divide_by_h = 2.0 * h / sqrt(h2 + max(h2, globals.epsilon));
+   
+    let divide_by_h = 1. / max(h, 10.*globals.delta); 
 
     var f: f32;
     if (globals.isManning == 1) {
         f = globals.g * pow(globals.friction, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
     } else {
-        f = globals.friction / 2.0;
+        f = globals.friction;
     }
+
+    f = min(f, 0.1);  // non-physical above 0.1
 
     f = f * sqrt(hu * hu + hv * hv) * divide_by_h * divide_by_h;
 
     return f;
 }
-
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
