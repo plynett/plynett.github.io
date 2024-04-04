@@ -1368,12 +1368,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // mouse scroll wheel interaction
     const zoomSensitivity = 0.1;  // Adjust this value to make zoom faster or slower
 
-    canvas.addEventListener('wheel', function(event) {
+    function handleZoom(event) {
+        if (calc_constants.viewType !== 2) {
+            // If the current view type is not 2, do nothing (or optionally, remove the event listener here)
+            return;
+        }
+    
         if (event.cancelable) {
-            // Only call preventDefault if the event is cancelable, indicating it's safe to do so
             event.preventDefault();
         }
-        
+    
         calc_constants.click_update = 2;
     
         // Adjust the zoom level based on the wheel delta
@@ -1385,9 +1389,20 @@ document.addEventListener('DOMContentLoaded', function () {
             calc_constants.forward *= (1 - zoomSensitivity);
         }
     
-        // Clamp the zoom level to a minimum and maximum value to prevent too much zoom
+        // Clamp the zoom level to a minimum and maximum value
         calc_constants.forward = Math.max(0.1, Math.min(100, calc_constants.forward));
-    }, { passive: false }); // Explicitly mark the listener as not passive    
+    }
+
+    function updateZoomListener() {
+        if (calc_constants.viewType == 2) {
+            // Add the zoom event listener only if viewType is 2
+            canvas.addEventListener('wheel', handleZoom, { passive: false });
+        } else {
+            // Remove the zoom event listener if viewType is not 2
+            canvas.removeEventListener('wheel', handleZoom, { passive: false });
+        }
+    }
+    
     // end scroll wheel interaction
 
 
@@ -1726,7 +1741,10 @@ document.addEventListener('DOMContentLoaded', function () {
         calc_constants.chartDataUpdate = 1;  // Indicate that the number of time series changed, need to update chart legends, etc.
     });
 
-
+    // add remove scroll wheel functionality
+    document.getElementById('viewType-select').addEventListener('change', function () {
+        updateZoomListener(); // Ensure the listener state matches the new viewType
+    });
 
     // Add disturbance button
     document.getElementById('disturbance-button').addEventListener('click', function () {
