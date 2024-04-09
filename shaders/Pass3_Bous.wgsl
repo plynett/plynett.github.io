@@ -26,6 +26,10 @@ struct Globals {
     whiteWaterDecayRate: f32,
     clearConc: i32,
     delta: f32,
+    base_depth: f32,
+    whiteWaterDispersion: f32,
+    infiltrationRate: f32,
+    useBreakingModel: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -49,22 +53,34 @@ struct Globals {
 @group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;  
 
 @group(0) @binding(17) var txContSource: texture_2d<f32>;
+@group(0) @binding(18) var txBreaking: texture_2d<f32>;
+@group(0) @binding(19) var txDissipationFlux: texture_2d<f32>;
 
 
 fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
    
-    let divide_by_h = 1. / max(h, 10.*globals.delta); 
+     // need this special scaling step due to the need to take h^4, and precision issues with a single precision solver
+     // this lets us explicitly control the allowed precision in the scaled h^4, which we set to 1e-6.
+     // this implies that bottom friction may become inaccurate for flow depths less than ~ 5% of the base depth
+     // this approach will make bottom friction much SMALLER in these small flow depths
+     // I can not see a solution to this issue within the constraints of single precision for this term
+    let h_scaled = h / globals.base_depth;
+    let h2 = h_scaled * h_scaled;
+    let h4 = h2 * h2;
+    let divide_by_h2 = 2.0 * h2 / (h4 + max(h4, 1.e-6)) / globals.base_depth / globals.base_depth;
+ 
+    let divide_by_h = 1. / max(h, globals.delta); 
 
     var f: f32;
     if (globals.isManning == 1) {
         f = globals.g * pow(globals.friction, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
     } else {
-        f = globals.friction;
+        f = globals.friction ;
     }
 
-    f = min(f, 0.1);  // non-physical above 0.1
+    f = min(f, 0.05);  // non-physical above 0.02
 
-    f = f * sqrt(hu * hu + hv * hv) * divide_by_h * divide_by_h;
+    f = f * sqrt(hu * hu + hv * hv) * divide_by_h2;
 
     return f;
 }
@@ -92,20 +108,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let downrightIdx = idx + vec2<i32>(1, -1);
 
     let B_here = textureLoad(txBottom, idx, 0).z;
-    let near_dry = textureLoad(txBottom, idx, 0).w;
 
     let in_state_here = textureLoad(txState, idx, 0);
     let in_state_here_UV = textureLoad(txstateUVstar, idx, 0);
 
     // Calculate local h,w
-    let h_vec = textureLoad(txH, idx, 0);
     let h_here = in_state_here.x - B_here;
-    
-    // Load values from txXFlux and txYFlux using idx
-    let xflux_here = textureLoad(txXFlux, idx, 0);
-    let xflux_west = textureLoad(txXFlux, leftIdx, 0);
-    let yflux_here = textureLoad(txYFlux, idx, 0);
-    let yflux_south = textureLoad(txYFlux, downIdx, 0);
 
     let B_south = textureLoad(txBottom, downIdx, 0).z;
     let B_north = textureLoad(txBottom, upIdx, 0).z;
@@ -128,6 +136,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     h_min.y= min(h_here, h_east);
     h_min.z= min(h_here, h_south);
     h_min.w= min(h_here, h_west);
+
+    let near_dry = textureLoad(txBottom, idx, 0).w;
+
+    // Load values from txXFlux and txYFlux using idx
+    let xflux_here = textureLoad(txXFlux, idx, 0);
+    let xflux_west = textureLoad(txXFlux, leftIdx, 0);
+    let yflux_here = textureLoad(txYFlux, idx, 0);
+    let yflux_south = textureLoad(txYFlux, downIdx, 0);
 
     var detadx = 0.5*(eta_east - eta_west) * globals.one_over_dx;
     var detady = 0.5*(eta_north - eta_south) * globals.one_over_dy;
@@ -241,7 +257,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + (G_star - F_G_star_oldOldies.z) / globals.dt * 0.5;
     }
    
-    let friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here);
+    var friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here);
 
     // Pressure stencil calculations
     let P_left = textureLoad(txShipPressure, leftIdx, 0).x;
@@ -263,9 +279,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let C_state_down_left = textureLoad(txState, downleftIdx, 0).w;
     let C_state_down_right = textureLoad(txState, downrightIdx, 0).w;
 
-    let Dxx = 1.0;
-    let Dxy = 1.0;
-    let Dyy = 1.0;
+    let Dxx = globals.whiteWaterDispersion;
+    let Dxy = globals.whiteWaterDispersion;
+    let Dyy = globals.whiteWaterDispersion;
 
     let hc_by_dx_dx = Dxx * globals.one_over_d2x * (C_state_right - 2.0 * in_state_here.a + C_state_left);
     let hc_by_dy_dy = Dyy * globals.one_over_d2y * (C_state_up - 2.0 * in_state_here.a + C_state_down);
@@ -273,6 +289,34 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let c_dissipation = -globals.whiteWaterDecayRate * C_state_here;
 
+    // calculate breaking dissipation
+    var breaking_x = 0.0;
+    var breaking_y = 0.0;
+    var breaking_B = 0.0;
+    
+    if(globals.useBreakingModel == 1) {
+        breaking_B = textureLoad(txBreaking, idx, 0).z;  // breaking front parameter, non-breaking [0 - 1] breaking
+
+        let nu_flux_here = textureLoad(txDissipationFlux, idx, 0);
+        let nu_flux_right = textureLoad(txDissipationFlux, rightIdx, 0);
+        let nu_flux_left = textureLoad(txDissipationFlux, leftIdx, 0);
+        let nu_flux_up = textureLoad(txDissipationFlux, upIdx, 0);
+        let nu_flux_down = textureLoad(txDissipationFlux, downIdx, 0);
+
+        let dPdxx = 0.5 * (nu_flux_right.x - nu_flux_left.x) * globals.one_over_dx;
+        let dPdyx = 0.5 * (nu_flux_right.y - nu_flux_left.y) * globals.one_over_dx;
+        let dPdyy = 0.5 * (nu_flux_up.y - nu_flux_down.y) * globals.one_over_dy;
+
+        let dQdxx = 0.5 * (nu_flux_right.z - nu_flux_left.z) * globals.one_over_dx;
+        let dQdxy = 0.5 * (nu_flux_up.z - nu_flux_down.z) * globals.one_over_dy;
+        let dQdyy = 0.5 * (nu_flux_up.w - nu_flux_down.w) * globals.one_over_dy;
+        
+        if (near_dry > 0.){
+            breaking_x = dPdxx + 0.5 * dPdyy + 0.5 * dQdxy;
+            breaking_y = dQdyy + 0.5 * dPdyx + 0.5 * dQdxx;
+        }
+    }
+    
     // fix slope near shoreline
     let h_cut = globals.delta;
     if (h_min.x <= h_cut && h_min.z <= h_cut) {
@@ -297,10 +341,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var overflow_dry = 0.0;
     if(B_here > 0.0) {
-        overflow_dry = -0.001;  // hydraulic conductivity of coarse, unsaturated sand
+        overflow_dry = -globals.infiltrationRate;  // hydraulic conductivity of coarse, unsaturated sand
     }
 
-    let source_term = vec4<f32>(overflow_dry, -globals.g * h_here * detadx - in_state_here.y * friction_ + (Psi1x + Psi2x) + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + (Psi1y + Psi2y) + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
+    let source_term = vec4<f32>(overflow_dry, -globals.g * h_here * detadx - in_state_here.y * friction_ + breaking_x + (Psi1x + Psi2x) + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + breaking_y + (Psi1y + Psi2y) + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
 
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 
@@ -320,10 +364,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         newState = in_state_here_UV + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
 
-    // add passive tracer sources
-    if (max(abs(detadx),abs(detady)) * sign(detadx * newState.y + detady * newState.z) > globals.dissipation_threshold) {
-        newState.a = 1.0;
-    }
+    // add breaking source
+    newState.a = max(newState.a, breaking_B);  // use the B alue from Kennedy et al as a foam intensity
 
     let contaminent_source = textureLoad(txContSource, idx, 0).r; 
     newState.a = min(1.0, newState.a + contaminent_source); 

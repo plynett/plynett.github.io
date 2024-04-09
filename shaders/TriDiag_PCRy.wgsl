@@ -51,7 +51,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var dInRight = 0.0;
     
     if (globals.p == 0) {
-        
+
         bIn = textureLoad(coefMaty, idx, 0).g;
         bInLeft = textureLoad(coefMaty, idx_left, 0).g;
         bInRight = textureLoad(coefMaty, idx_right, 0).g;
@@ -62,11 +62,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         
         cIn = textureLoad(coefMaty, idx, 0).b / bIn;
         cInLeft = textureLoad(coefMaty, idx_left, 0).b / bInLeft;
-        cInRight = textureLoad(coefMaty, idx_right, 0).b / bInRight;
+        cInRight =  textureLoad(coefMaty, idx_right, 0).b / bInRight;
         
         dIn = textureLoad(current_stateUVstar, idx, 0).b / bIn;
         dInLeft = textureLoad(current_stateUVstar, idx_left, 0).b / bInLeft;
         dInRight = textureLoad(current_stateUVstar, idx_right, 0).b / bInRight;
+        
     } else {
         
         aIn = textureLoad(coefMaty, idx, 0).r;

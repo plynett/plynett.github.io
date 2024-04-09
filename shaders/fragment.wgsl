@@ -32,6 +32,11 @@ struct Globals {
     CB_label_height: i32,
     base_depth: f32,
     NumberOfTimeSeries: i32,
+    time: f32,
+    west_boundary_type: i32,
+    east_boundary_type: i32,
+    south_boundary_type: i32,
+    north_boundary_type: i32, 
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -50,6 +55,81 @@ struct Globals {
 @group(0) @binding(12) var txDraw: texture_2d<f32>;
 @group(0) @binding(13) var textureSampler: sampler;
 @group(0) @binding(14) var txTimeSeries_Locations: texture_2d<f32>;
+@group(0) @binding(15) var txBreaking: texture_2d<f32>;  
+
+
+
+fn fade(t: f32) -> f32 {
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    return a + t * (b - a);
+}
+
+fn grad(hash: i32, x: f32, y: f32) -> f32 {
+    let h: i32 = hash & 15;
+    var u: f32;
+    if (h < 8) { u = x; } else { u = y; }
+    var v: f32;
+    if (h < 4) { v = y; } else { if (h == 12 || h == 14) { v = x; } else { v = 0.0; } }
+    var out: f32;
+    if ((h&1) == 0) { out = u; } else { out = -u; }
+    if ((h&2) == 0) { out = out + v; } else { out = out - v; }
+    return out;
+}
+
+fn perlinNoise(x: f32, y: f32) -> f32 {
+    let xi: i32 = i32(x) & 255;
+    let yi: i32 = i32(y) & 255;
+    let xf: f32 = x - floor(x);
+    let yf: f32 = y - floor(y);
+    let u: f32 = fade(xf);
+    let v: f32 = fade(yf);
+
+    // Hash coordinates of the 4 square corners
+    let aa: i32 = (xi+yi*256) & 255;
+    let ab: i32 = (xi+(yi+1)*256) & 255;
+    let ba: i32 = ((xi+1)+yi*256) & 255;
+    let bb: i32 = ((xi+1)+(yi+1)*256) & 255;
+
+    let x1: f32 = lerp(grad(aa, xf, yf), grad(ba, xf-1.0, yf), u);
+    let x2: f32 = lerp(grad(ab, xf, yf-1.0), grad(bb, xf-1.0, yf-1.0), u);
+    let y1: f32 = lerp(x1, x2, v);
+
+    return (y1 + 1.0) / 2.0; // Normalize to [0, 1]
+}
+
+fn calculateChangeEta(x_global: f32, y_global: f32, dx: f32, amplitude: f32, thetap: f32) -> f32 {
+    var change_eta: f32 = 0.0;
+    let directions: array<f32, 5> = array<f32, 5>(-20.0, -10.0, 0.0, 10.0, 20.0); // Directions in degrees
+    let pi: f32 = 3.141592653589793;
+
+    // Convert directions to radians for math functions
+    for (var i: i32 = 0; i < 5; i = i + 1) {
+        let dirRad: f32 = (thetap + directions[i]) * pi / 180.0; // Direction in radians
+
+        // Loop through wavelengths
+        for (var j: f32 = 0.2; j <= 1.0; j = j + 0.2) {
+            let wavelength: f32 = 10.*dx * j;
+            let k: f32 = 2.0 * pi / wavelength; // Wave number
+            let w: f32 = pow(9.81 * k, 0.5);
+
+            // Calculate wave vector components
+            let kx: f32 = cos(dirRad) * k;
+            let ky: f32 = sin(dirRad) * k;
+
+            // Calculate position in direction of wave vector
+            let x: f32 = x_global * cos(dirRad) + y_global * sin(dirRad);
+
+            // Add sine wave contribution to change_eta
+            change_eta = change_eta + amplitude * sin(k * x + w * globals.time);
+        }
+    }
+
+    return change_eta;
+}
+
 
 
 @fragment
@@ -67,22 +147,22 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     // colormpa options
     if(colorMap_choice == 0) {  // blue to white waves colormap
         colorMap = array<vec3<f32>, 16>(
-        vec3<f32>(0.0, 0.0, 0.3),      // very dark blue
-        vec3<f32>(0.0, 0.0, 0.4),
-        vec3<f32>(0.0, 0.0, 0.5),
-        vec3<f32>(0.0, 0.0, 0.6),
-        vec3<f32>(0.0, 0.0, 0.7),
-        vec3<f32>(0.2, 0.2, 0.8),
-        vec3<f32>(0.3, 0.3, 0.9),
-        vec3<f32>(0.4, 0.4, 0.9),
-        vec3<f32>(0.5, 0.5, 0.9),      // light blue
-        vec3<f32>(0.6, 0.6, 0.9),
-        vec3<f32>(0.7, 0.7, 0.9),
-        vec3<f32>(0.8, 0.8, 0.9),
-        vec3<f32>(0.85, 0.85, 0.95),
-        vec3<f32>(0.9, 0.9, 1.0),      // very light blue
-        vec3<f32>(0.95, 0.95, 1.0),
-        vec3<f32>(1.0, 1.0, 1.0)  );
+        vec3<f32>(0.2, 0.2, 0.496),    // Adjusted very dark blue
+        vec3<f32>(0.2, 0.2, 0.532),
+        vec3<f32>(0.2, 0.2, 0.568),
+        vec3<f32>(0.2, 0.24, 0.604),
+        vec3<f32>(0.2, 0.28, 0.64),
+        vec3<f32>(0.2, 0.32, 0.676),
+        vec3<f32>(0.2, 0.36, 0.712),
+        vec3<f32>(0.24, 0.4, 0.748),
+        vec3<f32>(0.28, 0.44, 0.784),
+        vec3<f32>(0.32, 0.48, 0.82),
+        vec3<f32>(0.36, 0.52, 0.856),
+        vec3<f32>(0.4, 0.56, 0.892),
+        vec3<f32>(0.44, 0.6, 0.928),
+        vec3<f32>(0.48, 0.64, 0.9424),
+        vec3<f32>(0.52, 0.68, 0.9568),
+        vec3<f32>(0.56, 0.72, 0.9712));  // Adjusted light blue
     } else if(colorMap_choice == 1) {  // parula colormap
         colorMap = array<vec3<f32>, 16>(
         vec3<f32>(0.2422, 0.1504, 0.6603),
@@ -194,11 +274,10 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     } 
 
-
-
     let maxWave = globals.colorVal_max;
     let minWave = globals.colorVal_min;
     let surfaceToPlot = globals.surfaceToPlot;
+    var photorealistic = i32(0);  // globals.photorealistic
     
     let bottom = textureSample(bottomTexture, textureSampler, uv).b;
     let waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
@@ -208,7 +287,11 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     var render_surface = waves;
 
     // if not just plotting waves, load the other stuff
-    if (surfaceToPlot == 1) {  // fluid speed
+    if (surfaceToPlot == 0) {  // waves
+        // nothing to be done, but break the if loop since it is so long
+        if(colorMap_choice == 0) {photorealistic = i32(1);}  // globals.photorealistic
+
+    } else if (surfaceToPlot == 1) {  // fluid speed
         let P = textureSample(etaTexture, textureSampler, uv).g; 
         let Q = textureSample(etaTexture, textureSampler, uv).b; 
         let u = P/H;
@@ -247,13 +330,13 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = 0.5*(P_up - P_down)/globals.dy - 0.5*(Q_right - Q_left)/globals.dx;
 
     } else if (surfaceToPlot == 5) {  // breaking
-        render_surface = textureSample(etaTexture, textureSampler, uv).a;
+        render_surface = textureSample(txBreaking, textureSampler, uv).g;
 
     } else if (surfaceToPlot == 6) {  // bathy/topo
         render_surface = bottom;
 
     } else if (surfaceToPlot == 7) {  // mean eta
-        render_surface = textureSample(txMeans, textureSampler, uv).r;;
+        render_surface = textureSample(txMeans, textureSampler, uv).r;
    
     } else if (surfaceToPlot == 8) {  // mean fluid flux
         let P = textureSample(txMeans, textureSampler, uv).g; 
@@ -293,6 +376,118 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = textureSample(txBotChange_Sed, textureSampler, uv).r; 
     }
     
+    var light_effects = vec3<f32>(1.0, 1.0, 1.0);
+    var vorticiy_magn = 0.0;
+    if (photorealistic == 1) {  // add lighting for photo-realistic view
+        // Lighting parameters
+        let lightColor = vec3<f32>(1.0, 1.0, 1.0); // White light
+        var thetap = 180.;
+
+        var light_x = f32(globals.WIDTH) * 0.5 * globals.dx;
+        if(globals.west_boundary_type == 2){
+            light_x =  f32(globals.WIDTH) * 1.0 * globals.dx;
+            thetap = 180.;
+        }
+        else if(globals.east_boundary_type == 2){
+            light_x = -f32(globals.WIDTH) * 1.0 * globals.dx;
+            thetap = 0.;
+        }
+
+        var light_y = f32(globals.HEIGHT) * 0.5 * globals.dy;
+        if(globals.north_boundary_type == 2){
+            light_y = -f32(globals.HEIGHT) * 1.0 * globals.dy;
+            thetap = 90.;
+        }
+        else if(globals.south_boundary_type == 2){
+            light_y = f32(globals.HEIGHT) * 1.0 * globals.dy;
+            thetap = -90.;
+        }
+
+        let light_z = 10.0 * (f32(globals.HEIGHT) * globals.dy + f32(globals.WIDTH) * globals.dx);
+
+
+        let lightPos = vec3<f32>(light_x, light_y, light_z); // Simulate overhead sun position, world coordinates
+        let ambientStrength = 0.1;
+        let diffuseStrength = 0.5;
+        let specularStrength = 0.5;
+        let shininess = 32.0; // Shininess factor for specular highlight
+
+        // find worldspace coordinates
+        let x_world = uv.x * f32(globals.WIDTH) * globals.dx;
+        let y_world = uv.y * f32(globals.HEIGHT) * globals.dy;
+
+        // Normal vector calcs
+        let roughnessFactor = 0.001 * H;
+        var delta_eta = calculateChangeEta(x_world, y_world, globals.dx, roughnessFactor, thetap);   
+        render_surface = render_surface + delta_eta;
+            // up
+        var uv_grad = uv;
+        uv_grad.y = uv_grad.y + 1/f32(globals.HEIGHT);
+        delta_eta = calculateChangeEta(x_world, y_world + globals.dy, globals.dx, roughnessFactor, thetap);        
+        let eta_up = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r; 
+            // down
+        uv_grad = uv;
+        uv_grad.y = uv_grad.y - 1/f32(globals.HEIGHT);
+        delta_eta = calculateChangeEta(x_world, y_world - globals.dy, globals.dx, roughnessFactor, thetap);   
+        let eta_down = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r; 
+            // right
+        uv_grad = uv;
+        uv_grad.x = uv_grad.x + 1/f32(globals.WIDTH);
+        delta_eta = calculateChangeEta(x_world + globals.dx, y_world, globals.dx, roughnessFactor, thetap);   
+        let eta_right = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r;  
+            // left
+        uv_grad = uv;
+        uv_grad.x = uv_grad.x - 1/f32(globals.WIDTH);
+        delta_eta = calculateChangeEta(x_world - globals.dx, y_world, globals.dx, roughnessFactor, thetap);   
+        let eta_left = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r; 
+
+        let detadx = 0.5*(eta_right - eta_left)/globals.dx;
+        let detady = 0.5*(eta_up - eta_down)/globals.dy;
+        let normal = vec3<f32>(-detadx, -detady, 1.0);  
+
+        // Ambient component
+        let ambient = ambientStrength * lightColor;
+
+        // Diffuse component
+        let FragPos = vec3<f32>(x_world, y_world, waves);
+        let lightDir = normalize(lightPos - FragPos);
+        let diff = max(dot(normal, lightDir), 0.0);
+        let diffuse = diffuseStrength * diff * lightColor;
+
+        // Specular component
+        let viewPos =vec3<f32>(f32(globals.WIDTH) * 0.5 * globals.dx, f32(globals.HEIGHT) * 0.5 * globals.dy, light_z); // directly overhead, world coordinates
+        let viewDir = normalize(viewPos - FragPos);
+        let reflectDir = reflect(-lightDir, normal);
+        let spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+        let specular = specularStrength * spec * lightColor;
+
+        // Combine components
+        light_effects = ambient + diffuse + specular;
+
+            // up
+            var uv_vort = uv;
+            uv_vort.y = uv_vort.y + 1/f32(globals.HEIGHT);
+            let P_up = textureSample(etaTexture, textureSampler, uv_vort).g; 
+
+            // down
+            uv_vort = uv;
+            uv_vort.y = uv_vort.y - 1/f32(globals.HEIGHT);
+            let P_down = textureSample(etaTexture, textureSampler, uv_vort).g; 
+
+            // right
+            uv_vort = uv;
+            uv_vort.x = uv_vort.x + 1/f32(globals.WIDTH);
+            let Q_right = textureSample(etaTexture, textureSampler, uv_vort).b; 
+            
+            // left
+            uv_vort = uv;
+            uv_vort.x = uv_vort.x - 1/f32(globals.WIDTH);
+            let Q_left = textureSample(etaTexture, textureSampler, uv_vort).b; 
+
+            vorticiy_magn = min(0.25, 0.5 * abs(0.5*(P_up - P_down)/globals.dy - 0.5*(Q_right - Q_left)/globals.dx));
+
+    } 
+
 
     var color_rgb: vec3<f32>;
     if (bottom + globals.delta >= waves && surfaceToPlot != 6) {
@@ -303,24 +498,53 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
             color_rgb = vec3<f32>(210.0 / 255.0, 180.0 / 255.0, 140.0 / 255.0) + 0.05 * bottom;
         }
     } else {
-        // Determine where 'render_surface' falls in the range from 'minWave' to 'maxWave'.
-        var wavePosition = f32((render_surface - minWave) / (maxWave - minWave));
+        if (photorealistic == 0) {
+            // Determine where 'render_surface' falls in the range from 'minWave' to 'maxWave'.
+            var wavePosition = f32((render_surface - minWave) / (maxWave - minWave));
 
-        // Clamp the position between 0 and 1 to stay within the color map.
-        wavePosition = clamp(wavePosition, 0.0, 1.0);
+            // Clamp the position between 0 and 1 to stay within the color map.
+            wavePosition = clamp(wavePosition, 0.0, 1.0);
 
-        // Determine the indices of the two colors we'll be interpolating between.
-        // This requires the color map to have a known and fixed size.
-        let lowerIndex = i32(floor(wavePosition * 15.0)); // Because we have 16 colors.
-        let upperIndex = lowerIndex + 1;
+            // Determine the indices of the two colors we'll be interpolating between.
+            // This requires the color map to have a known and fixed size.
+            let lowerIndex = i32(floor(wavePosition * 15.0)); // Because we have 16 colors.
+            let upperIndex = lowerIndex + 1;
 
-        // Calculate how far between the two colors 'render_surface' falls.
-        let mixAmount = fract(wavePosition * 15.0); // Fractional part represents the mix amount between colors.
+            // Calculate how far between the two colors 'render_surface' falls.
+            let mixAmount = fract(wavePosition * 15.0); // Fractional part represents the mix amount between colors.
 
-        // Interpolate between the two colors in the color map.
-        let color_wave = mix(colorMap[lowerIndex], colorMap[upperIndex], mixAmount);
+            // Interpolate between the two colors in the color map.
+            let color_wave = mix(colorMap[lowerIndex], colorMap[upperIndex], mixAmount);
+            color_rgb = color_wave;
+        }
+        else {
+            let color_shallow = vec3<f32>(0.2, 0.45, 0.45); // deep water ocean color
+            let color_deep = vec3<f32>(0.0, 0.25, 0.5); // shallow ocean color
+            var color_sand = vec3<f32>(0.76, 0.70, 0.50); // sand color
+            if(globals.GoogleMapOverlay == 1 && bottom >= 0.0) {color_sand = GoogleMap;}
 
-        color_rgb = color_wave;
+            var color_wave = color_shallow;
+            let deep = 50.0;
+            let sand = 1.0;
+
+            if (H > deep) {
+                color_wave = color_deep;
+            }
+            else if (H > sand) {
+                let ratio = (H - sand) / (deep - sand);
+                color_wave = ratio * color_deep + (1. - ratio) * color_shallow;
+            }
+            else {
+                let ratio = pow(H / sand, 0.25);
+                color_wave = ratio * color_shallow + (1. - ratio) * color_sand;
+            }
+
+            // add vorticity - sediment viz
+            color_wave = (1.0 - vorticiy_magn) * color_wave + vorticiy_magn * color_sand;
+
+            color_rgb = light_effects * color_wave;
+        }
+
     }
 
     
@@ -365,7 +589,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     }
 
     // Add colorbar
-    if (globals.CB_show == 1) {
+    if (globals.CB_show == 1  && photorealistic == 0) {
         let colorbar_LL = vec2<f32>(globals.CB_xstart_uv, 0.0);
         let colorbar_width = globals.CB_width_uv;
         let colorbar_height = f32(globals.CB_ystart + 20) / f32(globals.HEIGHT); // 20 pixels above tick marks

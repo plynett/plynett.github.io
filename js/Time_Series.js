@@ -123,4 +123,47 @@ export function resetTimeSeriesData() {
     });
 }
 
+export function downloadTimeSeriesData() {
+    
+    // write time series locations
+    let locationsString = "";
+    for (let i = 0; i < calc_constants.NumberOfTimeSeries; i++) {
+        const loc = calc_constants.locationOfTimeSeries[i+1];
+        locationsString += `${loc.xts}\t${loc.yts}\n`; // Assuming you want xts and yts. Adjust the property names accordingly.
+    }
 
+    console.log(locationsString)
+    const blob_locs = new Blob([locationsString.trim()], { type: 'text/plain' });
+    const url_locs = URL.createObjectURL(blob_locs);
+    const a_locs = document.createElement('a');
+    a_locs.href = url_locs;
+    a_locs.download = 'time_series_locations.txt';
+    document.body.appendChild(a_locs);
+    a_locs.click();
+    document.body.removeChild(a_locs);
+    URL.revokeObjectURL(url_locs);
+    
+    
+    // write time series data
+    let headers = "%";
+    let dataLines = [];
+    for (let i = 0; i < calc_constants.NumberOfTimeSeries; i += 1) {
+        headers += `Time${i+1}\tEta${i+1}\tP${i+1}\tQ${i+1}\t`;
+        // Prepare the data lines
+        timeSeriesData[i]['time'].forEach((_, j) => {
+            dataLines[j] = (dataLines[j] || '') + `${timeSeriesData[i]['time'][j]}\t${timeSeriesData[i]['eta'][j]}\t${timeSeriesData[i]['P'][j]}\t${timeSeriesData[i]['Q'][j]}\t`;
+        });
+    }
+
+    const dataString = headers.trim() + "\n" + dataLines.join("\n");
+    const blob = new Blob([dataString], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'time_series_data.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+}

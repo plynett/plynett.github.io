@@ -207,21 +207,22 @@
                          <select id="run_example-select" name="run_exampleValue">
                              <option value="0">Ventura Harbor (CA), wind waves</option>
                              <option value="1">Santa Cruz Harbor (CA), wind waves</option>
-                             <option value="2">Santa Cruz Harbor (CA), tsunami</option>
-                             <option value="3">Barry Arm (PWS, AK), tsunami</option>
-                             <option value="4">Crescent City Harbor (CA), tsunami</option>
                              <option value="5">FRF Duck (NC), wind waves</option>
-                             <option value="6">Greenland (Karrat), tsunami</option>
                              <option value="7">Pillar Point Harbor (CA), wind waves</option>
                              <option value="8">Hania (Crete) Harbor, wind waves</option>
                              <option value="9">Miami Beach (FL), wind waves</option>
                              <option value="10">Miami Inlet (FL), wind waves</option>
                              <option value="11">Newport (OR), wind waves</option>
+                             <option value="2">Santa Cruz Harbor (CA), tsunami</option>
+                             <option value="3">Barry Arm (PWS, AK), tsunami</option>
+                             <option value="4">Crescent City Harbor (CA), tsunami</option>
+                             <option value="6">Greenland (Karrat), tsunami</option>
                              <option value="12">Port of LA/LB (CA), tsunami</option>
                              <option value="13">Santa Barbara (CA), tsunami</option>
                              <option value="14">Taan Fjord (AK), tsunami</option>
                              <option value="16">San Francisco Bay (CA), tides</option>
                              <option value="15">OSU Directional Wave Basin</option>
+                             <option value="17">OSU Seaside Experiments (2007) </option>
                          </select>
                          <br />
                          <br />                        
@@ -299,6 +300,7 @@
                         <option value="4">Gray</option>
                         <option value="5">Pink</option>
                         <option value="6">Bathy/Topo</option>
+                        <option value="7">Photorealistic</option>
                     </select>
                     <br />
                     <br />
@@ -322,8 +324,8 @@
                     <!-- Updates go to calc_constants.showBreaking-->
                     <label for="showBreaking-select">Transport Overlays:</label>
                     <select id="showBreaking-select" name="showBreakingValue">
-                        <option value="0">No Foam or Tracer</option>
                         <option value="1">Show Areas of Foam</option>
+                        <option value="0">No Foam or Tracer</option>
                         <option value="2">Passive Tracer Conc</option>
                     </select>
                     <br />
@@ -514,7 +516,7 @@
 
             <div id="mods-container" class="custom-window">
                 <div class="window-header">
-                    <span><center> Modify Model Surface Data </center></span>
+                    <span><center> Modify 2D Surface Data </center></span>
                     <button class="minimize-button">-</button>
                 </div>
                 <div class="window-content"  data-default="minimized">
@@ -592,10 +594,14 @@
                     <br />
                     
                     <!-- Updates go to calc_constants.timelimplotTimeSeries-->
-                    <label for="maxdurationTimeSeries-input">Duration of Time Series to Plot (sec) :</label>
+                    <label for="maxdurationTimeSeries-input">Duration of Time Series to Plot & Save (sec) :</label>
                     <br />
                     <input type="number" id="maxdurationTimeSeries-input" name="maxdurationTimeSeriesValue">
                     <button id="maxdurationTimeSeries-button" type="button">Update</button>
+                    <br />
+                    <html4f>
+                        Model will save time series data once this duration is reached; a new data file will be generated every instance that the duration is reached (plot time reaches the duration). Data files will be located in your browser's default Downloads directory.
+                    </html4f>
                     <br />
                     <br />
 
@@ -675,7 +681,9 @@
                     <button id="reset-waveheight-texture-btn">Reset Wave Height Surface</button>
                     <br />
                     <br />
-                    <html4f>------------------</html4f>
+                    <html4f>-------------------------</html4f>
+                    <br />
+                    <html4f> Files saved below will be located in your browser's default Downloads directory</html4f>
                     <br />
                     <br />
                     <!-- Download JSON button-->
@@ -709,7 +717,7 @@
                     <br />
 
                     <!-- Updates go to calc_constants.Theta-->
-                    <label for="Theta-input">Theta value for MinMod, ranges from 1.0 (most dissipative, upwind differences) to 2.0 (least dissipative, centered differences) [default: 1.5]:</label>
+                    <label for="Theta-input">Theta value for MinMod, ranges from 1.0 (most dissipative, upwind differences) to 2.0 (least dissipative, centered differences) [default: 2.0 w/ breaking model]:</label>
                     <br />
                     <input type="number" id="Theta-input" name="ThetaValue" min="0">
                     <button id="theta-button" type="button">Update</button>
@@ -781,21 +789,70 @@
                     <br />
                     <br />
 
-                    <!-- Updates go to calc_constants.dissipation_threshold-->
-                    <label for="dissipation_threshold-input">Wave Slope (rise/run) Threshold to Start Wave Breaking:</label>
+                    <!-- Updates go to calc_constants.useBreakingModel-->
+                    <label for="useBreakingModel-select">Wave Breaking Model: </label>
+                    <select id="useBreakingModel-select" name="useBreakingModel">
+                        <option value="1">Breaking Eddy Viscosity Model</option>
+                        <option value="0">None; numerical dissipation only</option>
+                    </select>
                     <br />
-                    <input type="number" id="dissipation_threshold-input" name="dissipation_thresholdValue" min="0">
-                    <button id="dissipation_threshold-button" type="button">Update</button>
+                    <br />
+
+                    <!-- Updates go to calc_constants.dzdt_I_coef-->
+                    <label for="dzdt_I_coef-input">Threshold to Start Wave Breaking [Default: 0.5]:</label>
+                    <br />
+                    <input type="number" id="dzdt_I_coef-input" name="dzdt_I_coefValue" min="0">
+                    <button id="dzdt_I_coef-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.dzdt_F_coef-->
+                    <label for="dzdt_F_coef-input">Threshold to End Wave Breaking [Default: 0.15]:</label>
+                    <br />
+                    <input type="number" id="dzdt_F_coef-input" name="dzdt_F_coefValue" min="0">
+                    <button id="dzdt_F_coef-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.T_star_coef-->
+                    <label for="T_star_coef-input">Breaking Transition Time Coefficient [Default: 5.0]:</label>
+                    <br />
+                    <input type="number" id="T_star_coef-input" name="T_star_coefValue" min="0">
+                    <button id="T_star_coef-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.delta_breaking-->
+                    <label for="delta_breaking-input">Breaking Eddy Viscosity Coefficient [Default: 2.0]:</label>
+                    <br />
+                    <input type="number" id="delta_breaking-input" name="delta_breakingValue" min="0">
+                    <button id="delta_breaking-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.whiteWaterDispersion-->
+                    <label for="whiteWaterDispersion-input">Turbulent Dispersion ([m^2/s]; for foam/scalar transport):</label>
+                    <br />
+                    <input type="number" id="whiteWaterDispersion-input" name="whiteWaterDispersionValue" min="0">
+                    <button id="whiteWaterDispersion-button" type="button">Update</button>
                     <br />
                     <br />
 
                     <!-- Updates go to calc_constants.whiteWaterDecayRate-->
-                    <label for="whiteWaterDecayRate-input">Turbulence Decay Coefficient (1st Order Decay):</label>
+                    <label for="whiteWaterDecayRate-input">Turbulence Decay Rate (1st Order Decay [1/s]; for foam/scalar transport):</label>
                     <br />
                     <input type="number" id="whiteWaterDecayRate-input" name="whiteWaterDecayRateValue" min="0">
                     <button id="whiteWaterDecayRate-button" type="button">Update</button>
                     <br />
+                    <br />       
+                     
+                    <!-- Updates go to calc_constants.infiltrationRate-->
+                    <label for="infiltrationRate-input">Dry Beach Infiltration Rate [m/s; Default: 0.001]]:</label>
                     <br />
+                    <input type="number" id="infiltrationRate-input" name="infiltrationRateValue" min="0">
+                    <button id="infiltrationRate-button" type="button">Update</button>
+                    <br />
+                    <br />               
 
                     <!-- Updates go to calc_constants.render_step-->
                     <label for="render_step-input">Time Steps Between each Render Frame (1 or greater, 0 for auto-determine for max sim speed):</label>

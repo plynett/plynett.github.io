@@ -165,13 +165,31 @@ export function create_Pass3_BindGroupLayout(device) {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
                 }
+            },
+            {
+                // 18th binding: A texture that the fragment shader will sample from.
+                binding: 18,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 19th binding: A texture that the fragment shader will sample from.
+                binding: 19,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
             }
         ]
     });
 }
 
 
-export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource) {
+export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux) {
     return device.createBindGroup({
         layout: create_Pass3_BindGroupLayout(device),
         entries: [
@@ -248,6 +266,14 @@ export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom,
             {
                 binding: 17,
                 resource: txContSource.createView()
+            },
+            {
+                binding: 18,
+                resource: txBreaking.createView()
+            },
+            {
+                binding: 19,
+                resource: txDissipationFlux.createView()
             },
         ]
     });

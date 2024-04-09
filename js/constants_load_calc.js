@@ -37,6 +37,13 @@ var calc_constants = {
     friction: 0.000,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
     isManning: 0,  // A boolean friction model value, if==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
 
+    // breaking model parameters
+    useBreakingModel: 1, // inlcude breaking model when == 1
+    delta_breaking: 2.0,  // eddy viscosity coefficient
+    T_star_coef: 5.0,  // defines length of time until breaking becomes fully developed
+    dzdt_I_coef: 0.50,  // start breaking parameter
+    dzdt_F_coef: 0.15,  // end breaking parameter
+
     // Boundary condition parameters
     west_boundary_type: 0,  // Type of boundary condition at the west boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
     east_boundary_type: 0,  // Type of boundary condition at the east boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
@@ -98,7 +105,8 @@ var calc_constants = {
         "./examples/SantaBarbara/",
         "./examples/Taan_fjord/",
         "./examples/OSU_WaveBasin/",
-        "./examples/SF_Bay_tides/"
+        "./examples/SF_Bay_tides/",
+        "./examples/OSU_Seaside/"
       ],
 
     // plotting parameters
@@ -106,9 +114,11 @@ var calc_constants = {
     colorVal_min: -1.0,  // value that maps to the "lowest" color
     colorMap_choice: 0,  // decision variable for the colormap to use during rendering
     surfaceToPlot: 0, // which surface (eta, u, v, vort) to plot
-    showBreaking: 0,  //  show breaking (foam) areas when ==1
+    showBreaking: 1,  //  show breaking (foam) areas when ==1
     dissipation_threshold: 0.2, // wave slope for breaking 
     whiteWaterDecayRate: 0.1, // "turbulence" decay rate   
+    whiteWaterDispersion: 0.1, // "turbulence" dispersion
+    infiltrationRate: 0.001, // dry beach infiltration rate
     GoogleMapOverlay: 0, // load satellite image and plot over dry land, requires proper values of lat,lon at lower left and upper right corners
     IsGoogleMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
     GMapImageWidth: 512,  // number of pixels in google maps image width
@@ -246,6 +256,8 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.boundary_g = calc_constants.g;
     calc_constants.Px = Math.ceil(Math.log(calc_constants.WIDTH)  / Math.log(2));
     calc_constants.Py = Math.ceil(Math.log(calc_constants.HEIGHT) / Math.log(2));
+
+    calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation
 
     calc_constants.n_write_interval = Math.ceil(calc_constants.write_dt / calc_constants.dt);
     calc_constants.write_dt = calc_constants.n_write_interval * calc_constants.dt;

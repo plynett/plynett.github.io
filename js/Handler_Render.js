@@ -134,12 +134,21 @@ export function createRenderBindGroupLayout(device) {
                     format: 'rgba32float'  
                 }
             },
+            {
+                // 15th binding: A texture that the fragment shader will sample from.
+                binding: 15,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'  
+                }
+            },
         ]
     });
 }
 
 
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler, txTimeSeries_Locations) {
+export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking) {
     return device.createBindGroup({
         layout: createRenderBindGroupLayout(device),
         entries: [
@@ -204,7 +213,11 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             {
                 binding: 14,
                 resource: txTimeSeries_Locations.createView()
-            }
+            },
+            {
+                binding: 15,
+                resource: txBreaking.createView()
+            },
         ]
     });
 }

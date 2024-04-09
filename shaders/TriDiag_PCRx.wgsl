@@ -67,6 +67,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         dIn = textureLoad(current_stateUVstar, idx, 0).g / bIn;
         dInLeft = textureLoad(current_stateUVstar, idx_left, 0).g / bInLeft;
         dInRight = textureLoad(current_stateUVstar, idx_right, 0).g / bInRight;
+        
     } else {
         
         aIn = textureLoad(coefMatx, idx, 0).r;
