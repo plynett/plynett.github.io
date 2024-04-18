@@ -420,7 +420,23 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, ba
     device.queue.submit([commandEncoder.finish()]);
 }
 
+// This function will copy the ImageBitmap data directly into the texture.
+function copyImageBitmapToTexture(device, imageBitmap, texture, depth = -1) {
+    // Prepare the destination parameters based on whether the texture is 2D or 3D.
+    let destination = { texture: texture };
+
+    // If a depth is provided and it is a 3D texture, specify the origin with depth.
+    if (depth >= 0) {
+        destination.origin = { z: depth };
+    }
+
+    // Now that the image is loaded, you can copy it to the texture.
+    device.queue.copyExternalImageToTexture(
+        { source: imageBitmap },
+        destination,
+        { width: imageBitmap.width, height: imageBitmap.height }
+    );
+}
 
 
-
-export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture };
+export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};

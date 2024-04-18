@@ -8,7 +8,7 @@ struct Globals {
     colorMap_choice: i32,
     surfaceToPlot: i32,
     showBreaking: i32,
-    GoogleMapOverlay: i32,
+    IsOverlayMapLoaded: i32,
     scaleX: f32,
     scaleY: f32,
     offsetX: f32,
@@ -37,6 +37,16 @@ struct Globals {
     east_boundary_type: i32,
     south_boundary_type: i32,
     north_boundary_type: i32, 
+    designcomponent_Fric_Coral: f32,
+    designcomponent_Fric_Oyser: f32,
+    designcomponent_Fric_Mangrove: f32,
+    designcomponent_Fric_Kelp: f32,
+    designcomponent_Fric_Grass: f32,
+    designcomponent_Fric_Scrub: f32,
+    designcomponent_Fric_RubbleMound: f32,
+    designcomponent_Fric_Dune: f32,
+    designcomponent_Fric_Berm: f32,
+    designcomponent_Fric_Seawall: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -49,64 +59,23 @@ struct Globals {
 @group(0) @binding(6) var txBottomFriction: texture_2d<f32>; 
 @group(0) @binding(7) var txNewState_Sed: texture_2d<f32>; 
 @group(0) @binding(8) var erosion_Sed: texture_2d<f32>; 
-@group(0) @binding(9) var depostion_Sed: texture_2d<f32>; 
-@group(0) @binding(10) var txBotChange_Sed: texture_2d<f32>; 
-@group(0) @binding(11) var txGoogleMap: texture_2d<f32>;
+@group(0) @binding(9) var txBotChange_Sed: texture_2d<f32>; 
+@group(0) @binding(10) var txDesignComponents: texture_2d<f32>; 
+@group(0) @binding(11) var txOverlayMap: texture_2d<f32>;
 @group(0) @binding(12) var txDraw: texture_2d<f32>;
 @group(0) @binding(13) var textureSampler: sampler;
 @group(0) @binding(14) var txTimeSeries_Locations: texture_2d<f32>;
 @group(0) @binding(15) var txBreaking: texture_2d<f32>;  
+@group(0) @binding(16) var txSamplePNGs: texture_2d_array<f32>;
 
-
-
-fn fade(t: f32) -> f32 {
-    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-}
-
-fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    return a + t * (b - a);
-}
-
-fn grad(hash: i32, x: f32, y: f32) -> f32 {
-    let h: i32 = hash & 15;
-    var u: f32;
-    if (h < 8) { u = x; } else { u = y; }
-    var v: f32;
-    if (h < 4) { v = y; } else { if (h == 12 || h == 14) { v = x; } else { v = 0.0; } }
-    var out: f32;
-    if ((h&1) == 0) { out = u; } else { out = -u; }
-    if ((h&2) == 0) { out = out + v; } else { out = out - v; }
-    return out;
-}
-
-fn perlinNoise(x: f32, y: f32) -> f32 {
-    let xi: i32 = i32(x) & 255;
-    let yi: i32 = i32(y) & 255;
-    let xf: f32 = x - floor(x);
-    let yf: f32 = y - floor(y);
-    let u: f32 = fade(xf);
-    let v: f32 = fade(yf);
-
-    // Hash coordinates of the 4 square corners
-    let aa: i32 = (xi+yi*256) & 255;
-    let ab: i32 = (xi+(yi+1)*256) & 255;
-    let ba: i32 = ((xi+1)+yi*256) & 255;
-    let bb: i32 = ((xi+1)+(yi+1)*256) & 255;
-
-    let x1: f32 = lerp(grad(aa, xf, yf), grad(ba, xf-1.0, yf), u);
-    let x2: f32 = lerp(grad(ab, xf, yf-1.0), grad(bb, xf-1.0, yf-1.0), u);
-    let y1: f32 = lerp(x1, x2, v);
-
-    return (y1 + 1.0) / 2.0; // Normalize to [0, 1]
-}
 
 fn calculateChangeEta(x_global: f32, y_global: f32, dx: f32, amplitude: f32, thetap: f32) -> f32 {
     var change_eta: f32 = 0.0;
-    let directions: array<f32, 5> = array<f32, 5>(-20.0, -10.0, 0.0, 10.0, 20.0); // Directions in degrees
+    let directions: array<f32, 7> = array<f32, 7>(-25.0, -20.0, -10.0, 0.0, 10.0, 20.0, 25.0); // Directions in degrees
     let pi: f32 = 3.141592653589793;
 
     // Convert directions to radians for math functions
-    for (var i: i32 = 0; i < 5; i = i + 1) {
+    for (var i: i32 = 0; i < 7; i = i + 1) {
         let dirRad: f32 = (thetap + directions[i]) * pi / 180.0; // Direction in radians
 
         // Loop through wavelengths
@@ -281,7 +250,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     
     let bottom = textureSample(bottomTexture, textureSampler, uv).b;
     let waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
-    let GoogleMap = textureSample(txGoogleMap, textureSampler, uv_mod).rgb;
+    let friction = textureSample(txBottomFriction, textureSampler, uv).r;  // friction
+    let GoogleMap = textureSample(txOverlayMap, textureSampler, uv_mod).rgb;
     let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
     let H = max(globals.delta, waves - bottom);
     var render_surface = waves;
@@ -368,42 +338,56 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = textureSample(txNewState_Sed, textureSampler, uv).r / H; 
     } else if (surfaceToPlot == 18) {  // sed C1 erosion
         render_surface = textureSample(erosion_Sed, textureSampler, uv).r; 
-    } else if (surfaceToPlot == 19) {  // sed C1 deposition
-        render_surface = textureSample(depostion_Sed, textureSampler, uv).r; 
-    } else if (surfaceToPlot == 20) {  // sed C1 net deposition 
-        render_surface = textureSample(depostion_Sed, textureSampler, uv).r - textureSample(erosion_Sed, textureSampler, uv).r; 
+  //  } else if (surfaceToPlot == 19) {  // sed C1 deposition
+  //      render_surface = textureSample(depostion_Sed, textureSampler, uv).r; 
+ //   } else if (surfaceToPlot == 20) {  // sed C1 net deposition 
+ //       render_surface = textureSample(depostion_Sed, textureSampler, uv).r - textureSample(erosion_Sed, textureSampler, uv).r; 
     } else if (surfaceToPlot == 21) {  // sed C1 net deposition 
         render_surface = textureSample(txBotChange_Sed, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 22) {  // design components 
+        render_surface = textureSample(txDesignComponents, textureSampler, uv).r; 
     }
     
     var light_effects = vec3<f32>(1.0, 1.0, 1.0);
-    var vorticiy_magn = 0.0;
+    var vorticiy_magn = 0.0;  // this will be used to viz sediment plumes
+    var breaking_texture = 1.0;  // this will be used to modulate the breaking form, to make it look more realistic
+    var component_index = 0; // this is equivalent to a floor operation, so add the shift just in case
+    var component_colors = vec3<f32>(0.0, 0.0, 0.0);
+    var component_colors_abovewater = vec3<f32>(0.0, 0.0, 0.0);
+
+
     if (photorealistic == 1) {  // add lighting for photo-realistic view
+        let width = f32(globals.WIDTH) * globals.dx;
+        let length = f32(globals.HEIGHT) * globals.dy;     
+
+        // define local component index
+        component_index = i32(0.01 + textureSample(txDesignComponents, textureSampler, uv).r); // this is equivalent to a floor operation, so add the shift just in case
+
         // Lighting parameters
         let lightColor = vec3<f32>(1.0, 1.0, 1.0); // White light
         var thetap = 180.;
 
-        var light_x = f32(globals.WIDTH) * 0.5 * globals.dx;
+        var light_x = 0.5 * width;
         if(globals.west_boundary_type == 2){
-            light_x =  f32(globals.WIDTH) * 1.0 * globals.dx;
+            light_x =  width;
             thetap = 180.;
         }
         else if(globals.east_boundary_type == 2){
-            light_x = -f32(globals.WIDTH) * 1.0 * globals.dx;
+            light_x = -width;
             thetap = 0.;
         }
 
-        var light_y = f32(globals.HEIGHT) * 0.5 * globals.dy;
+        var light_y = 0.5 * length;
         if(globals.north_boundary_type == 2){
-            light_y = -f32(globals.HEIGHT) * 1.0 * globals.dy;
+            light_y = -length;
             thetap = 90.;
         }
         else if(globals.south_boundary_type == 2){
-            light_y = f32(globals.HEIGHT) * 1.0 * globals.dy;
+            light_y = length;
             thetap = -90.;
         }
 
-        let light_z = 10.0 * (f32(globals.HEIGHT) * globals.dy + f32(globals.WIDTH) * globals.dx);
+        let light_z = 10.0 * (length + width);
 
 
         let lightPos = vec3<f32>(light_x, light_y, light_z); // Simulate overhead sun position, world coordinates
@@ -413,11 +397,12 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         let shininess = 32.0; // Shininess factor for specular highlight
 
         // find worldspace coordinates
-        let x_world = uv.x * f32(globals.WIDTH) * globals.dx;
-        let y_world = uv.y * f32(globals.HEIGHT) * globals.dy;
+        let x_world = uv.x * width;
+        let y_world = uv.y * length;
 
         // Normal vector calcs
-        let roughnessFactor = 0.001 * H;
+        var roughnessFactor = 0.002 * min(H, globals.base_depth / 2.);
+        if(component_index == 4) {roughnessFactor = 0.0;}  // kelp knocks out chop
         var delta_eta = calculateChangeEta(x_world, y_world, globals.dx, roughnessFactor, thetap);   
         render_surface = render_surface + delta_eta;
             // up
@@ -455,7 +440,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         let diffuse = diffuseStrength * diff * lightColor;
 
         // Specular component
-        let viewPos =vec3<f32>(f32(globals.WIDTH) * 0.5 * globals.dx, f32(globals.HEIGHT) * 0.5 * globals.dy, light_z); // directly overhead, world coordinates
+        let viewPos =vec3<f32>(0.5 * width, 0.5 * length, light_z); // directly overhead, world coordinates
         let viewDir = normalize(viewPos - FragPos);
         let reflectDir = reflect(-lightDir, normal);
         let spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
@@ -464,38 +449,75 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         // Combine components
         light_effects = ambient + diffuse + specular;
 
-            // up
-            var uv_vort = uv;
-            uv_vort.y = uv_vort.y + 1/f32(globals.HEIGHT);
-            let P_up = textureSample(etaTexture, textureSampler, uv_vort).g; 
+        //Vorticity
+        var uv_vort = uv;
+        // up
+        uv_vort.y = uv_vort.y + 1/f32(globals.HEIGHT);
+        let P_up = textureSample(etaTexture, textureSampler, uv_vort).g; 
 
-            // down
-            uv_vort = uv;
-            uv_vort.y = uv_vort.y - 1/f32(globals.HEIGHT);
-            let P_down = textureSample(etaTexture, textureSampler, uv_vort).g; 
+        // down
+        uv_vort = uv;
+        uv_vort.y = uv_vort.y - 1/f32(globals.HEIGHT);
+        let P_down = textureSample(etaTexture, textureSampler, uv_vort).g; 
 
-            // right
-            uv_vort = uv;
-            uv_vort.x = uv_vort.x + 1/f32(globals.WIDTH);
-            let Q_right = textureSample(etaTexture, textureSampler, uv_vort).b; 
+        // right
+        uv_vort = uv;
+        uv_vort.x = uv_vort.x + 1/f32(globals.WIDTH);
+        let Q_right = textureSample(etaTexture, textureSampler, uv_vort).b; 
             
-            // left
-            uv_vort = uv;
-            uv_vort.x = uv_vort.x - 1/f32(globals.WIDTH);
-            let Q_left = textureSample(etaTexture, textureSampler, uv_vort).b; 
+        // left
+        uv_vort = uv;
+        uv_vort.x = uv_vort.x - 1/f32(globals.WIDTH);
+        let Q_left = textureSample(etaTexture, textureSampler, uv_vort).b; 
 
-            vorticiy_magn = min(0.25, 0.5 * abs(0.5*(P_up - P_down)/globals.dy - 0.5*(Q_right - Q_left)/globals.dx));
+        vorticiy_magn = min(0.25, 0.5 * abs(0.5*(P_up - P_down)/globals.dy - 0.5*(Q_right - Q_left)/globals.dx));
 
+        var uv_turb = uv; //vec3<f32>(uv.x, uv.y, 0.0) ;
+        let PQ_scale = globals.base_depth * sqrt(9.81 * globals.base_depth); 
+        let max_shift = globals.base_depth / (width + length);
+        var xshift = 0.005 * (P_up + P_down)/PQ_scale;
+        if (xshift < -max_shift) {xshift = -max_shift;} else if (xshift > max_shift) {xshift = max_shift;} 
+        var yshift = 0.005 * (Q_right + Q_left)/PQ_scale;
+        if (yshift < -max_shift) {yshift = -max_shift;} else if (yshift > max_shift) {yshift = max_shift;} 
+        uv_turb.x = fract(uv_turb.x + xshift);
+        uv_turb.y = fract(uv_turb.y + yshift);
+
+
+        // add design components
+        let texture_scale_x = width/250.;
+        let texture_scale_y = length/250.;
+        var uv_turb_scaled = uv_turb;
+        uv_turb_scaled.x = uv_turb.x * texture_scale_x - f32(i32(uv_turb.x * texture_scale_x));
+        uv_turb_scaled.y = uv_turb.y * texture_scale_y - f32(i32(uv_turb.y * texture_scale_y));
+        var uv_scale = uv;
+        uv_scale.x = uv.x * texture_scale_x - f32(i32(uv.x * texture_scale_x));
+        uv_scale.y = uv.y * texture_scale_y - f32(i32(uv.y * texture_scale_y));
+
+        // turbulence
+        let layer = 0; // first layer is turbulence
+        let breaking_texture_colors = textureSample(txSamplePNGs, textureSampler, uv_turb, i32(layer)).xyz;
+        breaking_texture = (breaking_texture_colors.x + breaking_texture_colors.y + breaking_texture_colors.z)/3.0;
+
+        // vorticity / sediment plumes
+        vorticiy_magn = vorticiy_magn * breaking_texture;  // add turbulence noise texture to vort / sed as well
+
+        // design components
+        component_colors = textureSample(txSamplePNGs, textureSampler, uv_turb_scaled, component_index).xyz;
+        component_colors_abovewater =  textureSample(txSamplePNGs, textureSampler, uv_scale, component_index).xyz;
     } 
 
 
     var color_rgb: vec3<f32>;
-    if (bottom + globals.delta >= waves && surfaceToPlot != 6) {
-        if(globals.GoogleMapOverlay == 1) {
+    var design_component_allowed_on_land = 0;
+    
+    if(photorealistic != 0 && (component_index == 3 || component_index >= 5)){design_component_allowed_on_land = 1;}  //magroves, and other components that can exist above zero datum
+
+    if (bottom + globals.delta >= waves && surfaceToPlot != 6 && design_component_allowed_on_land == 0) {
+        if(globals.IsOverlayMapLoaded == 1) {
             color_rgb = GoogleMap;
         }
         else {
-            color_rgb = vec3<f32>(210.0 / 255.0, 180.0 / 255.0, 140.0 / 255.0) + 0.05 * bottom;
+            color_rgb = vec3<f32>(210.0 / 255.0, 180.0 / 255.0, 140.0 / 255.0) + 0.5 * bottom / globals.base_depth;
         }
     } else {
         if (photorealistic == 0) {
@@ -521,7 +543,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
             let color_shallow = vec3<f32>(0.2, 0.45, 0.45); // deep water ocean color
             let color_deep = vec3<f32>(0.0, 0.25, 0.5); // shallow ocean color
             var color_sand = vec3<f32>(0.76, 0.70, 0.50); // sand color
-            if(globals.GoogleMapOverlay == 1 && bottom >= 0.0) {color_sand = GoogleMap;}
+            if(globals.IsOverlayMapLoaded == 1 && bottom >= 0.0) {color_sand = GoogleMap;}
 
             var color_wave = color_shallow;
             let deep = 50.0;
@@ -542,6 +564,103 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
             // add vorticity - sediment viz
             color_wave = (1.0 - vorticiy_magn) * color_wave + vorticiy_magn * color_sand;
 
+           // add design components
+            var component_frac = 0.0;
+            var friction_edge_mod = 1.0;
+            var design_colors = component_colors;
+            
+            if(component_index == 1) {  // coral reef
+                friction_edge_mod = min(1.0, pow(friction / globals.designcomponent_Fric_Coral, 0.5));
+                let vis_depth = 10.0;
+                if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                }               
+            } else if(component_index == 2) {  // oyster beds
+                friction_edge_mod = min(1.0, pow(friction / globals.designcomponent_Fric_Oyser, 0.5));
+                let vis_depth = 10.0;
+                if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                }               
+            } else if(component_index == 3) {  // mangroves
+                friction_edge_mod = min(1.0, pow(friction / globals.designcomponent_Fric_Mangrove, 0.5));
+                component_frac = 1.0;
+                light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                design_colors = component_colors_abovewater;
+                breaking_texture = 0.25 * breaking_texture; // breaking less visable through mangroves            
+            } else if(component_index == 4) {  // kelp
+                friction_edge_mod = min(1.0, pow(friction / globals.designcomponent_Fric_Kelp, 0.5));
+                let sum_colors = design_colors.x + design_colors.y + design_colors.z;
+                component_frac = min(0.25, sum_colors);            
+            } else if(component_index == 5) {  // grass
+                friction_edge_mod = min(1.0, pow(friction / globals.designcomponent_Fric_Grass, 0.5));
+                let vis_depth = 10.0;
+                if (H < 0.05) {
+                    component_frac = 1.0;
+                    design_colors = component_colors_abovewater;
+                    light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                } else if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                }                         
+            } else if(component_index == 6) {  // shrubs
+                friction_edge_mod = min(1.0, pow(friction / globals.designcomponent_Fric_Scrub, 0.5));
+                let vis_depth = 10.0;
+                if (H < 0.05) {
+                    component_frac = 1.0;
+                    design_colors = component_colors_abovewater;
+                    light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                    breaking_texture = 0.5 * breaking_texture; // breaking less visable through scrub with small depths  
+                } else if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                } 
+
+            } else if(component_index == 7) {  // rubble mound
+                let vis_depth = 10.0;
+                if (H < 0.05) {
+                    component_frac = 1.0;
+                    design_colors = component_colors_abovewater;
+                    light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                } else if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                } 
+
+            } else if(component_index == 8) {  // vegetated dune
+                let vis_depth = 10.0;
+                if (H < 0.05) {
+                    component_frac = 1.0;
+                    design_colors = component_colors_abovewater;
+                    light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                } else if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                } 
+
+            } else if(component_index == 9) {  // berm / simple sand dune
+                let vis_depth = 10.0;
+                component_colors_abovewater = vec3<f32>(0.76, 0.70, 0.50);
+                if (H < 0.05) {
+                    component_frac = 1.0;
+                    design_colors = component_colors_abovewater;
+                    light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                } else if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                } 
+
+            } else if(component_index == 10) {  // seawall
+                let vis_depth = 10.0;
+                component_colors_abovewater = vec3<f32>(0.25, 0.25, 0.25);
+                if (H < 0.05) {
+                    component_frac = 1.0;
+                    design_colors = component_colors_abovewater;
+                    light_effects = vec3<f32>(1.0, 1.0, 1.0);
+                } else if (H < vis_depth) {
+                    component_frac = 0.5*max(0.05, (vis_depth - H) / vis_depth);
+                } 
+
+            }
+
+            component_frac = component_frac * friction_edge_mod;
+
+            color_wave = (1.0 - component_frac) * color_wave + component_frac * design_colors ;
+
             color_rgb = light_effects * color_wave;
         }
 
@@ -549,7 +668,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     
     if (globals.showBreaking ==1 ) {
-        let breaking = textureSample(etaTexture, textureSampler, uv).a;
+        let breaking =  breaking_texture * textureSample(etaTexture, textureSampler, uv).a;
         color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
     } else if (globals.showBreaking == 2 ) {
         let tracer = textureSample(etaTexture, textureSampler, uv).a;

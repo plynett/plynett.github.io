@@ -143,12 +143,22 @@ export function createRenderBindGroupLayout(device) {
                     format: 'rgba32float'  
                 }
             },
+            {
+                // 16th binding: A texture that the fragment shader will sample from.
+                binding: 16,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'bgra8unorm',  // imagedata for the google maps image
+                    viewDimension: '2d-array'
+                }
+            },
         ]
     });
 }
 
 
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking) {
+export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs) {
     return device.createBindGroup({
         layout: createRenderBindGroupLayout(device),
         entries: [
@@ -192,15 +202,15 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             },
             {
                 binding: 9,
-                resource: depostion_Sed.createView()
-            },
-            {
-                binding: 10,
                 resource: txBotChange_Sed.createView()
             },
             {
+                binding: 10,
+                resource: txDesignComponents.createView()
+            },
+            {
                 binding: 11,
-                resource: txGoogleMap.createView()
+                resource: txOverlayMap.createView()
             },
             {
                 binding: 12,
@@ -218,9 +228,14 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
                 binding: 15,
                 resource: txBreaking.createView()
             },
+            {
+                binding: 16,
+                resource: txSamplePNGs.createView()
+            },
         ]
     });
 }
+
 
 export async function update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) {
     // Set text styles

@@ -51,7 +51,7 @@
             flex-direction: column; /* stack the children vertically */
         }
 
-        #constants-container, #mods-container, #downloads-container, #uploads-container {
+        #constants-container, #mods-container, #downloads-container, #uploads-container, #viz-container, #design-container, #disturbance-container, #sediment-container, #timeseries-container, #animations-container, #parameters-container, #analysis-container {
             background-color: #f9f9f9;
             border: 1px solid red;
             padding: 5px;
@@ -60,26 +60,12 @@
             margin-top: 2px;
             margin-bottom: 2px;
             overflow-y: visible;
-            line-height: 0.7; /* This is a multiplier of the default line height. */
-        }
-
-        #uploads-container {
-            /* Additional specific styles for the controls container if needed */
-            line-height: 1.2; /* This is a multiplier of the default line height. */
-        }
-
-        #mods-container {
-            /* Additional specific styles for the controls container if needed */
-            line-height: 1.2; /* This is a multiplier of the default line height. */
-        }
-
-        #downloads-container {
-            /* Additional specific styles for the controls container if needed */
             line-height: 1.2; /* This is a multiplier of the default line height. */
         }
 
         #constants-container {
             /* Additional specific styles for the controls container if needed */
+            line-height: 0.7; /* This is a multiplier of the default line height. */
             width: auto;
         }
 
@@ -96,7 +82,7 @@
             border-radius: 0px; /* slightly rounded corners */
             text-align: center;
             white-space: nowrap;
-            /*   background-color: darkgrey; /* typical light-gray button color */
+            background-color: rgb(197, 197, 197); /* typical light-gray button color */
             /*   color: #333333; /* typical button text color */
             font-size: 14px; /* match the font size of your buttons */
             font-family: Courier, monospace;
@@ -104,7 +90,7 @@
 
         .custom-file-upload-button:hover {
                 /*      background-color: dimgray; /* slightly darker background for hover */
-           border-color: #adadad; /* slightly darker border for hover */
+           border-color: #030303; /* slightly darker border for hover */
         }
 
         .custom-window {
@@ -142,6 +128,13 @@
             font-size: 18px;
         }
 
+        .window-content[data-default="minimized"] {
+            display: none;
+        }
+        .window-content[data-default="maximized"], .window-content {
+            display: block; /* default state */
+        }
+        
         .flex-container {
             display: flex;
             flex-direction: row; /* This is the default, so it's optional here */
@@ -149,6 +142,11 @@
             flex-wrap: wrap; /* Allows items to wrap to the next line if the container is too narrow */
             justify-content: center; /* This will center the content */
             align-items: center; /* Align items vertically */
+        }
+
+        
+        input[type="number"] {
+            width: 100px;  /* Set the width of all input elements of type number */
         }
 
 
@@ -178,22 +176,37 @@
                     <div>
                         <input type="file" id="configFile" accept="application/json" style="display: none;" />
                         <label for="configFile" class="custom-file-upload-button">
-                            Load JSON Config File
+                            Load JSON Config File [Required]
                         </label>
                         <br />
                         <br />
                         <input type="file" id="bathymetryFile" accept="application/txt" style="display: none;" />
                         <label for="bathymetryFile" class="custom-file-upload-button">
-                            Load Bathymetry Data File
+                            Load Bathymetry Data File [Required]
                         </label>
                         <br />
                         <br />
                         <input type="file" id="waveFile" accept="application/txt" style="display: none;" />
                         <label for="waveFile" class="custom-file-upload-button">
-                            Load Wave [amp,period,dir] Data File
+                            Load Wave [amp,period,dir] Data File [Optional]
                         </label>
                         <br />
                         <br />
+                        <html4f>
+                            For image overlay, you have two choices.  
+                            If you have a high-resolution satellite or aerial image, you can load that file below.  
+                            Note that this image must cover the exact area as the loaded bathy/topo, or the overlay will not be spatially matched.  
+                            Alternatively, if you know the lat/lon coordinates of the corners of the bathy/topo, you can specify these in the input json file (see examples). 
+                            Based on these corner coordinates, the code will download a Google Maps tile for the domain, and use that as an overlay.  </a>
+                        </html4f>
+                        <br />
+                        <input type="file" id="satimageFile" accept="image/jpeg, image/png, image/bmp, image/gif" style="display: none;" />
+                        <label for="satimageFile" class="custom-file-upload-button" >
+                            Load Satellite Image (jpg, png, bmp, gif) [Optional]
+                        </label>
+                        <br />
+                        <br /> 
+
                         <button id="start-simulation-btn">Start Simulation</button>
                         <br />
                         <br />
@@ -254,7 +267,7 @@
                 </div>
             </div>
 
-            <div id="mods-container" class="custom-window">
+            <div id="viz-container" class="custom-window">
                 <div class="window-header">
                     <span><center> Modify Visualization </center></span>
                     <button class="minimize-button">-</button>
@@ -284,8 +297,7 @@
                         <option value="21">Depth Change due to Sed Transport </option>
                         <option value="17">Sediment Class 1 Concentration </option>
                         <option value="18">Sediment Class 1 Erosion Rate </option>
-                        <option value="19">Sediment Class 1 Deposition Rate </option>
-                        <option value="20">Sediment Class 1 Net Deposition Rate </option>
+                        <option value="22">Design Component Map </option>
                     </select>
                     <br />
                     <br />
@@ -332,13 +344,15 @@
                     <br />
 
                     <!-- Updates go to calc_constants.GoogleMapOverlay-->
-                    <label for="GoogleMapOverlay-select">Google Maps Image Overlay:</label>
+                    <label for="GoogleMapOverlay-select">Google Maps / Aerial Image Overlay:<br></label>
                     <select id="GoogleMapOverlay-select" name="GoogleMapOverlayValue">
                         <option value="0">No Overlay</option>
-                        <option value="1">Include Overlay</option>
+                        <option value="1">Include Google Maps Overlay</option>
+                        <option value="2">Include Satellite / Aerial Overlay</option>
                     </select>
                     <br />
                     <br />
+                   
 
                     <!-- Updates go to calc_constants.viewType-->
                     <label for="viewType-select">View Mode:</label>
@@ -358,9 +372,289 @@
 
             </div>
 
+            <div id="design-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Add Engineered Design Components </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
+                    <!-- Updates go to calc_constants.designcomponentToAdd-->
+                    <label for="designcomponentToAdd-select">Component to Add:</label>
+                    <select id="designcomponentToAdd-select" name="designcomponentToAddValue">
+                        <option value="1">Coral Reef</option>
+                        <option value="2">Mussel/Oyster Bed</option>
+                        <option value="3">Mangroves</option>
+                        <option value="4">Kelp Bed</option>
+                        <option value="5">Light Vegetation (grass)</option>
+                        <option value="6">Medium Vegetation (shrub/scrub)</option>
+                        <option value="7">Rubblemound Structure</option>
+                        <option value="8">Vegetated Dune</option>
+                        <option value="9">Berm / Temporary Dune</option>
+                        <option value="10">Seawall</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <html4f>
+                    Mannings n / Friction Factors </a>
+                    </html4f> 
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Coral-->
+                    <label for="designcomponent_Fric_Coral-input">Coral Reef:</label>
+                    <input type="number" id="designcomponent_Fric_Coral-input" name="designcomponent_Fric_CoralValue">
+                    <button id="designcomponent_Fric_Coral-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Oyser-->
+                    <label for="designcomponent_Fric_Oyser-input">Mussel/Oyster Bed:</label>
+                    <input type="number" id="designcomponent_Fric_Oyser-input" name="designcomponent_Fric_OyserValue">
+                    <button id="designcomponent_Fric_Oyser-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Mangrove-->
+                    <label for="designcomponent_Fric_Mangrove-input">Mangroves:</label>
+                    <input type="number" id="designcomponent_Fric_Mangrove-input" name="designcomponent_Fric_MangroveValue">
+                    <button id="designcomponent_Fric_Mangrove-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Kelp-->
+                    <label for="designcomponent_Fric_Kelp-input">Kelp Bed:</label>
+                    <input type="number" id="designcomponent_Fric_Kelp-input" name="designcomponent_Fric_KelpValue">
+                    <button id="designcomponent_Fric_Kelp-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Grass-->
+                    <label for="designcomponent_Fric_Grass-input">Grass:</label>
+                    <input type="number" id="designcomponent_Fric_Grass-input" name="designcomponent_Fric_GrassValue">
+                    <button id="designcomponent_Fric_Grass-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Scrub-->
+                    <label for="designcomponent_Fric_Scrub-input">Scrub:</label>
+                    <input type="number" id="designcomponent_Fric_Scrub-input" name="designcomponent_Fric_ScrubValue">
+                    <button id="designcomponent_Fric_Scrub-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_RubbleMound-->
+                    <label for="designcomponent_Fric_RubbleMound-input">Rubblemound:</label>
+                    <input type="number" id="designcomponent_Fric_RubbleMound-input" name="designcomponent_Fric_RubbleMoundValue">
+                    <button id="designcomponent_Fric_RubbleMound-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Dune-->
+                    <label for="designcomponent_Fric_Dune-input">Vegetated Dune:</label>
+                    <input type="number" id="designcomponent_Fric_Dune-input" name="designcomponent_Fric_DuneValue">
+                    <button id="designcomponent_Fric_Dune-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Berm-->
+                    <label for="designcomponent_Fric_Berm-input">Berm:</label>
+                    <input type="number" id="designcomponent_Fric_Berm-input" name="designcomponent_Fric_BermValue">
+                    <button id="designcomponent_Fric_Berm-button" type="button">Update</button>
+                    <br />
+                    <!-- Updates go to calc_constants.designcomponent_Fric_Seawall-->
+                    <label for="designcomponent_Fric_Seawall-input">Seawall:</label>
+                    <input type="number" id="designcomponent_Fric_Seawall-input" name="designcomponent_Fric_SeawallValue">
+                    <button id="designcomponent_Fric_Seawall-button" type="button">Update</button>
+                    
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.designcomponent_Radius-->
+                    <label for="designcomponent_Radius-input">For surface cover components, radius of coverage to add on click:</label>
+                    <br />
+                    <input type="number" id="designcomponent_Radius-input" name="designcomponent_RadiusValue">
+                    <button id="designcomponent_Radius-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    
+                    <html4f>
+                        Left click (and hold) to add surface cover components (in Design Mode). </a>
+                    </html4f> 
+                    <br />
+                    <br />
+                    
+
+                    <!-- Updates go to calc_constants.designcomponent_CrestElev-->
+                    <label for="designcomponent_CrestElev-input">For linear structures (breakwaters, dunes, seawalls), crest elevation (m):</label>
+                    <br />
+                    <input type="number" id="designcomponent_CrestElev-input" name="designcomponent_CrestElevValue">
+                    <button id="designcomponent_CrestElev-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.designcomponent_CrestWidth-->
+                    <label for="designcomponent_CrestWidth-input">For linear structures (breakwaters, dunes, seawalls), crest width (m):</label>
+                    <br />
+                    <input type="number" id="designcomponent_CrestWidth-input" name="designcomponent_CrestWidthValue">
+                    <button id="designcomponent_CrestWidth-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.designcomponent_SideSlope-->
+                    <label for="designcomponent_SideSlope-input">For linear, sloping structures (breakwaters, dunes), side slope (give as decimal, e.g. 0.25 = 1/4):</label>
+                    <br />
+                    <input type="number" id="designcomponent_SideSlope-input" name="designcomponent_SideSlopeValue">
+                    <button id="designcomponent_SideSlope-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.designcomponent_CurrentEndPoint-->
+                    <label for="designcomponent_CurrentEndPoint-select">Choose Linear Structure Start/Endpoint Coordinate to Edit:</label>
+                    <select id="designcomponent_CurrentEndPoint-select" name="designcomponent_CurrentEndPointValue">
+                        <option value="1">Start Location</option>
+                        <option value="2">End Location</option>
+                    </select>
+                    <br />
+                    <br />
+                    
+                    <html4f>
+                        Right-click on structure start/end location (in Design Mode) or input coordinates below</a>
+                    </html4f> 
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.designcomponent_xLoc-->
+                    <label for="designcomponent_xLoc-input">Location x-coordinate (m) :</label>
+                    <br />
+                    <input type="number" id="designcomponent_xLoc-input" name="designcomponent_xLocValue">
+                    <button id="designcomponent_xLoc-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.designcomponent_yLoc-->
+                    <label for="designcomponent_yLoc-input">Location y-coordinate (m) :</label>
+                    <br />
+                    <input type="number" id="designcomponent_yLoc-input" name="designcomponent_yLocValue">
+                    <button id="designcomponent_yLoc-button" type="button">Update</button>
+                    <br />
+                    <br />
+  
+                    <div id="linearstructurelocs-container" class="flex-container">
+                        <!-- Constants will be dynamically filled in by JavaScript -->
+                    </div>
+                    
+                    <!-- Add disturbance-->
+                    <button id="linearstructure-button">Add Linear Structure</button>
+                    <br />
+                    <br />
+
+
+                </div>
+
+            </div>
+
+
             <div id="mods-container" class="custom-window">
                 <div class="window-header">
-                    <span><center> Add Disturbance </center></span>
+                    <span><center> Modify 2D Surface Data </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
+                    <!-- Updates go to calc_constants.surfaceToChange-->
+                    <label for="surfaceToChange-select">Property to Edit:</label>
+                    <select id="surfaceToChange-select" name="surfaceToChangeValue">
+                        <option value="1">Bathymetry/Topography (m)</option>
+                        <option value="4">Ocean Surface Elevation</option>
+                        <option value="2">Bottom Friction</option>
+                        <option value="3">Passive Tracer Sources</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.changeType-->
+                    <label for="changeType-select">Change Property Continuously or Set to Specific Value:</label>
+                    <br />
+                    <select id="changeType-select" name="changeTypeValue">
+                        <option value="1">Increase/Decrease on Click</option>
+                        <option value="2">Set to Value on Click</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.changeAmplitude-->
+                    <label for="changeAmplitude-input">Amount of Property to Change-on-Click / Value to Set on Click:</label>
+                    <br />
+                    <input type="number" id="changeAmplitude-input" name="changeAmplitudeValue">
+                    <button id="changeAmplitude-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.changeRadius-->
+                    <label for="changeRadius-input">Lengthscale (m) of Change-on-Click :</label>
+                    <br />
+                    <input type="number" id="changeRadius-input" name="changeRadiusValue">
+                    <button id="changeRadius-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                </div>
+
+            </div>            
+
+
+            <div id="sediment-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Configure Sediment Transport Model </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
+                    <html4f>
+                    BETA - currently no feedback w/ hydro
+                    </html4f>
+                    <br />
+                    <br />
+                    <!-- Updates go to calc_constants.sedC1_d50-->
+                    <label for="sedC1_d50-input">Sediment Class 1 D50 (mm):</label>
+                    <br />
+                    <input type="number" id="sedC1_d50-input" name="sedC1_d50Value">
+                    <button id="sedC1_d50-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    <!-- Updates go to calc_constants.sedC1_n-->
+                    <label for="sedC1_n-input">Sediment Class 1 porosity:</label>
+                    <br />
+                    <input type="number" id="sedC1_n-input" name="sedC1_nValue">
+                    <button id="sedC1_n-button" type="button">Update</button>
+                    <br />
+                    <br />      
+                    <!-- Updates go to calc_constants.sedC1_denrat-->
+                    <label for="sedC1_denrat-input">Sediment Class 1 specific gravity:</label>
+                    <br />
+                    <input type="number" id="sedC1_denrat-input" name="sedC1_denratValue">
+                    <button id="sedC1_denrat-button" type="button">Update</button>
+                    <br />
+                    <br />                 
+                   <!-- Updates go to calc_constants.sedC1_psi-->
+                   <label for="sedC1_psi-input">Sediment Class 1 psi parameter:</label>
+                   <br />
+                   <input type="number" id="sedC1_psi-input" name="sedC1_psiValue">
+                   <button id="sedC1_psi-button" type="button">Update</button>
+                   <br />
+                   <br />
+                   <!-- Updates go to calc_constants.sedC1_shields-->
+                   <label for="sedC1_criticalshields-input">Sediment Class 1 critical Shields #:</label>
+                   <br />
+                   <input type="number" id="sedC1_criticalshields-input" name="sedC1_criticalshieldsValue">
+                   <button id="sedC1_criticalshields-button" type="button">Update</button>
+                   <br />
+                   <br />
+
+                    <!-- Updates go to calc_constants.useSedTransModel-->
+                    <label for="useSedTransModel-select">Turn on/off Sediment Transport Model: </label>
+                    <br />
+                    <select id="useSedTransModel-select" name="changeTypeValue">
+                        <option value="0">No Sediment Transport</option>
+                        <option value="1">Include Sediment Transport</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    
+
+                </div>
+
+            </div>
+
+
+            <div id="disturbance-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Add Impulsive Wave Source (Earthquake, Landslide) </center></span>
                     <button class="minimize-button">-</button>
                 </div>
                 <div class="window-content"  data-default="minimized">
@@ -450,120 +744,7 @@
             </div>            
 
 
-            <div id="mods-container" class="custom-window">
-                <div class="window-header">
-                    <span><center> Sediment Transport Model </center></span>
-                    <button class="minimize-button">-</button>
-                </div>
-                <div class="window-content"  data-default="minimized">
-
-                    <html4f>
-                    BETA - currently no feedback w/ hydro
-                    </html4f>
-                    <br />
-                    <br />
-                    <!-- Updates go to calc_constants.sedC1_d50-->
-                    <label for="sedC1_d50-input">Sediment Class 1 D50 (mm):</label>
-                    <br />
-                    <input type="number" id="sedC1_d50-input" name="sedC1_d50Value">
-                    <button id="sedC1_d50-button" type="button">Update</button>
-                    <br />
-                    <br />
-                    <!-- Updates go to calc_constants.sedC1_n-->
-                    <label for="sedC1_n-input">Sediment Class 1 porosity:</label>
-                    <br />
-                    <input type="number" id="sedC1_n-input" name="sedC1_nValue">
-                    <button id="sedC1_n-button" type="button">Update</button>
-                    <br />
-                    <br />      
-                    <!-- Updates go to calc_constants.sedC1_denrat-->
-                    <label for="sedC1_denrat-input">Sediment Class 1 specific gravity:</label>
-                    <br />
-                    <input type="number" id="sedC1_denrat-input" name="sedC1_denratValue">
-                    <button id="sedC1_denrat-button" type="button">Update</button>
-                    <br />
-                    <br />                 
-                   <!-- Updates go to calc_constants.sedC1_psi-->
-                   <label for="sedC1_psi-input">Sediment Class 1 psi parameter:</label>
-                   <br />
-                   <input type="number" id="sedC1_psi-input" name="sedC1_psiValue">
-                   <button id="sedC1_psi-button" type="button">Update</button>
-                   <br />
-                   <br />
-                   <!-- Updates go to calc_constants.sedC1_shields-->
-                   <label for="sedC1_criticalshields-input">Sediment Class 1 critical Shields #:</label>
-                   <br />
-                   <input type="number" id="sedC1_criticalshields-input" name="sedC1_criticalshieldsValue">
-                   <button id="sedC1_criticalshields-button" type="button">Update</button>
-                   <br />
-                   <br />
-
-                    <!-- Updates go to calc_constants.useSedTransModel-->
-                    <label for="useSedTransModel-select">Turn on/off Sediment Transport Model: </label>
-                    <br />
-                    <select id="useSedTransModel-select" name="changeTypeValue">
-                        <option value="0">No Sediment Transport</option>
-                        <option value="1">Include Sediment Transport</option>
-                    </select>
-                    <br />
-                    <br />
-
-                    
-
-                </div>
-
-            </div>
-
-            <div id="mods-container" class="custom-window">
-                <div class="window-header">
-                    <span><center> Modify 2D Surface Data </center></span>
-                    <button class="minimize-button">-</button>
-                </div>
-                <div class="window-content"  data-default="minimized">
-
-                    <!-- Updates go to calc_constants.surfaceToChange-->
-                    <label for="surfaceToChange-select">Property to Edit:</label>
-                    <select id="surfaceToChange-select" name="surfaceToChangeValue">
-                        <option value="1">Bathymetry/Topography (m)</option>
-                        <option value="4">Ocean Surface Elevation</option>
-                        <option value="2">Bottom Friction</option>
-                        <option value="3">Passive Tracer Sources</option>
-                    </select>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.changeType-->
-                    <label for="changeType-select">Change Property Continuously or Set to Specific Value:</label>
-                    <br />
-                    <select id="changeType-select" name="changeTypeValue">
-                        <option value="1">Increase/Decrease on Click</option>
-                        <option value="2">Set to Value on Click</option>
-                    </select>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.changeAmplitude-->
-                    <label for="changeAmplitude-input">Amount of Property to Change-on-Click / Value to Set on Click:</label>
-                    <br />
-                    <input type="number" id="changeAmplitude-input" name="changeAmplitudeValue">
-                    <button id="changeAmplitude-button" type="button">Update</button>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.changeRadius-->
-                    <label for="changeRadius-input">Lengthscale (m) of Change-on-Click :</label>
-                    <br />
-                    <input type="number" id="changeRadius-input" name="changeRadiusValue">
-                    <button id="changeRadius-button" type="button">Update</button>
-                    <br />
-                    <br />
-
-                </div>
-
-            </div>
-
-
-            <div id="mods-container" class="custom-window">
+            <div id="timeseries-container" class="custom-window">
                 <div class="window-header">
                     <span><center> Plot Time Series </center></span>
                     <button class="minimize-button">-</button>
@@ -657,12 +838,9 @@
 
             </div>
 
-
-
-
-            <div id="downloads-container" class="custom-window">
+            <div id="analysis-container" class="custom-window">
                 <div class="window-header">
-                    <span><center> Model Data and Output </center></span>
+                    <span><center> Analysis and Statistics </center></span>
                     <button class="minimize-button">-</button>
                 </div>
                 <div class="window-content"  data-default="minimized">
@@ -681,6 +859,96 @@
                     <button id="reset-waveheight-texture-btn">Reset Wave Height Surface</button>
                     <br />
                     <br />
+  
+                </div>
+
+            </div>
+            
+
+            <div id="animations-container" class="custom-window">
+                <div class="window-header">
+                    <span><center>Outputs: Animations & Images</center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+                    <html4f> Files saved below will be located in your browser's default Downloads directory</html4f>
+                    <br />
+                    <br />
+                    <!-- Download JPG button-->
+                    <button id="downloadJPG-button">Download Current Simulation Image (JPG)</button>
+                    <br />
+                    <br />
+                    <html4f>
+                    For long duration movies, it is recommended to use various screen capture options, such as the
+                    "Snipping Tool" in Windows.  Limitations of working within the browser / js environment make storing
+                    many frames and generating large animations challenging.  The options below will allow the user to make short animated gifs (up to ~100 frames)
+                    and to save up to 256 jpeg images.  Note that you can have only one of these operations ongoing at a time.
+                    </html4f>
+                    <br />
+                    <br />
+                    <html4f>
+                    Animated gif Options:
+                    </html4f>
+                    <br />
+
+                    <!-- Updates go to calc_constants.AnimGif_dt-->
+                    <label for="AnimGif_dt-input">Time between frames (sec) :</label>
+                    <br />
+                    <input type="number" id="AnimGif_dt-input" name="AnimGif_dtValue">
+                    <button id="AnimGif_dt-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    <!-- Download JPG button-->
+                    <html4f>
+                    Click the button below to start the creation of the animation.  See the console for messages about the 
+                    progress of the file generation.
+                    </html4f>
+                    <br />
+                    <button id="createGIF-button">Create Animated gif</button>
+                    <br />
+                    <br />
+
+                    <html4f>
+                    JPEG Time Stack Options:
+                    </html4f>
+                    <br />
+
+                    <!-- Updates go to calc_constants.JPEGstack_dt-->
+                    <label for="JPEGstack_dt-input">Time between jpeg images (sec) :</label>
+                    <br />
+                    <input type="number" id="JPEGstack_dt-input" name="JPEGstack_dtValue">
+                    <button id="JPEGstack_dt-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    <!-- Updates go to calc_constants.JPEGstack_frames-->
+                    <label for="JPEGstack_frames-input">Number of images to save (max: 256) :</label>
+                    <br />
+                    <input type="number" id="JPEGstack_frames-input" name="JPEGstack_framesValue">
+                    <button id="JPEGstack_frames-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    <!-- Download JPG button-->
+                    <html4f>
+                    Click the button below to start the storage of the jpeg images in memory.  Once all of the images
+                    are stored, they will be saved to file.  See the console for progress messages.
+                    </html4f>
+                    <br />
+                    <button id="createJPGstack-button">Create JPEG stack</button>
+                    <br />
+                    <br />
+
+                </div>
+
+            </div>
+
+
+            <div id="downloads-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Output: Raw Model Data </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
                     <html4f>-------------------------</html4f>
                     <br />
                     <html4f> Files saved below will be located in your browser's default Downloads directory</html4f>
@@ -692,15 +960,12 @@
                     <br />
                     <!-- Download texture button-->
                     <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
-                    <br />
-                    <br />
-                    <!-- Download JPG button-->
-                    <button id="downloadJPG-button">Download Current Simulation Image (JPG)</button>
                 </div>
 
             </div>
             
-            <div id="mods-container" class="custom-window">
+            
+            <div id="parameters-container" class="custom-window">
                 <div class="window-header">
                     <span><center>  Modify Simulation Parameters  </center></span>
                     <button class="minimize-button">-</button>
@@ -918,6 +1183,13 @@
     <!-- Import geotiff library into project
     <script src="https://cdn.jsdelivr.net/npm/geotiff@latest/dist-browser/geotiff.js"></script>
     bring back if we want to update or add geotiff output ability -->
+
+    <!-- Using ffmpeg to create animations  --><!-- Include ffmpeg.js from a CDN
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.10.1/ffmpeg.min.js" integrity="sha512-NymjIoM3BuPReK5HMHaUg6/lAqOP3d1JagbVMMHHFf2Y8+NqvNwsvVM6XSPWedpjsgtQo1Klf9o5ojErfA+w3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    doesnt work due to the need to have some external called SharedArrayBuffer, which is not allowed due to security risk by default -->
+
+    <!-- Using gif to create animated gif  --><!-- Include gif.js from a CDN -->    
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 
     <!-- Using Chart.js for simple time series plots  -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

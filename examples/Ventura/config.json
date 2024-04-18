@@ -78,7 +78,7 @@
     "surfaceToPlot": 0,
     "showBreaking": 1,
     "dissipation_threshold": 0.3,
-    "whiteWaterDecayRate": 0.1,
+    "whiteWaterDecayRate": 0.01,
     "whiteWaterDispersion": 0.1,
     "infiltrationRate": 0.001,
     "GoogleMapOverlay": 1,

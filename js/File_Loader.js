@@ -221,7 +221,6 @@ async function fetchMapImage(url) {
 
 // Step 3 and 4: Load the image into a texture.
 async function createTextureFromImage(device, context, image) {
-    // This function assumes you're using WebGPU. If you're using WebGL, the method will be different.
     // Create a GPU texture.
     const texture = device.createTexture({
         size: {
@@ -349,6 +348,23 @@ function calculateActualImageCorners(lat_LL, lon_LL, lat_UR, lon_UR, zoomLevel, 
     };
 }
 
+// Function to load an image from the server as ImageBitmap
+export async function loadImageBitmap(imageUrl) {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to load image: ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return createImageBitmap(blob);
+}
 
 
+export async function loadUserImage(fileObject) {
 
+    // Create an ImageBitmap directly from the file object
+    const image = await createImageBitmap(fileObject);
+    console.log("Loaded ImageBitmap:", image);
+    console.log(image)
+
+    return image;
+}

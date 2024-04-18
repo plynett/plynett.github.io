@@ -30,6 +30,7 @@ struct Globals {
     whiteWaterDispersion: f32,
     infiltrationRate: f32,
     useBreakingModel: i32,
+    showBreaking: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -52,12 +53,13 @@ struct Globals {
 @group(0) @binding(15) var F_G_star: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(16) var current_stateUVstar: texture_storage_2d<rgba32float, write>;  
 
-@group(0) @binding(17) var txContSource: texture_2d<f32>;
+@group(0) @binding(17) var txBottomFriction: texture_2d<f32>; 
 @group(0) @binding(18) var txBreaking: texture_2d<f32>;
 @group(0) @binding(19) var txDissipationFlux: texture_2d<f32>;
+@group(0) @binding(20) var txContSource: texture_2d<f32>;
 
 
-fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
+fn FrictionCalc(hu: f32, hv: f32, h: f32, friction_here: f32) -> f32 {
    
      // need this special scaling step due to the need to take h^4, and precision issues with a single precision solver
      // this lets us explicitly control the allowed precision in the scaled h^4, which we set to 1e-6.
@@ -73,12 +75,12 @@ fn FrictionCalc(hu: f32, hv: f32, h: f32) -> f32 {
 
     var f: f32;
     if (globals.isManning == 1) {
-        f = globals.g * pow(globals.friction, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
+        f = globals.g * pow(friction_here, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
     } else {
-        f = globals.friction ;
+        f = friction_here;
     }
 
-    f = min(f, 0.05);  // non-physical above 0.02
+    f = min(f, 0.5);  // non-physical above 0.5
 
     f = f * sqrt(hu * hu + hv * hv) * divide_by_h2;
 
@@ -257,7 +259,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         Psi2y = globals.Bcoef_g * d2_here * (dd_by_dy * (2.0 * eta_by_dy_dy + eta_by_dx_dx) + dd_by_dx * eta_by_dx_dy) + (G_star - F_G_star_oldOldies.z) / globals.dt * 0.5;
     }
    
-    var friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here);
+    let friction_here = max(globals.friction, textureLoad(txBottomFriction, idx, 0).x);
+    var friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here, friction_here);
 
     // Pressure stencil calculations
     let P_left = textureLoad(txShipPressure, leftIdx, 0).x;
@@ -364,11 +367,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         newState = in_state_here_UV + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
 
-    // add breaking source
-    newState.a = max(newState.a, breaking_B);  // use the B alue from Kennedy et al as a foam intensity
-
-    let contaminent_source = textureLoad(txContSource, idx, 0).r; 
-    newState.a = min(1.0, newState.a + contaminent_source); 
+    if(globals.showBreaking ==1) {
+        // add breaking source
+        newState.a = max(newState.a, breaking_B);  // use the B value from Kennedy et al as a foam intensity
+    }
+    else if(globals.showBreaking == 2) {
+        let contaminent_source = textureLoad(txContSource, idx, 0).r; 
+        newState.a = min(1.0, newState.a + contaminent_source); 
+    }
 
     // clear concentration if set
     if (globals.clearConc == 1){

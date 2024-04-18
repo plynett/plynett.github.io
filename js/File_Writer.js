@@ -66,7 +66,7 @@ export async function readTextureData(device, src_texture, channel) {
     return flatData; // or whatever processed form you prefer
 }
 
-export async function downloadTextureData(device, texture, channel) {
+export async function downloadTextureData(device, texture, channel, filename) {
     // Read data from the texture
     const data = await readTextureData(device, texture, channel);  //copies texture to buffer, then copies buffer to data, which is a Float32Array(WIDTH * HEIGHT);
 
@@ -76,7 +76,7 @@ export async function downloadTextureData(device, texture, channel) {
     // Create an anchor element and use it to trigger the download
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'textureData.bin'; // or .txt, or .data, or whatever extension is appropriate for your data
+    a.download = filename; 
     document.body.appendChild(a);
     a.click();
 
@@ -187,7 +187,7 @@ export function loadJsonIntoCalcConstants(jsonContent) {
 }
 
 
-export async function saveRenderedImageAsJPEG(device, texture, width, height) {
+export async function saveRenderedImageAsJPEG(device, texture, width, height, outputPath='renderedImage.jpg') {
     // Step 1: Read back the pixel data
     const bytesPerRow = width * 4; // for RGBA, there are 4 channels per pixel
     const totalBytes = height * bytesPerRow; // total bytes needed for the whole image
@@ -260,7 +260,7 @@ export async function saveRenderedImageAsJPEG(device, texture, width, height) {
 
     // Create a link to download
     const a = document.createElement('a');
-    a.download = 'renderedImage.jpg';
+    a.download = outputPath;
     a.href = URL.createObjectURL(blob);
     document.body.appendChild(a);
     a.click();
@@ -327,5 +327,246 @@ export async function TexturetoImageData(device, texture, width, height) {
     const imageData = new ImageData(bufferCopy, width, height);
 
     return imageData;
+}
+
+
+export function saveSingleValueToFile(value, filename) {
+
+    // Convert the float to a string and create a Blob from it
+    const blob = new Blob([value.toString()], { type: 'text/plain;charset=utf-8' });
+
+    // Create a temporary anchor element and trigger the download
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+
+    // Clean up by removing the anchor element and revoking the blob URL
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
+async function getFrameData(device, src_texture, width, height) {
+    // Create a buffer to hold the data read from the texture.
+    const bytesPerChannel = 1; // 8 bits per channel
+    const channelsPerPixel = 4; // BGRA components
+    const bytesPerRow = width * channelsPerPixel;
+    const alignedBytesPerRow = Math.ceil(bytesPerRow / 256) * 256; // Alignment for WebGPU
+    const buffer = device.createBuffer({
+        size: height * alignedBytesPerRow,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+
+    // Command encoder for copying from texture to buffer
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyTextureToBuffer(
+        { texture: src_texture },
+        { buffer: buffer, bytesPerRow: alignedBytesPerRow },
+        { width: width, height: height, depthOrArrayLayers: 1 }
+    );
+
+    // Submit and wait for GPU to complete the commands
+    device.queue.submit([commandEncoder.finish()]);
+    await buffer.mapAsync(GPUMapMode.READ);
+
+    // Extract and process the buffer data
+    const copyArrayBuffer = new Uint8Array(buffer.getMappedRange());
+    buffer.unmap();
+
+    // Format conversion from BGRA to RGBA (if necessary)
+    const imageData = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i++) {
+        imageData[4*i] = copyArrayBuffer[4*i + 2]; // Red
+        imageData[4*i + 1] = copyArrayBuffer[4*i + 1]; // Green
+        imageData[4*i + 2] = copyArrayBuffer[4*i]; // Blue
+        imageData[4*i + 3] = copyArrayBuffer[4*i + 3]; // Alpha
+    }
+
+    return imageData; // Return the RGBA image data
+}
+
+// not used currrently, due to issues with FFMPEG.  Apparently to due this library, ffmpeg.load
+// requires access to an external SharedArrayBuffer which does not exist by default on most browsers
+// and servers due to security issues.
+export async function createAndDownloadVideoFromTexture(device, texture, textureSize, outputPath='out.mp4', frameRate=24) {
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+
+    // Load the FFmpeg module
+    try {
+        await ffmpeg.load();
+    } catch (error) {
+        console.error("Failed to load ffmpeg module:", error);
+        return;
+    }
+
+    // Read frames from the texture and prepare image files
+    for (let i = 0; i < textureSize.depth; i++) {
+        try {
+            const frameData = await getFrameData(device, texture, i, textureSize.width, textureSize.height);
+            // Assuming frameData is in a format suitable for ffmpeg; this might require conversion
+            ffmpeg.FS('writeFile', `frame${i}.png`, frameData);
+        } catch (error) {
+            console.error(`Failed to process frame ${i}:`, error);
+            return;
+        }
+    }
+
+    // Run FFmpeg to create the video from frames
+    try {
+        await ffmpeg.run('-framerate', frameRate.toString(), '-i', 'frame%d.png', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', outputPath);
+    } catch (error) {
+        console.error("Failed to create video:", error);
+        return;
+    }
+
+    // Read the generated video file and create a URL for downloading
+    try {
+        const data = ffmpeg.FS('readFile', outputPath);
+        const videoUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+        window.open(videoUrl, '_blank'); // Open the video in a new tab or window
+    } catch (error) {
+        console.error("Failed to read or download video file:", error);
+    }
+}
+
+// will save the slices of a 3D image texture as a set of jpgs
+export async function saveTextureSlicesAsImages(device, texture, textureSize) {
+    const canvas = document.createElement('canvas');
+    canvas.width = textureSize.width;
+    canvas.height = textureSize.height;
+    const ctx = canvas.getContext('2d');
+
+    // Helper function to perform the read operation
+    async function readTextureSlice(sliceIndex) {
+        const bytesPerPixel = 4;  // BGRA components
+        const buffer = device.createBuffer({
+            size: textureSize.width * textureSize.height * bytesPerPixel,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+
+        const commandEncoder = device.createCommandEncoder();
+        const copySize = { width: textureSize.width, height: textureSize.height, depthOrArrayLayers: 1 };
+
+        commandEncoder.copyTextureToBuffer(
+            { texture: texture, origin: { x: 0, y: 0, z: sliceIndex } },
+            { buffer: buffer, bytesPerRow: textureSize.width * bytesPerPixel },
+            copySize
+        );
+
+        const gpuCommands = commandEncoder.finish();
+        device.queue.submit([gpuCommands]);
+        await buffer.mapAsync(GPUMapMode.READ);
+        
+        const arrayBuffer = new Uint8Array(buffer.getMappedRange()).slice();
+        buffer.unmap();
+
+        return arrayBuffer;
+    }
+
+    // Iterate over each slice
+    for (let i = 0; i < textureSize.depth; i++) {
+        const rawData = await readTextureSlice(i);
+
+        // Convert BGRA to RGBA
+        const imageData = new Uint8ClampedArray(textureSize.width * textureSize.height * 4);
+        for (let j = 0; j < rawData.length; j += 4) {
+            imageData[j] = rawData[j + 2];    // Red
+            imageData[j + 1] = rawData[j + 1];  // Green
+            imageData[j + 2] = rawData[j];    // Blue
+            imageData[j + 3] = rawData[j + 3];  // Alpha
+        }
+
+        const imgData = new ImageData(imageData, textureSize.width, textureSize.height);
+        ctx.putImageData(imgData, 0, 0);
+
+        // Create a Blob from the canvas
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `frame_${i}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        }, 'image/jpeg');
+    }
+}
+
+export async function createAnimatedGifFromTexture(device, texture, textureSize) {
+    const canvas = document.createElement('canvas');
+    canvas.width = textureSize.width;
+    canvas.height = textureSize.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        workerScript: './externals/gif.worker.js'
+    });
+
+    async function readTextureSlice(sliceIndex) {
+        const bytesPerPixel = 4; // BGRA components
+        const buffer = device.createBuffer({
+            size: textureSize.width * textureSize.height * bytesPerPixel,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+
+        const commandEncoder = device.createCommandEncoder();
+        commandEncoder.copyTextureToBuffer(
+            { texture: texture, origin: {x: 0, y: 0, z: sliceIndex} },
+            { buffer: buffer, bytesPerRow: textureSize.width * bytesPerPixel },
+            { width: textureSize.width, height: textureSize.height, depthOrArrayLayers: 1 }
+        );
+
+        const gpuCommands = commandEncoder.finish();
+        device.queue.submit([gpuCommands]);
+        await buffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = new Uint8Array(buffer.getMappedRange()).slice();
+        buffer.unmap();
+
+        return arrayBuffer;
+    }
+
+    for (let i = 0; i < textureSize.depth; i++) {
+        console.log('Reading frame # ', i + 1, ' into animated gif')
+        const rawData = await readTextureSlice(i);
+        const imageData = new Uint8ClampedArray(textureSize.width * textureSize.height * 4);
+        
+        // Convert BGRA to RGBA
+        for (let j = 0; j < rawData.length; j += 4) {
+            imageData[j] = rawData[j + 2];    // Red
+            imageData[j + 1] = rawData[j + 1];  // Green
+            imageData[j + 2] = rawData[j];    // Blue
+            imageData[j + 3] = rawData[j + 3];  // Alpha
+        }
+
+        const imgData = new ImageData(imageData, textureSize.width, textureSize.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);  // Clear previous frame
+        ctx.putImageData(imgData, 0, 0);
+
+        // Try a different approach to adding frames
+        if (ctx.getImageData) {
+            let frameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            gif.addFrame(frameData, {delay: 10, copy: true});
+        } else {
+            gif.addFrame(ctx, {copy: true, delay: 10});
+        }
+    }
+
+    console.log('Animated gif Complete - sending to write buffer.  May take up to 60 seconds to save.')
+    gif.on('finished', function(blob) {
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = 'animation.gif';
+        downloadLink.click();
+        URL.revokeObjectURL(url);
+    });
+
+    gif.render();
 }
 

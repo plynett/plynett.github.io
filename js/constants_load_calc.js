@@ -116,11 +116,14 @@ var calc_constants = {
     surfaceToPlot: 0, // which surface (eta, u, v, vort) to plot
     showBreaking: 1,  //  show breaking (foam) areas when ==1
     dissipation_threshold: 0.2, // wave slope for breaking 
-    whiteWaterDecayRate: 0.1, // "turbulence" decay rate   
+    whiteWaterDecayRate: 0.02, // "turbulence" decay rate   
     whiteWaterDispersion: 0.1, // "turbulence" dispersion
     infiltrationRate: 0.001, // dry beach infiltration rate
     GoogleMapOverlay: 0, // load satellite image and plot over dry land, requires proper values of lat,lon at lower left and upper right corners
-    IsGoogleMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
+    IsOverlayMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
+    IsGMMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
+    IsSatMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
+    OverlayUpdate: 0, // = 1 when changed in GUI, triggers logic to update overlay transforms
     GMapImageWidth: 512,  // number of pixels in google maps image width
     GMapImageHeight: 512,  // number of pixels in google maps image height
     GMscaleX: 1.0, // x-direction scaling factor to make google maps image align with numerical domain
@@ -132,6 +135,7 @@ var calc_constants = {
     lat_UR: 0, // latitude at upper right corner
     lon_UR: 0, // longitude at upper right corner
     render_step: 1, // number of compute steps to run for every render step, the biggest the number the choppier the viz, but also the faster it runs
+    setRenderStep: 0, // flag to automatically find best render_step when = 0
     simPause: -1, // check variable, simulation is paused when this value is =1, running when = -1
     html_update: -1,  // check variable - if the user has updated ANY parameter from the interface, =1, and buffers are updated
     n_time_steps_means: 0,  // time steps counter for means calculation
@@ -191,6 +195,28 @@ var calc_constants = {
     tooltipVal_bottom: 0.0, // tooltip value 2
     tooltipVal_Hs: 0.0, // tooltip value 3
     tooltipVal_friction: 0.0, // tooltip value 4
+    whichPanelisOpen: 0, // tracks which GUI panel is currently maximized
+    designcomponentToAdd: 1,  // which component to add
+    designcomponent_Radius: 100.0, // radius of addition for surface cover components
+    designcomponent_Friction: 0.0, // friction factor of the component currently being added
+    designcomponent_Fric_Coral: 0.1, // Coral Reef  friction factor
+    designcomponent_Fric_Oyser: 0.035, // Mussel/Oyster Bed friction factor
+    designcomponent_Fric_Mangrove: 0.15, // Mangroves friction factor
+    designcomponent_Fric_Kelp: 0.025, // Kelp friction factor
+    designcomponent_Fric_Grass: 0.03, // Grass friction factor
+    designcomponent_Fric_Scrub: 0.075, // shrub/scrub friction factor
+    designcomponent_Fric_RubbleMound: 0.04, // Rubblemound Structure friction factor
+    designcomponent_Fric_Dune: 0.03, // Vegetated Dune friction factor
+    designcomponent_Fric_Berm: 0.02, // Berm / Temporary Dune friction factor
+    designcomponent_Fric_Seawall: 0.02, // Seawall  friction factor
+
+    // save data parameters
+    writesurfaces: 0,  //flag for writing 2D data to file
+    create_animation: 0, // create animated gif when = 1
+    AnimGif_dt: 0.25, // time between animated gif frames
+    JPEGstack_dt: 1.0,  // time between images in jpeg stack
+    JPEGstack_frames: 10  // total number of frames to save in jpg stack
+
 };
 
 // load the control file

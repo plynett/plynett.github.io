@@ -1,10 +1,10 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset } from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, TexturetoImageData, downloadGeoTiffData} from './File_Writer.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
-import { create_2D_Texture, create_2D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture } from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar } from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
@@ -38,7 +38,10 @@ const gpu = navigator.gpu;
 let device = null;
 let txSaveOut = null;
 let txScreen = null;
+let txAnimation = null;
+let txOverlayMap = null;
 let txGoogleMap = null;
+let txSatMap = null;
 let txDraw = null;
 let context = null;
 let adapter = null;
@@ -71,9 +74,10 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     return { bathy2D, waveData };
 }
 
+
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
-async function initializeWebGPUApp(configContent, bathymetryContent, waveContent) {
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting WebGPU App Initialization...");
 
@@ -178,6 +182,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local depostion for all class "d"
     const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cumulative bottom elevation change
     const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores bottom friction info   
+    const txDesignComponents = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores map of added components  
     const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores passive tracer source map
     const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores x-flux values along cell edges
     const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores y-flux values along cell edges
@@ -206,6 +211,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txtemp2_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);    // temp storage for PCR y-dir
     const txtemp_AddDisturbance = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for MouseClick shader
     const txtemp_MouseClick = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for MouseClick shader
+    const txtemp_MouseClick2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for MouseClick shader
     const coefMatx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // tridiagonal coefficients for x-dir (bous only)
     const coefMaty = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // tridiagonal coefficients for y-dir (bous only)
     const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // PCR reduced tridiagonal coefficients for x-dir (bous only) 
@@ -221,8 +227,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txzeros = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores a zeros texture, for reseting textures to zero
     txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // used for bindary output
     txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for jpg output
-    txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for creating text & shapes on an HTML5 canvas
+    txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
+    txOverlayMap = txGoogleMap;  // needs to be initialized, even if not used
+    const txSamplePNGs = create_3D_Image_Texture(device, 1024, 1024, 10, allTextures); // will store all textures to be sampled for photo-realism
     
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
@@ -250,33 +258,85 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec);
     copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, bathy2Dvec);
 
-    // load Google Mapls image
-    if (calc_constants.GoogleMapOverlay == 1) {  // if using overlay
+    // load Google Maps image
+    var transforms = null;
+    calc_constants.IsOverlayMapLoaded = 0;
+    calc_constants.IsGMMapLoaded = 0;
+    calc_constants.IsSatMapLoaded = 0;
+    if (calc_constants.GoogleMapOverlay == 1) {  // if using GM overlay
 
         let ImageGoogleMap = await CreateGoogleMapImage(device, context, calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
 
         console.log('Google Maps image loaded, dimensions:', ImageGoogleMap.width, 'x', ImageGoogleMap.height);
 
-        console.log(ImageGoogleMap)
-
         // Now that the image is loaded, you can copy it to the texture.
-        device.queue.copyExternalImageToTexture(
-            { source: ImageGoogleMap },
-            { texture: txGoogleMap },
-            { width: ImageGoogleMap.width, height: ImageGoogleMap.height }
-        );
+        copyImageBitmapToTexture(device, ImageGoogleMap, txGoogleMap)
 
-        console.log(txGoogleMap);
-
-        let transforms = calculateGoogleMapScaleAndOffset(calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
-        console.log(transforms);
+        transforms = calculateGoogleMapScaleAndOffset(calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
         calc_constants.GMscaleX = transforms.scaleX;
         calc_constants.GMscaleY = transforms.scaleY;
         calc_constants.GMoffsetX = transforms.offsetX;
         calc_constants.GMoffsetY = transforms.offsetY;
 
-        calc_constants.IsGoogleMapLoaded = 1;
+        txOverlayMap = txGoogleMap;
+        calc_constants.IsGMMapLoaded = 1;
+        calc_constants.IsOverlayMapLoaded = 1;
     }
+    if (OverlayFile) {  // if there is a loaded overlay file
+        calc_constants.GoogleMapOverlay == 2;
+
+        const satimData = await loadUserImage(OverlayFile);
+        console.log(satimData)
+        txSatMap = create_2D_Texture(device, satimData.width, satimData.height, allTextures);  // used to store the loaded image
+        copyImageBitmapToTexture(device, satimData, txSatMap);
+        calc_constants.GMscaleX = 1.0; // x-direction scaling factor to make sat image align with numerical domain
+        calc_constants.GMscaleY = -1.0; // y-direction scaling factor to make sat image align with numerical domain
+        calc_constants.GMoffsetX = 0.0;  // x-direction offset for sat image
+        calc_constants.GMoffsetY = 1.0;  // y-direction offset for sat image
+        
+        txOverlayMap = txSatMap;
+        calc_constants.IsSatMapLoaded = 1; 
+        calc_constants.IsOverlayMapLoaded = 1;
+    }
+
+    // load texture images into textures
+    // white water / turbulence texture
+    let imageUrl = '/textures/turbulence.png'; 
+    let imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 0)
+    // coral reef texture
+    imageUrl = '/textures/coralreef.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 1)
+    // oyster / mussel bed texture
+    imageUrl = '/textures/oysterbed.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 2)
+    // mangrove texture
+    imageUrl = '/textures/mangrove.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 3)
+    // kelp texture
+    imageUrl = '/textures/kelpbed.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 4)
+    // grass texture
+    imageUrl = '/textures/grass.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 5)
+    // scrub texture
+    imageUrl = '/textures/scrub.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 6)
+    // rubblemound texture
+    imageUrl = '/textures/rubble.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 7)
+    // dune texture
+    imageUrl = '/textures/dune_veg.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 8)
+
 
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
     // Pass0 Bindings & Uniforms Config
@@ -364,7 +424,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
-    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux,);
+    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
     const Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass3_view = new DataView(Pass3_uniforms);
     Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
@@ -398,6 +458,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setFloat32(112, calc_constants.whiteWaterDispersion, true);           // f32
     Pass3_view.setFloat32(116, calc_constants.infiltrationRate, true);           // f32
     Pass3_view.setInt32(120, calc_constants.useBreakingModel, true);           // i32
+    Pass3_view.setInt32(124, calc_constants.showBreaking, true);           // i32
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
@@ -546,7 +607,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // MouseClickChange -  Bindings & Uniforms Config
     const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
-    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txBottomFriction, txContSource, txstateUVstar, txtemp_MouseClick);
+    const MouseClickChange_BindGroup = create_MouseClickChange_BindGroup(device, MouseClickChange_uniformBuffer, txBottom, txBottomFriction, txContSource, txstateUVstar, txDesignComponents, txtemp_MouseClick, txtemp_MouseClick2);
     const MouseClickChange_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let MouseClickChange_view = new DataView(MouseClickChange_uniforms);
     MouseClickChange_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -557,10 +618,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     MouseClickChange_view.setFloat32(20, calc_constants.yClick, true);             // f32
     MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
     MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32  
-    MouseClickChange_view.setInt32(32, calc_constants.surfaceToChange, true);             // f32  
-    MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // f32  
-    MouseClickChange_view.setFloat32(40, calc_constants.base_depth, true);             // f32  
+    MouseClickChange_view.setInt32(32, calc_constants.surfaceToChange, true);             // i32  
+    MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // i32  
+    MouseClickChange_view.setFloat32(40, calc_constants.base_depth, true);             // f32 
+    MouseClickChange_view.setInt32(44, calc_constants.whichPanelisOpen, true);             // i32  
+    MouseClickChange_view.setInt32(48, calc_constants.designcomponentToAdd, true);             // i32  
+    MouseClickChange_view.setFloat32(52, calc_constants.designcomponent_Radius, true);             // f32  
+    MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32  
 
+    
     // ExtractTimeSeries -  Bindings & Uniforms Config
     const ExtractTimeSeries_BindGroupLayout = create_ExtractTimeSeries_BindGroupLayout(device);
     const ExtractTimeSeries_BindGroup = create_ExtractTimeSeries_BindGroup(device, ExtractTimeSeries_uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data);
@@ -576,7 +642,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    const RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txGoogleMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking);
+    var RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
     const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -584,7 +650,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setInt32(8, calc_constants.colorMap_choice, true);             // i32
     Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
     Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
-    Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+    Render_view.setInt32(20, calc_constants.IsOverlayMapLoaded, true);             // i32
     Render_view.setFloat32(24, calc_constants.GMscaleX, true);          // f32
     Render_view.setFloat32(28, calc_constants.GMscaleY, true);          // f32
     Render_view.setFloat32(32, calc_constants.GMoffsetX, true);          // f32
@@ -613,6 +679,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setInt32(124, calc_constants.east_boundary_type, true);           // i32
     Render_view.setInt32(128, calc_constants.south_boundary_type, true);           // i32
     Render_view.setInt32(132, calc_constants.north_boundary_type, true);       // i32
+    Render_view.setFloat32(136, calc_constants.designcomponent_Fric_Coral, true);          // f32 
+    Render_view.setFloat32(140, calc_constants.designcomponent_Fric_Oyser, true);          // f32 
+    Render_view.setFloat32(144, calc_constants.designcomponent_Fric_Mangrove, true);          // f32 
+    Render_view.setFloat32(148, calc_constants.designcomponent_Fric_Kelp, true);          // f32 
+    Render_view.setFloat32(152, calc_constants.designcomponent_Fric_Grass, true);          // f32 
+    Render_view.setFloat32(156, calc_constants.designcomponent_Fric_Scrub, true);          // f32 
+    Render_view.setFloat32(160, calc_constants.designcomponent_Fric_RubbleMound, true);          // f32 
+    Render_view.setFloat32(164, calc_constants.designcomponent_Fric_Dune, true);          // f32 
+    Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
+    Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32 
+
 
 
     // Fetch the source code of various shaders used in the application.
@@ -753,6 +830,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let frame_count_time_series = 0;   // Counter for time series
     let total_time_time_series = 0;          // duration for time series
     let frame_count_find_render_step = 0;   // Counter to keep track of the number of rendered frames.
+    let frame_count_output = 0;   // Counter to keep track of the number of frames saved to file
+    let frame_animation = 0; // Counter to track the frames stored for the animation
 
     // variables needed for the "render_step" optimziation
     let startTime_find_render_step = new Date();
@@ -876,6 +955,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Pass3_view.setFloat32(112, calc_constants.whiteWaterDispersion, true);           // f32
             Pass3_view.setFloat32(116, calc_constants.infiltrationRate, true);           // f32
             Pass3_view.setInt32(120, calc_constants.useBreakingModel, true);           // i32
+            Pass3_view.setInt32(124, calc_constants.showBreaking, true);           // i32
 
             SedTrans_Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
             SedTrans_Pass3_view.setInt32(28, calc_constants.timeScheme, true);       // f32
@@ -903,13 +983,56 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
             BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
 
+            if(calc_constants.OverlayUpdate == 1) {   // overlay image option has been changed, need to update.
+                calc_constants.OverlayUpdate = 0;
+                calc_constants.IsOverlayMapLoaded = 0;  // reset to zero, if this doesnt change, then no overlay
+                if (calc_constants.GoogleMapOverlay == 1 && calc_constants.IsGMMapLoaded == 1) {  // if using GM overlay, if this exists, it has already been loaded
+   
+                    calc_constants.GMscaleX = transforms.scaleX;
+                    calc_constants.GMscaleY = transforms.scaleY;
+                    calc_constants.GMoffsetX = transforms.offsetX;
+                    calc_constants.GMoffsetY = transforms.offsetY;
+            
+                    txOverlayMap = txGoogleMap;
+                    RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+   
+                    console.log('Updating Overlay with Google Maps Image')
+                    calc_constants.IsOverlayMapLoaded = 1;
+                } else if (calc_constants.GoogleMapOverlay == 2 && calc_constants.IsSatMapLoaded == 1) {  // if using Sat overlay
+                    calc_constants.GMscaleX = 1.0; // x-direction scaling factor to make sat image align with numerical domain
+                    calc_constants.GMscaleY = -1.0; // y-direction scaling factor to make sat image align with numerical domain
+                    calc_constants.GMoffsetX = 0.0;  // x-direction offset for sat image
+                    calc_constants.GMoffsetY = 1.0;  // y-direction offset for sat image
+                    
+                    txOverlayMap = txSatMap;
+                    RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+   
+                    console.log('Updating Overlay with Sat Image')
+                    calc_constants.IsOverlayMapLoaded = 1;
+                }
+            }
+
             Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
             Render_view.setFloat32(4, calc_constants.colorVal_min, true);          // f32
             Render_view.setInt32(8, calc_constants.colorMap_choice, true);             // i32
             Render_view.setInt32(12, calc_constants.surfaceToPlot, true);             // i32
             Render_view.setInt32(16, calc_constants.showBreaking, true);             // i32
-            Render_view.setInt32(20, calc_constants.GoogleMapOverlay, true);             // i32
+            Render_view.setInt32(20, calc_constants.IsOverlayMapLoaded, true);             // i32
+            Render_view.setFloat32(24, calc_constants.GMscaleX, true);          // f32
+            Render_view.setFloat32(28, calc_constants.GMscaleY, true);          // f32
+            Render_view.setFloat32(32, calc_constants.GMoffsetX, true);          // f32
+            Render_view.setFloat32(36, calc_constants.GMoffsetY, true);          // f32
             Render_view.setInt32(112, calc_constants.NumberOfTimeSeries, true);             // i32  
+            Render_view.setFloat32(136, calc_constants.designcomponent_Fric_Coral, true);          // f32 
+            Render_view.setFloat32(140, calc_constants.designcomponent_Fric_Oyser, true);          // f32 
+            Render_view.setFloat32(144, calc_constants.designcomponent_Fric_Mangrove, true);          // f32 
+            Render_view.setFloat32(148, calc_constants.designcomponent_Fric_Kelp, true);          // f32 
+            Render_view.setFloat32(152, calc_constants.designcomponent_Fric_Grass, true);          // f32 
+            Render_view.setFloat32(156, calc_constants.designcomponent_Fric_Scrub, true);          // f32 
+            Render_view.setFloat32(160, calc_constants.designcomponent_Fric_RubbleMound, true);          // f32 
+            Render_view.setFloat32(164, calc_constants.designcomponent_Fric_Dune, true);          // f32 
+            Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
+            Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32             
             
             update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) // update colorbar with new climits
 
@@ -928,25 +1051,45 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 MouseClickChange_view.setFloat32(24, calc_constants.changeRadius, true);             // f32
                 MouseClickChange_view.setFloat32(28, calc_constants.changeAmplitude, true);             // f32
                 MouseClickChange_view.setInt32(32, calc_constants.surfaceToChange, true);             // f32  
-                MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // f32  
-
+                MouseClickChange_view.setInt32(36, calc_constants.changeType, true);             // i32  
+                MouseClickChange_view.setInt32(44, calc_constants.whichPanelisOpen, true);             // i32  
+                MouseClickChange_view.setInt32(48, calc_constants.designcomponentToAdd, true);             // i32  
+                MouseClickChange_view.setFloat32(52, calc_constants.designcomponent_Radius, true);             // f32 
+                if(calc_constants.designcomponentToAdd == 1) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Coral;} 
+                else if(calc_constants.designcomponentToAdd == 2) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Oyser;} 
+                else if(calc_constants.designcomponentToAdd == 3) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Mangrove;} 
+                else if(calc_constants.designcomponentToAdd == 4) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Kelp;} 
+                else if(calc_constants.designcomponentToAdd == 5) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Grass;} 
+                else if(calc_constants.designcomponentToAdd == 6) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Scrub;} 
+                else if(calc_constants.designcomponentToAdd == 7) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_RubbleMound;} 
+                else if(calc_constants.designcomponentToAdd == 8) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Dune;} 
+                else if(calc_constants.designcomponentToAdd == 9) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Berm;} 
+                else if(calc_constants.designcomponentToAdd == 10) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Seawall;} 
+                MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32  
+                
                 runComputeShader(device, commandEncoder, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth/friction based on mouse click
-                if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
-                    if (calc_constants.NLSW_or_Bous > 0) {
-                        console.log('Updating neardry & tridiag coef due to change in depth')
-                        runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
-                        runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                if(calc_constants.whichPanelisOpen == 3){
+                    if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
+                        if (calc_constants.NLSW_or_Bous > 0) {
+                            console.log('Updating neardry & tridiag coef due to change in depth')
+                            runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                            runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
+                            runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        }
+                    } else if(calc_constants.surfaceToChange == 2){  //when changing friction
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottomFriction)
+
+                    } else if(calc_constants.surfaceToChange == 3){  //when changing passive tracer
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txContSource)
+
+                    } else if(calc_constants.surfaceToChange == 4){  //water surface elevation
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txstateUVstar)
                     }
-                } else if(calc_constants.surfaceToChange == 2){  //when changing friction
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottomFriction)
-
-                } else if(calc_constants.surfaceToChange == 3){  //when changing passive tracer
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txContSource)
-
-                } else if(calc_constants.surfaceToChange == 4){  //water surface elevation
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txstateUVstar)
+                } else if(calc_constants.whichPanelisOpen == 2){
+                    console.log('Updating Design Components')
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txDesignComponents)
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txBottomFriction)
                 }
             }
             else if (calc_constants.click_update == 2 && calc_constants.viewType == 2)
@@ -1268,14 +1411,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
         // end image store
 
-        // here is where the code to capture the latest frame for an animation would go
-        //  use "TexturetoImageData" to get the current frame, and then "addFrame" that to an
-        //  established encoder.  For this to work, we would need to use ffmpeg.js, which would
-        // add some additional complexity and weight to the code.  Certainly can be done, but
-        // hold off until it becomes an important addition
-
-        requestAnimationFrame(frame);  // Call the next frame
-
         // determine elapsed time
         const now = new Date();
         calc_constants.elapsedTime = (now - startTime) / 1000;
@@ -1292,20 +1427,211 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         displaySimStatus(calc_constants, total_time, total_time_since_http_update);
         displayTimeSeriesLocations(calc_constants);
 
+        // create Animated Gif or jpg stack
+        let nframes = 80;
+        if(calc_constants.create_animation == 2) {nframes = calc_constants.JPEGstack_frames;}
+        if(calc_constants.create_animation > 0){
+            frame_animation = frame_animation + 1;            
+            
+            let dt_inc = calc_constants.AnimGif_dt; // incrememnt store frames
+            if(calc_constants.create_animation == 2){dt_inc = calc_constants.JPEGstack_dt;}
+            let n_inc = Math.ceil(dt_inc / calc_constants.dt);
+
+            if(frame_animation == 1){ // create 3D texture
+                console.log('Setting screen render rate to match image frame rate');
+                calc_constants.setRenderStep = 1;
+                calc_constants.render_step = n_inc;
+                dt_inc = n_inc * calc_constants.dt;
+                console.log('Creating 3D Texture for Image Stack');
+                txAnimation = create_3D_Image_Texture(device, canvas.width, canvas.height, nframes, allTextures);
+            }
+
+            if(frame_animation <= nframes){  // store individual frames in 3D texture
+                console.log('Storing image frame # ', frame_animation, 'at time (s) ', total_time);
+                // Create a new command encoder for recording GPU commands.
+                commandEncoder = device.createCommandEncoder();
+
+                // copy the textures
+                commandEncoder.copyTextureToTexture(
+                    { texture: txScreen },  //src
+                    { texture: txAnimation, origin: {x: 0, y: 0, z: frame_animation - 1} },  //dst
+                    { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
+                );
+
+                // Submit the recorded commands to the GPU for execution.
+                device.queue.submit([commandEncoder.finish()]);
+            }
+
+            if(frame_animation == nframes){  // create a saved animation
+                const textureSize = { width: canvas.width, height: canvas.height, depth: nframes }; // Example sizes and number of frames
+                if(calc_constants.create_animation == 1){
+                    createAnimatedGifFromTexture(device, txAnimation, textureSize);
+                }
+                else if(calc_constants.create_animation == 2){
+                    saveTextureSlicesAsImages(device, txAnimation, textureSize);
+                }
+               
+               // reset render parameters back
+               calc_constants.create_animation = 0;
+               calc_constants.setRenderStep = 0;
+               calc_constants.render_step = 1;
+               frame_animation = 0;
+            }
+
+        }
+
+        // write surface data to file
+        calc_constants.writesurfaces = 0;
+        let write_eta = 1;
+        let write_P = 1;
+        let write_Q = 1;
+        let write_turb = 1;
+        if(calc_constants.writesurfaces > 0){
+            let dt_inc = 10.0; // incrememnt to write to file
+            let n_inc = Math.ceil(dt_inc / calc_constants.dt);
+            calc_constants.setRenderStep = 1;
+            calc_constants.render_step = 1;
+            dt_inc = n_inc * calc_constants.dt;
+
+            if(frame_count % n_inc == 0) {
+                console.log('Writing 2D surface data to file at time (s) ', total_time, ' with increment(s) ', dt_inc);
+
+                frame_count_output = frame_count_output + 1;
+
+                let time_filename = `time_${frame_count_output}.txt`;
+                saveSingleValueToFile(total_time,time_filename);
+
+                if(frame_count_output == 1){
+                    let filename = `bathytopo.bin`;
+                    downloadTextureData(device, txBottom, 3, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+
+                    filename = `dx.txt`;
+                    saveSingleValueToFile(calc_constants.dx,filename);
+
+                    filename = `dy.txt`;
+                    saveSingleValueToFile(calc_constants.dy,filename);
+
+                    filename = `nx.txt`;
+                    saveSingleValueToFile(calc_constants.WIDTH,filename);
+
+                    filename = `ny.txt`;
+                    saveSingleValueToFile(calc_constants.HEIGHT,filename);
+                }
+
+                if(write_eta == 1){  // free surface elevation
+                    let filename = `elev_${frame_count_output}.bin`;
+                    downloadTextureData(device, txState, 1, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                }
+
+                if(write_P == 1){  // x-dir flux Hu
+                    let filename = `xflux_${frame_count_output}.bin`;
+                    downloadTextureData(device, txState, 2, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                }
+
+                if(write_Q == 1){  // y-dir flux Hv
+                    let filename = `yflux_${frame_count_output}.bin`;
+                    downloadTextureData(device, txState, 3, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                }
+
+                if(write_turb == 1){  // breaking eddy viscosity
+                    let filename = `turb_${frame_count_output}.bin`;
+                    downloadTextureData(device, txBreaking, 2, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                }
+            }
+            
+        }
+        
+        requestAnimationFrame(frame);  // Call the next frame, restarts the function
+
     }
 
     // Invoke the `frame` function once to start the main loop.
     frame();
-
 }
 // end compute pipeline
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
 
 // All the functions below this are for web page UI - this is also where the wave simulation is started
 document.addEventListener('DOMContentLoaded', function () {
     // Get a reference to your canvas element.
     var canvas = document.getElementById('webgpuCanvas');
 
-    // Add the event listener for 'click' events - this is for modifying bathy / various mapsl
+    // Logic to make sure that only one panel can be maximized at a time
+    // Turns out this is fairly complex.  Also, we store which panel is maximized
+    // in the calc_constants.whichPanelisOpen
+    const maximizedCounts = [];
+
+    // Function to initialize and log the state of all panels, and enforce maximization rules
+    function initializeAndManagePanels() {
+        const panels = document.querySelectorAll('#horizontalbar .custom-window');
+        
+        // Initialize the array with zeros based on the number of panels
+        panels.forEach((panel, index) => {
+            maximizedCounts[index] = 0; // Initialize tracking array
+            const content = panel.querySelector('.window-content');
+            const isMaximized = window.getComputedStyle(content).display !== 'none';
+            updateButtonLabel(panel, isMaximized);  // Update button label initially
+        });
+    }
+
+    // Function to update the button label based on panel state
+    function updateButtonLabel(panel, isMaximized) {
+        const button = panel.querySelector('.minimize-button');
+        button.textContent = isMaximized ? '-' : '+';  // Set text to '-' if maximized, '+' if minimized
+    }
+
+    // Function to update panel states and enforce only one maximized panel
+    function updatePanelStates() {
+        const panels = document.querySelectorAll('#horizontalbar .custom-window');
+        calc_constants.whichPanelisOpen = 0;
+        panels.forEach((panel, index) => {
+            const content = panel.querySelector('.window-content');
+            const isMaximized = window.getComputedStyle(content).display !== 'none';
+            
+            if (isMaximized) {
+                maximizedCounts[index] += 1;  // Increment count for maximized panels
+            } else {
+                maximizedCounts[index] = 0;
+            }
+
+            // Check if any panel has been maximized more than once
+            if (maximizedCounts[index] > 1) {
+                content.style.display = 'none';  // Minimize the panel
+                maximizedCounts[index] = 0;  // Reset the count after minimization
+            } else if(maximizedCounts[index] == 1) {
+                calc_constants.whichPanelisOpen = index;
+                console.log(`Changing calc_constants.whichPanelisOpen to `, calc_constants.whichPanelisOpen );
+            }
+
+            // Update button label according to the current state
+            updateButtonLabel(panel, window.getComputedStyle(content).display !== 'none');
+        
+        });
+    }
+
+    // Setup event listeners on minimize/maximize buttons
+    function setupPanelStateListeners() {
+        const buttons = document.querySelectorAll('#horizontalbar .minimize-button');
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Delay the update slightly to let the UI change occur
+                setTimeout(updatePanelStates, 10);
+            });
+        });
+    }
+
+    // Initialize and setup listeners
+    initializeAndManagePanels();
+    setupPanelStateListeners();
+
+    // Add the event listener for 'click' events - this is for modifying bathy / various maps
     // Flags to track if the mouse is being held down
     var leftMouseIsDown = false;
     var rightMouseIsDown = false;
@@ -1339,7 +1665,7 @@ document.addEventListener('DOMContentLoaded', function () {
             lastMouseX_left = event.clientX;
             lastMouseY_left = event.clientY;
             calc_constants.click_update = 2;
-        } else if (event.button === 2 && calc_constants.viewType == 1) { // right mouse button, Design mode
+        } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 6) { // right mouse button, Design mode for time series
             rightMouseIsDown = true;
             lastMouseX_right = event.clientX;
             lastMouseY_right = event.clientY;
@@ -1622,7 +1948,22 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'whiteWaterDispersion-button', input: 'whiteWaterDispersion-input', property: 'whiteWaterDispersion' },
         { id: 'infiltrationRate-button', input: 'infiltrationRate-input', property: 'infiltrationRate' },
         { id: 'maxdurationTimeSeries-button', input: 'maxdurationTimeSeries-input', property: 'maxdurationTimeSeries' },
+        { id: 'AnimGif_dt-button', input: 'AnimGif_dt-input', property: 'AnimGif_dt' },
+        { id: 'JPEGstack_dt-button', input: 'JPEGstack_dt-input', property: 'JPEGstack_dt' },
+        { id: 'JPEGstack_frames-button', input: 'JPEGstack_frames-input', property: 'JPEGstack_frames' },
+        { id: 'designcomponent_Radius-button', input: 'designcomponent_Radius-input', property: 'designcomponent_Radius' },
+        { id: 'designcomponent_Fric_Coral-button', input: 'designcomponent_Fric_Coral-input', property: 'designcomponent_Fric_Coral' },
+        { id: 'designcomponent_Fric_Oyser-button', input: 'designcomponent_Fric_Oyser-input', property: 'designcomponent_Fric_Oyser' },
+        { id: 'designcomponent_Fric_Mangrove-button', input: 'designcomponent_Fric_Mangrove-input', property: 'designcomponent_Fric_Mangrove' },
+        { id: 'designcomponent_Fric_Kelp-button', input: 'designcomponent_Fric_Kelp-input', property: 'designcomponent_Fric_Kelp' },
+        { id: 'designcomponent_Fric_Grass-button', input: 'designcomponent_Fric_Grass-input', property: 'designcomponent_Fric_Grass' },
+        { id: 'designcomponent_Fric_Scrub-button', input: 'designcomponent_Fric_Scrub-input', property: 'designcomponent_Fric_Scrub' },
+        { id: 'designcomponent_Fric_RubbleMound-button', input: 'designcomponent_Fric_RubbleMound-input', property: 'designcomponent_Fric_RubbleMound' },
+        { id: 'designcomponent_Fric_Dune-button', input: 'designcomponent_Fric_Dune-input', property: 'designcomponent_Fric_Dune' },
+        { id: 'designcomponent_Fric_Berm-button', input: 'designcomponent_Fric_Berm-input', property: 'designcomponent_Fric_Berm' },
+        { id: 'designcomponent_Fric_Seawall-button', input: 'designcomponent_Fric_Seawall-input', property: 'designcomponent_Fric_Seawall' },
     ];         
+
 
     // Specify the inputs for the drop-down menus
     const button_dropdown_Actions = [
@@ -1646,6 +1987,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'NumberOfTimeSeries-select', property: 'NumberOfTimeSeries' },
         { input: 'changethisTimeSeries-select', property: 'changethisTimeSeries' },
         { input: 'useBreakingModel-select', property: 'useBreakingModel' },
+        { input: 'designcomponentToAdd-select', property: 'designcomponentToAdd' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -1778,6 +2120,7 @@ document.addEventListener('DOMContentLoaded', function () {
             calc_constants.full_screen = 1;
             // Include any additional logic you want to perform when entering full screen
         }
+        updateZoomListener(); // Ensure the listener state matches the new viewType, turns on/off scrolling over canvas
     });  
 
 
@@ -1806,7 +2149,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-
+    // listener for overlay option change
+    document.getElementById('GoogleMapOverlay-select').addEventListener('change', function () {
+        calc_constants.OverlayUpdate = 1;  // triggers logic to update transforms for the two overlay options
+    });    
+    
     // add time series listener, to update time series location texture changeXTimeSeries-button
     document.getElementById('changeXTimeSeries-button').addEventListener('click', function () {
         calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = calc_constants.changeXTimeSeries;
@@ -1825,11 +2172,30 @@ document.addEventListener('DOMContentLoaded', function () {
         updateZoomListener(); // Ensure the listener state matches the new viewType
     });
 
+
     // Add disturbance button
     document.getElementById('disturbance-button').addEventListener('click', function () {
         calc_constants.add_Disturbance = 1;  // by setting to one, will add disturbance at start of next time step
         calc_constants.chartDataUpdate = 1;  // update time vector on chart to be zero when adding impluse
     });
+
+
+    // Download jpg of screen output
+    document.getElementById('downloadJPG-button').addEventListener('click', function () {
+        saveRenderedImageAsJPEG(device, txScreen, canvas.width, canvas.height);
+    });
+    
+
+    // Create animated gif
+    document.getElementById('createGIF-button').addEventListener('click', function () {
+        calc_constants.create_animation = 1;  //triggers save animation logic
+    });
+    
+
+    // Save time stack of jpgs
+    document.getElementById('createJPGstack-button').addEventListener('click', function () {
+        calc_constants.create_animation = 2;  //triggers save jpegs logic
+    });    
 
     // Save baseline wave height surface
     document.getElementById('save-baseline-texture-btn').addEventListener('click', function () {
@@ -1863,21 +2229,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Download channel from txSaveOut Texture
     document.getElementById('downloadWaveElev-button').addEventListener('click', function () {
-        downloadTextureData(device, txSaveOut, 1);  // last number is the channel 1 = .r, 2 = .g, etc.
+        let filename = 'current_FSE.bin';
+        downloadTextureData(device, txSaveOut, 1, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
      //   downloadGeoTiffData(device, txSaveOut, 1, calc_constants.dx, calc_constants.dy);  // current implemntation does not allow writing of float32, only uint8
      //  can update to write an RGB geotiff, but that doesnt seem too useful
     });
 
 
-    // Download jpg of screen output
-    document.getElementById('downloadJPG-button').addEventListener('click', function () {
-        saveRenderedImageAsJPEG(device, txScreen, canvas.width, canvas.height);
-    });
-
     // start simulation
 
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
-    document.getElementById('start-simulation-btn').addEventListener('click', function () {
+    document.getElementById('start-simulation-btn').addEventListener('click', function () {  // running with user loaded files
         startSimulation(); 
         const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
         setTimeout(updateAllUIElements, delay);
@@ -1886,7 +2248,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // run example simulation
 
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
-    document.getElementById('run-example-simulation-btn').addEventListener('click', function () {
+    document.getElementById('run-example-simulation-btn').addEventListener('click', function () {  // running with user example files
         initializeWebGPUApp();
         const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
         setTimeout(updateAllUIElements, delay);
@@ -1899,61 +2261,66 @@ document.addEventListener('DOMContentLoaded', function () {
         var configFile = document.getElementById('configFile').files[0];
         var bathymetryFile = document.getElementById('bathymetryFile').files[0];
         var waveFile = document.getElementById('waveFile').files[0];
-
-        // Check if the files are not uploaded
-        if (!configFile || !bathymetryFile || !waveFile) {
+        var OverlayFile = document.getElementById('satimageFile').files[0];
+    
+        // Check if the required files are not uploaded
+        if (!configFile || !bathymetryFile) {
             alert("Please upload all the required files.");
             return;  // Stop here.
         }
-
-        // If we're here, it means all files are uploaded.
-        // Now, we can read these files and then start the simulation.
-
+    
         // Create FileReader objects to read the content of the files
         var configReader = new FileReader();
         var bathymetryReader = new FileReader();
         var waveReader = new FileReader();
-
+    
         // Setup of the FileReader callbacks to handle the data after files are read
         configReader.onload = function (e) {
             var configContent = e.target.result;
-            // Handle or store this content as needed in your simulation
-
-            // We're nesting these to ensure the order of operations (each file read is asynchronous)
+    
             bathymetryReader.onload = function (e) {
                 var bathymetryContent = e.target.result;
-
-                waveReader.onload = function (e) {
-                    var waveContent = e.target.result;
-
-                    // Now that all files are read and content is stored, start the simulation.
-                    // Pass the necessary data as arguments to your actual simulation function
-                    // runSimulation(configContent, bathymetryContent, waveContent);
-
-                    // This code initializes the WebGPU application.
-                    // Call the `initializeWebGPUApp` asynchronous function. 
-                    // This function sets up all the resources and processes required to run the WebGPU application.
-                    initializeWebGPUApp(configContent, bathymetryContent, waveContent).catch(error => {
-                        // If there's any error during the initialization, it will be caught here.
-
-                        // Log the error message to the console.
-                        console.error("Initialization failed:", error);
-                    });
-
-
+    
+                // Check if a wave file was uploaded, otherwise load a default
+                if (!waveFile) {
+                    // Load default wave file if none provided
+                    fetch('/no_waves.txt')
+                        .then(response => response.text())
+                        .then(defaultWaveContent => {
+                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile);
+                        })
+                        .catch(error => {
+                            console.error("Failed to load the default wave file:", error);
+                        });
+                } else {
+                    waveReader.onload = function (e) {
+                        var waveContent = e.target.result;
+                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile);
+                    };
+                    waveReader.readAsText(waveFile);
                 }
-
-                // Reading the content of the wave file
-                waveReader.readAsText(waveFile);
-            }
-
-            // Reading the content of the bathymetry file
+            };
+    
             bathymetryReader.readAsText(bathymetryFile);
         };
-
-        // Initiates the reading of the config file. This starts the chain of reading operations.
+    
         configReader.readAsText(configFile);
     }
+    
+    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile) {
+        // Here you could do the actual simulation initialization
+        console.log("Starting simulation with the following data:");
+        console.log("Config:", configContent);
+        console.log("Bathymetry:", bathymetryContent);
+        console.log("Wave:", waveContent);
+        console.log("Overlay:", OverlayFile);
+    
+        // Initialize your WebGPU application here
+        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile).catch(error => {
+             console.error("Initialization failed:", error);
+        });
+    }
+    
 
 });
 // end web GUI code
