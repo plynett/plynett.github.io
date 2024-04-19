@@ -156,6 +156,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const textureSampler = device.createSampler({
         magFilter: 'nearest',
         minFilter: 'nearest',
+        addressModeU: 'mirror-repeat',
+        addressModeV: 'mirror-repeat'
     });
 
     // Create a texturse with the desired dimensions (WIDTH, HEIGHT) and format 'rgba32float'.
@@ -625,8 +627,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     MouseClickChange_view.setInt32(48, calc_constants.designcomponentToAdd, true);             // i32  
     MouseClickChange_view.setFloat32(52, calc_constants.designcomponent_Radius, true);             // f32  
     MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32  
+    MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32  
 
-    
     // ExtractTimeSeries -  Bindings & Uniforms Config
     const ExtractTimeSeries_BindGroupLayout = create_ExtractTimeSeries_BindGroupLayout(device);
     const ExtractTimeSeries_BindGroup = create_ExtractTimeSeries_BindGroup(device, ExtractTimeSeries_uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data);
@@ -846,7 +848,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const offscreenCanvas = document.createElement('canvas');
     offscreenCanvas.width = canvas.width;
     offscreenCanvas.height = canvas.height;
-    const ctx = offscreenCanvas.getContext('2d');
+    var ctx = offscreenCanvas.getContext('2d');
     // Flip the canvas content vertically
     ctx.translate(0, offscreenCanvas.height); // Move to the bottom
     ctx.scale(1, -1); // Flip vertically
@@ -1034,6 +1036,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
             Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32             
             
+            // reset canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
             update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) // update colorbar with new climits
 
             startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
@@ -1066,11 +1071,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 else if(calc_constants.designcomponentToAdd == 9) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Berm;} 
                 else if(calc_constants.designcomponentToAdd == 10) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Seawall;} 
                 MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32  
-                
+                MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32  
+                calc_constants.changeSeaLevel_delta = 0.0; // once the change is added once, set to zero
+
                 runComputeShader(device, commandEncoder, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth/friction based on mouse click
                 if(calc_constants.whichPanelisOpen == 3){
                     if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txstateUVstar)
                         if (calc_constants.NLSW_or_Bous > 0) {
                             console.log('Updating neardry & tridiag coef due to change in depth')
                             runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
@@ -1962,8 +1970,11 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'designcomponent_Fric_Dune-button', input: 'designcomponent_Fric_Dune-input', property: 'designcomponent_Fric_Dune' },
         { id: 'designcomponent_Fric_Berm-button', input: 'designcomponent_Fric_Berm-input', property: 'designcomponent_Fric_Berm' },
         { id: 'designcomponent_Fric_Seawall-button', input: 'designcomponent_Fric_Seawall-input', property: 'designcomponent_Fric_Seawall' },
+        { id: 'changeSeaLevel-button', input: 'changeSeaLevel-input', property: 'changeSeaLevel' },
     ];         
 
+
+    calc_constants.surfaceToChange == 1
 
     // Specify the inputs for the drop-down menus
     const button_dropdown_Actions = [
@@ -1988,6 +1999,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'changethisTimeSeries-select', property: 'changethisTimeSeries' },
         { input: 'useBreakingModel-select', property: 'useBreakingModel' },
         { input: 'designcomponentToAdd-select', property: 'designcomponentToAdd' },
+        { input: 'ShowLogos-select', property: 'ShowLogos' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -2153,6 +2165,14 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('GoogleMapOverlay-select').addEventListener('change', function () {
         calc_constants.OverlayUpdate = 1;  // triggers logic to update transforms for the two overlay options
     });    
+    
+    // if changing sea level, make sure surfaceToChange == 1 (bathy / topo)
+    document.getElementById('changeSeaLevel-button').addEventListener('click', function () {
+        calc_constants.click_update = 1; // trigger click update block so txBottom gets updated
+        calc_constants.surfaceToChange = 1;  // by setting to one, will tell timesereies shader to run
+        calc_constants.changeSeaLevel_delta = calc_constants.changeSeaLevel - calc_constants.changeSeaLevel_current;
+        calc_constants.changeSeaLevel_current = calc_constants.changeSeaLevel;        
+    });
     
     // add time series listener, to update time series location texture changeXTimeSeries-button
     document.getElementById('changeXTimeSeries-button').addEventListener('click', function () {

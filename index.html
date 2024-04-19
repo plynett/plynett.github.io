@@ -51,7 +51,7 @@
             flex-direction: column; /* stack the children vertically */
         }
 
-        #constants-container, #mods-container, #downloads-container, #uploads-container, #viz-container, #design-container, #disturbance-container, #sediment-container, #timeseries-container, #animations-container, #parameters-container, #analysis-container {
+        #constants-container, #mods-container, #downloads-container, #uploads-container, #viz-container, #design-container, #disturbance-container, #boundary-container, #sediment-container, #timeseries-container, #animations-container, #parameters-container, #analysis-container {
             background-color: #f9f9f9;
             border: 1px solid red;
             padding: 5px;
@@ -202,7 +202,7 @@
                         <br />
                         <input type="file" id="satimageFile" accept="image/jpeg, image/png, image/bmp, image/gif" style="display: none;" />
                         <label for="satimageFile" class="custom-file-upload-button" >
-                            Load Satellite Image (jpg, png, bmp, gif) [Optional]
+                            Load Overlay Image (jpg, png, bmp, gif) [Optional]
                         </label>
                         <br />
                         <br /> 
@@ -349,6 +349,15 @@
                         <option value="0">No Overlay</option>
                         <option value="1">Include Google Maps Overlay</option>
                         <option value="2">Include Satellite / Aerial Overlay</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.ShowLogos-->
+                    <label for="ShowLogos-select">Show USACE & USC logos:<br></label>
+                    <select id="ShowLogos-select" name="ShowLogosValue">
+                        <option value="0">Yes</option>
+                        <option value="1">No</option>
                     </select>
                     <br />
                     <br />
@@ -540,18 +549,27 @@
 
             <div id="mods-container" class="custom-window">
                 <div class="window-header">
-                    <span><center> Modify 2D Surface Data </center></span>
+                    <span><center> Modify Sea Level & Edit Bathy/Topo </center></span>
                     <button class="minimize-button">-</button>
                 </div>
                 <div class="window-content"  data-default="minimized">
+
+                    <!-- Updates go to calc_constants.changeSeaLevel-->
+                    <label for="changeSeaLevel-input">Change in stil water level (m of surge, tide, SLR):</label>
+                    <br />
+                    <input type="number" id="changeSeaLevel-input" name="changeSeaLevelValue">
+                    <button id="changeSeaLevel-button" type="button">Update</button>
+                    <br />
+                    <br />
+
 
                     <!-- Updates go to calc_constants.surfaceToChange-->
                     <label for="surfaceToChange-select">Property to Edit:</label>
                     <select id="surfaceToChange-select" name="surfaceToChangeValue">
                         <option value="1">Bathymetry/Topography (m)</option>
-                        <option value="4">Ocean Surface Elevation</option>
                         <option value="2">Bottom Friction</option>
                         <option value="3">Passive Tracer Sources</option>
+                        <option value="4">Ocean Surface Elevation</option>
                     </select>
                     <br />
                     <br />
@@ -585,6 +603,26 @@
                 </div>
 
             </div>            
+
+            <div id="boundary-container" class="custom-window">
+                <div class="window-header">
+                    <span><center> Modify Boundary Conditions </center></span>
+                    <button class="minimize-button">-</button>
+                </div>
+                <div class="window-content"  data-default="minimized">
+
+                    <html4f>
+                    BETA - currently no feedback w/ hydro
+                    </html4f>
+                    <br />
+                    <br />
+                    
+
+                    
+
+                </div>
+
+            </div>
 
 
             <div id="sediment-container" class="custom-window">

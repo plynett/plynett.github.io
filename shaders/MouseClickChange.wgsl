@@ -14,6 +14,7 @@ struct Globals {
     designcomponentToAdd: i32,
     designcomponent_Radius: f32,
     designcomponent_Friction: f32,
+    changeSeaLevel_delta: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -68,6 +69,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (globals.surfaceToChange == 1) {      // bathy topo
             B_here = textureLoad(txBottom, idx, 0);
             min_val = -globals.base_depth;
+            B_here2 = textureLoad(txState, idx, 0);
         } else if (globals.surfaceToChange == 2) {   // friction 
             B_here = textureLoad(txBottomFriction, idx, 0);
             min_val = 0.0;
@@ -93,7 +95,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let yo = globals.yClick*globals.dy;
     
     if (globals.whichPanelisOpen == 3){
-        if (globals.surfaceToChange == 1) {      // bathy topo
+        if (abs(globals.changeSeaLevel_delta) > 1.0e-5){  // change in sea level
+            
+            let H_here = B_here2.x - B_here.z;  // eta - B
+
+            // center
+            var dH = -globals.changeSeaLevel_delta;
+            B_here.z = max(min_val,B_here.z + dH);
+            
+            // North
+            dH = -globals.changeSeaLevel_delta;
+            B_here.x = max(min_val,B_here.x + dH);
+
+            // East
+            dH = -globals.changeSeaLevel_delta;
+            B_here.y = max(min_val,B_here.y + dH);
+
+            if(H_here <= 0.0){B_here2.x = max(0.0,B_here.z);} // maintain zero total water depth, unless new topo elev is negative, then fill
+        }
+        else if (globals.surfaceToChange == 1) {      // bathy topo
             // center
             var f = calc_radial_function(xloc,yloc,xo,yo,k);
             var dH = calc_dH(f,H,B_here.z);

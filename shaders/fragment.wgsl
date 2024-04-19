@@ -484,14 +484,14 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
 
         // add design components
-        let texture_scale_x = width/250.;
+        let texture_scale_x = width/250.;  // 
         let texture_scale_y = length/250.;
         var uv_turb_scaled = uv_turb;
-        uv_turb_scaled.x = uv_turb.x * texture_scale_x - f32(i32(uv_turb.x * texture_scale_x));
-        uv_turb_scaled.y = uv_turb.y * texture_scale_y - f32(i32(uv_turb.y * texture_scale_y));
+        uv_turb_scaled.x = uv_turb.x * texture_scale_x;  // textures will mirror-repeat with current smpaler settings
+        uv_turb_scaled.y = uv_turb.y * texture_scale_y;
         var uv_scale = uv;
-        uv_scale.x = uv.x * texture_scale_x - f32(i32(uv.x * texture_scale_x));
-        uv_scale.y = uv.y * texture_scale_y - f32(i32(uv.y * texture_scale_y));
+        uv_scale.x = uv.x * texture_scale_x;
+        uv_scale.y = uv.y * texture_scale_y;
 
         // turbulence
         let layer = 0; // first layer is turbulence
@@ -708,7 +708,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     }
 
     // Add colorbar
-    if (globals.CB_show == 1  && photorealistic == 0) {
+    if (globals.CB_show == 1  && (photorealistic == 0  || uv.y > 0.5) ) {
         let colorbar_LL = vec2<f32>(globals.CB_xstart_uv, 0.0);
         let colorbar_width = globals.CB_width_uv;
         let colorbar_height = f32(globals.CB_ystart + 20) / f32(globals.HEIGHT); // 20 pixels above tick marks

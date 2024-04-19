@@ -119,6 +119,7 @@ var calc_constants = {
     whiteWaterDecayRate: 0.02, // "turbulence" decay rate   
     whiteWaterDispersion: 0.1, // "turbulence" dispersion
     infiltrationRate: 0.001, // dry beach infiltration rate
+    ShowLogos: 0, // show USC and ERDC logos
     GoogleMapOverlay: 0, // load satellite image and plot over dry land, requires proper values of lat,lon at lower left and upper right corners
     IsOverlayMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
     IsGMMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
@@ -174,6 +175,9 @@ var calc_constants = {
     xClick: 0, // pixel coordinate of x-click
     yClick: 0, // pixel coordinate of y-click
     click_update: -1,   // check variable - if the user has clicked on the canvas =1, and surfaces are updated as specified
+    changeSeaLevel: 0.0, // most recent user specified cumulative change in sea level
+    changeSeaLevel_current: 0.0, // current change in sea level - the change currently in txBottom
+    changeSeaLevel_delta: 0.0, // changeSeaLevel - changeSeaLevel_current
     surfaceToChange: 1, // which surface to change (bathy, friction)
     clearConc: 0, // will clear the concentration channel if = 1
     changeType: 1, // Change Property Continuously (1) or Set to Specific Value (2)

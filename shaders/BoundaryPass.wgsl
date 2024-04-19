@@ -20,6 +20,7 @@ struct Globals {
     boundary_g: f32,
     delta: f32,
     boundary_shift: i32,
+    
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;

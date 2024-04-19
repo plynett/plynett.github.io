@@ -238,15 +238,28 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
 
 
 export async function update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) {
+    console.log(calc_constants.ShowLogos)
+    if(calc_constants.ShowLogos == 0){
+        // Load the logo image
+        const logo_USACE = await loadImage('./logo_USACE.png');
+        ctx.drawImage(logo_USACE, 0, 0, logo_USACE.width, logo_USACE.height);  // upper left
+
+        const logo_USC = await loadImage('./logo_USC.png');
+        const xPosition = offscreenCanvas.width - logo_USC.width;
+        ctx.drawImage(logo_USC, xPosition, 0, logo_USC.width, logo_USC.height);   // upper right 
+    }
+
     // Set text styles
     ctx.font = '18px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // colorbar text
+
+    // Colorbar text and background
     ctx.fillStyle = '#D3D3D3'; // Light gray
-    ctx.fillRect(calc_constants.CB_xstart - calc_constants.CB_xbuffer, offscreenCanvas.height-calc_constants.CB_ystart, offscreenCanvas.width - 2 * (calc_constants.CB_xstart - calc_constants.CB_xbuffer), calc_constants.CB_ystart);
+    ctx.fillRect(calc_constants.CB_xstart - calc_constants.CB_xbuffer, offscreenCanvas.height - calc_constants.CB_ystart, offscreenCanvas.width - 2 * (calc_constants.CB_xstart - calc_constants.CB_xbuffer), calc_constants.CB_ystart);
     ctx.fillStyle = 'black'; // Text color, set to black for contrast
 
+    // Mapping from surface ID to label text
     const textMapping = {
         0: "Free Surface Elevation (m)",
         6: "Bathymetry/Topography (m)",
@@ -263,36 +276,38 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
         10: "Mean Fluid Flux [N-S] (m^2/s)",
         12: "RMS Wave Height (m)",
         13: "Significant Wave Height (m)",
-        14: "Difference from Baseline Hs (m)"
+        14: "Difference from Baseline Hs (m)",
+        21: "Depth Change (m) due to Sed Trans",
+        17: "Sediment Class 1 Concentration",
+        18: "Sediment Class 1 Erosion Rate",
+        22: "Design Component Map",
     };
-    
-    // Assuming calc_constants.surfaceToPlot is available and holds the current value
+
     const labelText = textMapping[calc_constants.surfaceToPlot];
-    
-    // Draw the text on the canvas at the desired position
     ctx.fillText(labelText, offscreenCanvas.width / 2, offscreenCanvas.height - calc_constants.CB_label_height);
-    
-    // colorbar line and tick marks
-    const lineStartX = calc_constants.CB_xstart; // Starting X coordinate of the horizontal line
-    const lineStartY = offscreenCanvas.height - calc_constants.CB_ystart; // Y coordinate of the horizontal line (and all tickmarks)
-    const lineLength = calc_constants.CB_width; // Length of the horizontal line
-    const tickMarkLength = 8; // Length of the tick marks, in pixels
-    const N_ticks = 5; // Number of tick marks
-    const tickInterval = lineLength / (N_ticks - 1); // Calculate interval between tick marks
-    // Draw the horizontal line
+
+    // Colorbar line and tick marks configuration
+    const lineStartX = calc_constants.CB_xstart;
+    const lineStartY = offscreenCanvas.height - calc_constants.CB_ystart;
+    const lineLength = calc_constants.CB_width;
+    const tickMarkLength = 8;
+    const N_ticks = 5;
+    const tickInterval = lineLength / (N_ticks - 1);
+
+    // Draw the line and tick marks
     ctx.beginPath();
     ctx.moveTo(lineStartX, lineStartY);
     ctx.lineTo(lineStartX + lineLength, lineStartY);
     ctx.stroke();
-    // Draw the tick marks
     for (let i = 0; i < N_ticks; i++) {
-        const tickX = lineStartX + i * tickInterval; // Calculate X coordinate of each tick mark
+        const tickX = lineStartX + i * tickInterval;
         ctx.beginPath();
         ctx.moveTo(tickX, lineStartY);
         ctx.lineTo(tickX, lineStartY + tickMarkLength);
         ctx.stroke();
     }
-    // add tick labels
+
+    // Add tick labels
     ctx.font = '14px Arial';
     ctx.textBaseline = 'top';
     let ticklabel_shift = 20;
@@ -303,10 +318,19 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
     ctx.fillText(calc_constants.colorVal_min + (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1), lineStartX + tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
     ctx.fillText(calc_constants.colorVal_min + (N_ticks-2) * (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1), lineStartX + (N_ticks-2) * tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
     ctx.textAlign = 'right';
-    ctx.fillText(calc_constants.colorVal_max, lineStartX+lineLength, lineStartY-tickMarkLength+ticklabel_shift);
+    ctx.fillText(calc_constants.colorVal_max, lineStartX + lineLength, lineStartY-tickMarkLength+ticklabel_shift);
 
-
-    // Upload this canvas content as a WebGPU texture
+    // Upload the canvas content as a WebGPU texture
     const imageBitmap = await createImageBitmap(offscreenCanvas);
     device.queue.copyExternalImageToTexture({source: imageBitmap}, {texture: txDraw}, [imageBitmap.width, imageBitmap.height]);
+}
+
+// Helper function to load an image
+function loadImage(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+        img.src = url;
+    });
 }
