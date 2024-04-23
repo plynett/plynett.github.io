@@ -68,7 +68,7 @@
     ],
     "colorVal_max": 10,
     "colorVal_min": -10,
-    "colorMap_choice": 0,
+    "colorMap_choice": 1,
     "surfaceToPlot": 0,
     "showBreaking": 0,
     "dissipation_threshold": 0.15,
