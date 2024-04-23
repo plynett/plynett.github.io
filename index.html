@@ -80,8 +80,11 @@
             cursor: pointer; /* the click hand cursor */
             border: 1px solid #cccccc; /* typical button border color */
             border-radius: 0px; /* slightly rounded corners */
-            text-align: center;
-            white-space: nowrap;
+            text-align: left;
+            white-space: normal; /* Allow the text to wrap */
+            word-wrap: break-word; /* Break the word to prevent overflow */
+            overflow: hidden; /* Hide the overflow text */
+            text-overflow: ellipsis; /* Add an ellipsis if the text overflows */
             background-color: rgb(197, 197, 197); /* typical light-gray button color */
             /*   color: #333333; /* typical button text color */
             font-size: 14px; /* match the font size of your buttons */
@@ -610,13 +613,83 @@
                     <button class="minimize-button">-</button>
                 </div>
                 <div class="window-content"  data-default="minimized">
+                
+                    <!-- Updates go to calc_constants.incident_wave_type-->
+                    <label for="incident_wave_type-select">Incident Wave Type: </label>
+                    <select id="incident_wave_type-select" name="incident_wave_typeValue">
+                        <option value="0">Sine Wave (single harmonic)</option>
+                        <option value="1">TMA Spectrum</option>
+                        <option value="2">Transient Pulse (4 waves)</option>
+                        <option value="3">Solitary Wave</option>
+                        <option value="-1">Custom Spectum from loaded file</option>
+                        <option value="5">Time Series from loaded file</option>
+                    </select>
+                    <br />
+                    <br />
 
-                    <html4f>
-                    BETA - currently no feedback w/ hydro
-                    </html4f>
+                    <!-- Updates go to calc_constants.incident_wave_H-->
+                    <label for="incident_wave_H-input">Height (m) of Sine Wave / Pulse / Solitary Wave, or Significant Wave Height of Spectrum:</label>
+                    <br />
+                    <input type="number" id="incident_wave_H-input" name="incident_wave_HValue">
+                    <button id="incident_wave_H-button" type="button">Update</button>
                     <br />
                     <br />
-                    
+
+                    <!-- Updates go to calc_constants.incident_wave_T-->
+                    <label for="incident_wave_H-input">Period (sec) of Sine Wave / Pulse, or Peak Period of Spectrum [not used for Solitary Wave]:</label>
+                    <br />
+                    <input type="number" id="incident_wave_H-input" name="incident_wave_HValue">
+                    <button id="incident_wave_H-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.incident_wave_direction-->
+                    <label for="incident_wave_direction-input">Wave Direction (deg CCW from E [-180 to 180]):</label>
+                    <br />
+                    <input type="number" id="incident_wave_direction-input" name="incident_wave_direction">
+                    <button id="incident_wave_direction-button" type="button">Update</button>
+                    <br />
+                    <br />
+
+                <!-- Updates go to calc_constants.west_boundary_type-->
+                    <label for="west_boundary_type-select">West Boundary Type: </label>
+                    <select id="west_boundary_type-select" name="west_boundary_typeValue">
+                        <option value="0">Solid Wall</option>
+                        <option value="1">Sponge Layer</option>
+                        <option value="2">Incoming Waves</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.east_boundary_type-->
+                    <label for="east_boundary_type-select">East Boundary Type: </label>
+                    <select id="east_boundary_type-select" name="east_boundary_typeValue">
+                        <option value="0">Solid Wall</option>
+                        <option value="1">Sponge Layer</option>
+                        <option value="2">Incoming Waves</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.south_boundary_type-->
+                    <label for="south_boundary_type-select">South Boundary Type: </label>
+                    <select id="south_boundary_type-select" name="south_boundary_typeValue">
+                        <option value="0">Solid Wall</option>
+                        <option value="1">Sponge Layer</option>
+                        <option value="2">Incoming Waves</option>
+                    </select>
+                    <br />
+                    <br />
+
+                    <!-- Updates go to calc_constants.north_boundary_type-->
+                    <label for="north_boundary_type-select">North Boundary Type: </label>
+                    <select id="north_boundary_type-select" name="north_boundary_typeValue">
+                        <option value="0">Solid Wall</option>
+                        <option value="1">Sponge Layer</option>
+                        <option value="2">Incoming Waves</option>
+                    </select>
+                    <br />
+                    <br />
 
                     
 
@@ -1032,46 +1105,6 @@
                     <br />
                     <input type="number" id="courant-input" name="courantValue" min="0">
                     <button id="courant-button" type="button">Update</button>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.west_boundary_type-->
-                    <label for="west_boundary_type-select">West Boundary Type: </label>
-                    <select id="west_boundary_type-select" name="west_boundary_typeValue">
-                        <option value="0">Solid Wall</option>
-                        <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
-                    </select>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.east_boundary_type-->
-                    <label for="east_boundary_type-select">East Boundary Type: </label>
-                    <select id="east_boundary_type-select" name="east_boundary_typeValue">
-                        <option value="0">Solid Wall</option>
-                        <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
-                    </select>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.south_boundary_type-->
-                    <label for="south_boundary_type-select">South Boundary Type: </label>
-                    <select id="south_boundary_type-select" name="south_boundary_typeValue">
-                        <option value="0">Solid Wall</option>
-                        <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
-                    </select>
-                    <br />
-                    <br />
-
-                    <!-- Updates go to calc_constants.north_boundary_type-->
-                    <label for="north_boundary_type-select">North Boundary Type: </label>
-                    <select id="north_boundary_type-select" name="north_boundary_typeValue">
-                        <option value="0">Solid Wall</option>
-                        <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
-                    </select>
                     <br />
                     <br />
 
