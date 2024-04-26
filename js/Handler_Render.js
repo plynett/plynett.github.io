@@ -238,7 +238,6 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
 
 
 export async function update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) {
-    console.log(calc_constants.ShowLogos)
     if(calc_constants.ShowLogos == 0){
         // Load the logo image
         const logo_USACE = await loadImage('./logo_USACE.png');

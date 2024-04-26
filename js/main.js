@@ -104,7 +104,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     } else {
         console.log('Found high-performance GPU adapter.');
     }
-    console.log("Adapter acquired.");
 
     // Request a device. The device is a representation of the GPU and allows for resource creation and command submission.
     device = await adapter.requestDevice({
@@ -113,7 +112,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         requiredLimits: {},
         forceFallbackAdapter: false,
     });
-    console.log("Device acquired.");
+    console.log("GPU Device acquired, starting resource creation...");
 
     // Get the WebGPU rendering context from the canvas.
     context = canvas.getContext('webgpu');
@@ -163,7 +162,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Create a texturse with the desired dimensions (WIDTH, HEIGHT) and format 'rgba32float'.
     // Textures will have multiple usages, allowing it to be read/written by shaders, copied from/to, and used as a render target.
 
-    console.log("Creating 2D textures.");
+    console.log("Creating 2D textures...");
     const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores information about the bathy/topo
     const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the current (n) "state", or eta, P, Q, and c
     const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the next (n+1) "state"
@@ -288,7 +287,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         calc_constants.GoogleMapOverlay == 2;
 
         const satimData = await loadUserImage(OverlayFile);
-        console.log(satimData)
+        console.log('Custom overlay image loaded, dimensions:', satimData.width, 'x', satimData.height);
         txSatMap = create_2D_Texture(device, satimData.width, satimData.height, allTextures);  // used to store the loaded image
         copyImageBitmapToTexture(device, satimData, txSatMap);
         calc_constants.GMscaleX = 1.0; // x-direction scaling factor to make sat image align with numerical domain
@@ -302,40 +301,41 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     // load texture images into textures
+    console.log('Downloading surface texture images...')
     // white water / turbulence texture
-    let imageUrl = '/textures/turbulence.png'; 
+    let imageUrl = '/textures/turbulence.jpg'; 
     let imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 0)
     // coral reef texture
-    imageUrl = '/textures/coralreef.png'; 
+    imageUrl = '/textures/coralreef.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 1)
     // oyster / mussel bed texture
-    imageUrl = '/textures/oysterbed.png'; 
+    imageUrl = '/textures/oysterbed.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 2)
     // mangrove texture
-    imageUrl = '/textures/mangrove.png'; 
+    imageUrl = '/textures/mangrove.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 3)
     // kelp texture
-    imageUrl = '/textures/kelpbed.png'; 
+    imageUrl = '/textures/kelpbed.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 4)
     // grass texture
-    imageUrl = '/textures/grass.png'; 
+    imageUrl = '/textures/grass.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 5)
     // scrub texture
-    imageUrl = '/textures/scrub.png'; 
+    imageUrl = '/textures/scrub.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 6)
     // rubblemound texture
-    imageUrl = '/textures/rubble.png'; 
+    imageUrl = '/textures/rubble.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 7)
     // dune texture
-    imageUrl = '/textures/dune_veg.png'; 
+    imageUrl = '/textures/dune_veg.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 8)
 
@@ -1673,7 +1673,7 @@ document.addEventListener('DOMContentLoaded', function () {
             lastMouseX_left = event.clientX;
             lastMouseY_left = event.clientY;
             calc_constants.click_update = 2;
-        } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 6) { // right mouse button, Design mode for time series
+        } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 7) { // right mouse button, Design mode for time series
             rightMouseIsDown = true;
             lastMouseX_right = event.clientX;
             lastMouseY_right = event.clientY;

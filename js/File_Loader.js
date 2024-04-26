@@ -363,8 +363,6 @@ export async function loadUserImage(fileObject) {
 
     // Create an ImageBitmap directly from the file object
     const image = await createImageBitmap(fileObject);
-    console.log("Loaded ImageBitmap:", image);
-    console.log(image)
 
     return image;
 }

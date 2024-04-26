@@ -106,7 +106,11 @@ var calc_constants = {
         "./examples/Taan_fjord/",
         "./examples/OSU_WaveBasin/",
         "./examples/SF_Bay_tides/",
-        "./examples/OSU_Seaside/"
+        "./examples/OSU_Seaside/",
+        "./examples/Scripps_Pier/",
+        "./examples/Scripps_Canyon/",
+        "./examples/Newport_Jetties_CA/",
+        "./examples/Newport_Balboa_CA/"
       ],
 
     // plotting parameters
