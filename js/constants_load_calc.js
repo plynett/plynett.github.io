@@ -89,7 +89,30 @@ var calc_constants = {
     // define which "Example" to run
     run_example: 0, // index corresponding to examples below
     exampleDirs: [
-        "./examples/Ventura/"],  // update this in the post-load section below
+        "./examples/Ventura/",
+        "./examples/Santa_Cruz/",
+        "./examples/Santa_Cruz_tsunami/",
+        "./examples/Barry_Arm/",
+        "./examples/Crescent_City/",
+        "./examples/DuckFRF_NC/",
+        "./examples/Greenland/",
+        "./examples/Half_Moon_Bay/",
+        "./examples/Hania_Greece/",
+        "./examples/Miami_Beach_FL/",
+        "./examples/Miami_FL/",
+        "./examples/Newport_OR/",
+        "./examples/POLALB/",
+        "./examples/SantaBarbara/",
+        "./examples/Taan_fjord/",
+        "./examples/OSU_WaveBasin/",
+        "./examples/SF_Bay_tides/",
+        "./examples/OSU_Seaside/",
+        "./examples/Scripps_Pier/",
+        "./examples/Scripps_Canyon/",
+        "./examples/Newport_Jetties_CA/",
+        "./examples/Waimea_Bay/",
+        "./examples/Tyndall_FL/"
+      ],
 
     // plotting parameters
     colorVal_max: 1.0,  // value that maps to the "highest" color
@@ -291,7 +314,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Scripps_Pier/",
         "./examples/Scripps_Canyon/",
         "./examples/Newport_Jetties_CA/",
-        "./examples/Newport_Balboa_CA/"
+        "./examples/Waimea_Bay/",
+        "./examples/Tyndall_FL/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

@@ -119,6 +119,25 @@ export async function loadWaveData(waveContent, calc_constants) {
     }
 }
 
+// load overlay image, if it exists
+export async function loadOverlay(calc_constants) {
+    console.log("Looking for server side overlay file...");
+    const filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'overlay.jpg';
+    const response = await fetch(filePath);
+
+    if (!response.ok) {
+        console.log("No Overlay file found");
+        return null;
+    }
+
+    const imageBlob = await response.blob(); // Retrieve the image as a Blob
+    console.log("Server side overlay file loaded successfully.");
+    calc_constants.GoogleMapOverlay = 2;
+
+    return imageBlob;
+}
+
+
 
 //////////////// Code for importing a Google Maps image
 // Overall function to create texture with google maps image

@@ -20,7 +20,7 @@ struct Globals {
     boundary_g: f32,
     delta: f32,
     boundary_shift: i32,
-    
+    base_depth: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -104,7 +104,7 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
 }
 
 fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
-    let B_here = textureLoad(txBottom, idx, 0).b;
+    let B_here = -globals.base_depth; //textureLoad(txBottom, idx, 0).b;
     let d_here = max(0.0, globals.seaLevel - B_here);
     let x = f32(idx.x) * globals.dx;
     let y = f32(idx.y) * globals.dy;

@@ -1,6 +1,6 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadWaveData, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
@@ -282,8 +282,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         txOverlayMap = txGoogleMap;
         calc_constants.IsGMMapLoaded = 1;
         calc_constants.IsOverlayMapLoaded = 1;
+    }    
+    
+    
+    // for examples, see if there is an overlay file to load
+    if(OverlayFile){
+        console.log('Loading Uploaded Overlay File')
+        calc_constants.GoogleMapOverlay = 2;
+    } else {
+        OverlayFile = await loadOverlay(calc_constants);
     }
-    if (OverlayFile) {  // if there is a loaded overlay file
+
+    if (calc_constants.GoogleMapOverlay == 2) {  // if there is a loaded overlay file
         calc_constants.GoogleMapOverlay == 2;
 
         const satimData = await loadUserImage(OverlayFile);
@@ -516,6 +526,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
     BoundaryPass_view.setFloat32(76, calc_constants.delta, true);           // f32 
     BoundaryPass_view.setInt32(80, calc_constants.boundary_shift, true);           // f32 
+    BoundaryPass_view.setFloat32(84, calc_constants.base_depth, true);           // f32 
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -1878,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', function () {
             calc_constants.clearConc = 1;
             if (calc_constants.showBreaking <= 1){
                 calc_constants.dissipation_threshold = 0.15;
-                calc_constants.whiteWaterDecayRate = 0.1;
+                calc_constants.whiteWaterDecayRate = 0.02;
             } else if (calc_constants.showBreaking == 2){
                 calc_constants.dissipation_threshold = 10;
                 calc_constants.whiteWaterDecayRate = 0.0;
