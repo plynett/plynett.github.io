@@ -111,7 +111,9 @@ var calc_constants = {
         "./examples/Scripps_Canyon/",
         "./examples/Newport_Jetties_CA/",
         "./examples/Waimea_Bay/",
-        "./examples/Tyndall_FL/"
+        "./examples/Tyndall_FL/",
+        "./examples/Mavericks/",
+        "./examples/Ipan_Guam/"
       ],
 
     // plotting parameters
@@ -315,7 +317,9 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Scripps_Canyon/",
         "./examples/Newport_Jetties_CA/",
         "./examples/Waimea_Bay/",
-        "./examples/Tyndall_FL/"
+        "./examples/Tyndall_FL/",
+        "./examples/Mavericks/",
+        "./examples/Ipan_Guam/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

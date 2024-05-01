@@ -1856,7 +1856,12 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function updateTooltip() {
         // Assuming x_position and y_position are updated elsewhere in your code and accessible here
-        tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+        
+        if (calc_constants.viewType == 1){ 
+            tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+        } else {
+            tooltip.innerHTML = ``;
+        }
     }
     
     // Set this function to be called every 100 milliseconds
@@ -2356,11 +2361,10 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 // end web GUI code
 
-// the code below is for the time series plotting, using Chart.js// Assuming timeSeriesData is being updated elsewhere in your code
+// the code below is for the time series plotting, using Chart.js
 const ctx = document.getElementById('timeseriesChart').getContext('2d');
 
 // Function to generate a unique color for each dataset
-// This is a simple function and can be replaced with any logic you prefer for color generation
 function getBorderColor(index) {
   const colors = [
     'rgb(75, 192, 192)',
