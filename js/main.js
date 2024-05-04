@@ -79,7 +79,7 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
 // All of the compute pipelines are included in this function
 async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile) {
     // Log a message indicating the start of the initialization process.
-    console.log("Starting WebGPU App Initialization...");
+    console.log("Starting Celeris-WebGPU");
 
     console.log("Clearing / destroying any data from previous run...");
     allTextures.forEach(texture => {
