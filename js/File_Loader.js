@@ -13,7 +13,7 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
         console.log("Bathy data loaded successfully from the uploaded file.");
 
     } catch (error) {
-        console.log("Failed to parse uploaded bathymetry file, loading server side file");
+        console.log("Loading server side example bathytopo file");
         filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'bathy.txt';
         try {
             response = await fetch(filePath);
@@ -30,7 +30,7 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
         const fileContents = await response.text();
 
         lines = fileContents.split('\n');
-        console.log("server side Bathy data loaded successfully.");
+        console.log("Server side bathytopo data loaded successfully.");
     }
 
     const bathy2D = Array.from({ length: calc_constants.WIDTH }, () => Array(calc_constants.HEIGHT));
@@ -41,14 +41,14 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
         const depthValues = lines[y].split(/\s+/).filter(Boolean);
 
         if (depthValues.length !== calc_constants.WIDTH) {
-            console.error("Depth file at " + filePath + " is not in the correct format.");
+            console.error("Bathytopo file at " + filePath + " is not in the correct format.");
             return null;
         }
 
         for (let x = 0; x < calc_constants.WIDTH; x++) {
             const parsedValue = parseFloat(depthValues[x]);
             if (isNaN(parsedValue)) {
-                console.error(`Could not parse depth value at [${x}, ${y}] in depth file at ${filePath}`);
+                console.error(`Could not parse bathytopo value at [${x}, ${y}] in bathytopo file at ${filePath}`);
                 return null;
             }
             bathy2D[x][y] = parsedValue;
@@ -76,7 +76,7 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
             bathy2D[x][y] = bathy2D[x][calc_constants.HEIGHT - 5];
         }
     }
-    console.log("Bathy/topo data parsed successfully.");
+    console.log("Bathytopo data parsed successfully.");
 
     return bathy2D;
 }
@@ -93,7 +93,7 @@ export async function loadWaveData(waveContent, calc_constants) {
         console.log("Waves data loaded successfully from the uploaded file.");
 
     } catch (error) {
-        console.log("Failed to parse uploaded waves file, loading server side file");
+        console.log("Loading server side example waves file");
         const filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'waves.txt';
         const response = await fetch(filePath);
         if (!response.ok) {
@@ -102,7 +102,7 @@ export async function loadWaveData(waveContent, calc_constants) {
 
         const text = await response.text();
         lines = text.trim().split("\n");
-        console.log("server side Waves data loaded successfully.");
+        console.log("Server side waves data loaded successfully.");
     }
 
     try {

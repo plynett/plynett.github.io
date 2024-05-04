@@ -119,6 +119,45 @@ export function displayTimeSeriesLocations(calc_constants) {
     }
 }
 
+export function ConsoleLogRedirection() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ConsoleLogRedirection);
+        return;
+    }
+
+    const logContainer = document.getElementById('log-container');
+    if (!logContainer) {
+        console.error("Log container not found in the DOM.");
+        return;
+    }
+
+    const oldLog = console.log;
+    console.log = function (...args) {
+        // Create a message string from all arguments
+        const message = args.map(arg => {
+            if (typeof arg === 'object') {
+                // Attempt to convert object to string via JSON
+                try {
+                    return JSON.stringify(arg);
+                } catch (e) {
+                    return "Unserializable Object";
+                }
+            } else {
+                // Convert non-objects directly to string
+                return String(arg);
+            }
+        }).join(' ');
+
+        oldLog.apply(console, args);  // Keep the normal console.log behavior
+        addTextToLogContainer(message, logContainer);  // Add text to the log container
+    };
+}
+
+function addTextToLogContainer(text, container) {
+    const entry = document.createElement('div');
+    entry.textContent = text;
+    container.appendChild(entry);
+}
 
 
 function addTextToContainer(text, container) {

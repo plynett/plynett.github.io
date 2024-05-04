@@ -26,7 +26,7 @@ import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_Bind
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
-import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations } from './display_parameters.js';  // starting point for display of simulation parameters
+import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
@@ -1581,6 +1581,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 document.addEventListener('DOMContentLoaded', function () {
     // Get a reference to your canvas element.
     var canvas = document.getElementById('webgpuCanvas');
+
+    ConsoleLogRedirection();
 
     // Logic to make sure that only one panel can be maximized at a time
     // Turns out this is fairly complex.  Also, we store which panel is maximized

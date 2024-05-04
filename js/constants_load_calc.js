@@ -242,7 +242,7 @@ async function loadConfig() {
         loadedConfig = await response.json();
         calc_constants = { ...calc_constants, ...loadedConfig };
      //   console.log(calc_constants);
-        console.log("server side config.json loaded successfully.");
+        console.log("Server side example config.json loaded successfully.");
     } catch (error) {
         console.error("Failed to load configuration:", error);
     }
@@ -262,7 +262,7 @@ async function init_sim_parameters(canvas, configContent) {
         console.log("Config loaded successfully from the uploaded file.");
 
     } catch (error) {
-        console.log("Failed to parse configuration file, loading server side config.json file");
+        console.log("Loading server side config.json file");
         await loadConfig();  // for the json to be loaded
     }
 
