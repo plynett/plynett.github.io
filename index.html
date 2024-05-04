@@ -34,7 +34,7 @@
             margin-bottom: 20px;
         }
 
-        #leftbar {
+        #horizontalbar {
             margin-top: 20px;
             margin-left: 1%;
             margin-right: 1%;
@@ -43,7 +43,7 @@
             flex-direction: column; /* stack the children vertically */
         }
 
-        #centerbar {
+        #verticalbar {
             margin-left: 1%;
             margin-right: 1%;
             width: 60%; /* Adjust based on your design and content */
@@ -70,7 +70,6 @@
             font-family: monospace;
             font-size: 12px; 
         }
-
 
         #constants-container, #mods-container, #downloads-container, #uploads-container, #viz-container, #design-container, #disturbance-container, #boundary-container, #sediment-container, #timeseries-container, #animations-container, #parameters-container, #analysis-container {
             background-color: #f9f9f9;
@@ -180,7 +179,7 @@
 <body>
     <div id="main-container">
 
-        <div id="leftbar">
+        <div id="horizontalbar">
             <div id="uploads-container" class="custom-window">
                 <div class="window-header">
                     <span> Start Here: Load Simulation Datafiles </span>
@@ -1231,7 +1230,7 @@
 
         </div>
 
-        <div id="centerbar">
+        <div id="verticalbar">
             <br>
             <div id="simstatus-container" class="flex-container">
                 <!-- Constants will be dynamically filled in by JavaScript -->
@@ -1268,6 +1267,7 @@
             <br>
         </div>
 
+        
         <div id="consolebar">
             <br>
 
@@ -1281,6 +1281,7 @@
             <br>
             <br>
         </div>
+
 
 
     </div>
