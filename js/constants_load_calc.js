@@ -113,7 +113,13 @@ var calc_constants = {
         "./examples/Waimea_Bay/",
         "./examples/Tyndall_FL/",
         "./examples/Mavericks/",
-        "./examples/Ipan_Guam/"
+        "./examples/Ipan_Guam/",
+        "./examples/Balboa_Pier_CA/",
+        "./examples/Blacks_Beach_CA/",
+        "./examples/Hermosa_Beach_CA/",
+        "./examples/Morro_Rock_CA/",
+        "./examples/Pacifica_CA/",
+        "./examples/Toy_Config/"
       ],
 
     // plotting parameters
@@ -281,7 +287,7 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.one_over_d2y = calc_constants.one_over_dy * calc_constants.one_over_dy;
     calc_constants.one_over_d3y = calc_constants.one_over_d2y * calc_constants.one_over_dy;
     calc_constants.one_over_dxdy = calc_constants.one_over_dx * calc_constants.one_over_dy;
-    calc_constants.delta = calc_constants.base_depth / 10000.0;
+    calc_constants.delta = Math.min(0.001,calc_constants.base_depth / 10000.0);
     calc_constants.epsilon = Math.pow(calc_constants.delta, 2);
     calc_constants.PI = Math.PI;
     calc_constants.boundary_epsilon = calc_constants.epsilon;
@@ -319,7 +325,13 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Waimea_Bay/",
         "./examples/Tyndall_FL/",
         "./examples/Mavericks/",
-        "./examples/Ipan_Guam/"
+        "./examples/Ipan_Guam/",
+        "./examples/Balboa_Pier_CA/",
+        "./examples/Blacks_Beach_CA/",
+        "./examples/Hermosa_Beach_CA/",
+        "./examples/Morro_Rock_CA/",
+        "./examples/Pacifica_CA/",
+        "./examples/Toy_Config/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

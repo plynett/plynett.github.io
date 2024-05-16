@@ -92,8 +92,8 @@ export async function readToolTipTextureData(device, texture, frame_count_time_s
     calc_constants.tooltipVal_friction = bufferCopy[3]; // Alpha
 
     if (calc_constants.NumberOfTimeSeries > 0) {
-        let time_c = bufferCopy[4];
-        if (frame_count_time_series == 0){
+        let time_c = bufferCopy[4]; // use only the time for the first time series - should be the same for all
+        if (frame_count_time_series == 0){  // after we have written the data to file, or there is a change in the chart, this value is set to 0
             resetTimeSeriesData();
             time_c = 0.0;
         }
