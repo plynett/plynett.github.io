@@ -381,6 +381,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass1_view.setFloat32(36, calc_constants.base_depth, true);       // f32
     Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
     Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+    Pass1_view.setFloat32(48, calc_constants.delta, true);           // f32
 
     //  SedTrans_Pass1 Bindings & Uniforms Config
     const SedTrans_Pass1_BindGroupLayout = create_SedTrans_Pass1_BindGroupLayout(device);
@@ -876,7 +877,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     var startTime = new Date();  // This captures the current time, or the time at the start of rendering
     var startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
 
-    function frame() {
+    async function frame() {
 
         // render step find logic, trying to find a render step that both maximizes the usage of the GPU
         // but does not over work it.  The need for this logic is that if the GPU is too overworked, which
@@ -1508,8 +1509,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         if(calc_constants.writesurfaces > 0){
             let dt_inc = 10.0; // incrememnt to write to file
             let n_inc = Math.ceil(dt_inc / calc_constants.dt);
+
+            // force the simulation to run as slow as possible, in order to give the prog enough time to write data to file
             calc_constants.setRenderStep = 1;
             calc_constants.render_step = 1;
+
             dt_inc = n_inc * calc_constants.dt;
 
             if(frame_count % n_inc == 0) {
@@ -1522,7 +1526,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 if(frame_count_output == 1){
                     let filename = `bathytopo.bin`;
-                    downloadTextureData(device, txBottom, 3, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                    await downloadTextureData(device, txBottom, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
 
                     filename = `dx.txt`;
                     saveSingleValueToFile(calc_constants.dx,filename);
@@ -1539,22 +1543,22 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 if(write_eta == 1){  // free surface elevation
                     let filename = `elev_${frame_count_output}.bin`;
-                    downloadTextureData(device, txState, 1, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                    await downloadTextureData(device, txState, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
                 }
 
                 if(write_P == 1){  // x-dir flux Hu
                     let filename = `xflux_${frame_count_output}.bin`;
-                    downloadTextureData(device, txState, 2, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                    await downloadTextureData(device, txState, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
                 }
 
                 if(write_Q == 1){  // y-dir flux Hv
                     let filename = `yflux_${frame_count_output}.bin`;
-                    downloadTextureData(device, txState, 3, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                    await downloadTextureData(device, txState, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
                 }
 
                 if(write_turb == 1){  // breaking eddy viscosity
                     let filename = `turb_${frame_count_output}.bin`;
-                    downloadTextureData(device, txBreaking, 2, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                    await downloadTextureData(device, txBreaking, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
                 }
             }
             
@@ -1565,7 +1569,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     // Invoke the `frame` function once to start the main loop.
-    frame();
+    await frame();
 }
 // end compute pipeline
 
@@ -2347,11 +2351,11 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile) {
         // Here you could do the actual simulation initialization
-        console.log("Starting simulation with the following data:");
-        console.log("Config:", configContent);
-        console.log("Bathymetry:", bathymetryContent);
-        console.log("Wave:", waveContent);
-        console.log("Overlay:", OverlayFile);
+    //    console.log("Starting simulation with the following data:");
+    //    console.log("Config:", configContent);
+    //    console.log("Bathymetry:", bathymetryContent);
+    //    console.log("Wave:", waveContent);
+    //    console.log("Overlay:", OverlayFile);
     
         // Initialize your WebGPU application here
         initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile).catch(error => {
@@ -2441,7 +2445,7 @@ const timeseriesChart = new Chart(ctx, {
 
 
 // Function to update chart data
-function updateChartData() {
+async function updateChartData() {
     // Check if there's a need to update the chart data based on the flag
     if(calc_constants.chartDataUpdate == 1){
         // Regenerate datasets for the new number of time series
@@ -2478,7 +2482,7 @@ function updateChartData() {
     timeseriesChart.options.scales.x.ticks.stepSize = stepSize;
 
     // Update the chart to apply changes
-    timeseriesChart.update();
+    await timeseriesChart.update();
 }
 
 // Set an interval to update the chart every second (1000 milliseconds)

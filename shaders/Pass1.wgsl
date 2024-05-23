@@ -13,6 +13,7 @@ struct Globals {
     base_depth: f32,
     dx_global: f32,
     dy_global: f32,
+    delta: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -65,29 +66,41 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let in_west = textureLoad(txState, leftIdx, 0);
     let in_east = textureLoad(txState, rightIdx, 0);
 
-    // Load bed elevation data for this pixel's edges
-    let Bxy = textureLoad(txBottom, idx, 0).xy;
-    let Bz = textureLoad(txBottom, downIdx, 0).x;
-    let Bw = textureLoad(txBottom, leftIdx, 0).y;
-    let B = vec4<f32>(Bxy, Bz, Bw);
-
     let B_here = textureLoad(txBottom, idx, 0).z;
     let B_south = textureLoad(txBottom, downIdx, 0).z;
     let B_north = textureLoad(txBottom, upIdx, 0).z;
     let B_west = textureLoad(txBottom, leftIdx, 0).z;
     let B_east = textureLoad(txBottom, rightIdx, 0).z;
 
-    let dB_west = abs(B_here - B_west);
-    let dB_east = abs(B_here - B_east);
-    let dB_south = abs(B_here - B_south);
-    let dB_north = abs(B_here - B_north);
-    var dB_max = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-
     let h_here = in_here.x - B_here;
     let h_south = in_south.x - B_south;
     let h_north = in_north.x - B_north;
     let h_west = in_west.x - B_west;
     let h_east = in_east.x - B_east;
+
+    let h_cut = globals.delta;
+    if (h_here <= h_cut) {    //if dry and surrounded by dry, then stay dry - no need to calc
+        if(h_north <= h_cut && h_east <= h_cut && h_south <= h_cut && h_west <= h_cut) {
+            let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            textureStore(txH, idx, zero);
+            textureStore(txU, idx, zero);
+            textureStore(txV, idx, zero);
+            textureStore(txC, idx, zero);
+            return; 
+        }
+    }
+
+    // Load bed elevation data for this pixel's edges
+    let Bxy = textureLoad(txBottom, idx, 0).xy;
+    let Bz = textureLoad(txBottom, downIdx, 0).x;
+    let Bw = textureLoad(txBottom, leftIdx, 0).y;
+    let B = vec4<f32>(Bxy, Bz, Bw);
+
+    let dB_west = abs(B_here - B_west);
+    let dB_east = abs(B_here - B_east);
+    let dB_south = abs(B_here - B_south);
+    let dB_north = abs(B_here - B_north);
+    var dB_max = vec4<f32>(0.0, 0.0, 0.0, 0.0);
 
     // Initialize variables for water height, momentum components, and standard deviation
     var h = vec4<f32>(0.0, 0.0, 0.0, 0.0);

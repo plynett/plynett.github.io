@@ -186,7 +186,10 @@
                     <button class="minimize-button">-</button>
                 </div>
                 <div class="window-content">
-
+                    <html4f>
+                        Questions/Problems/Requests - use the <a href="https://www.sqrtgh.com/forum" target="_blank" rel="noopener noreferrer">Users Forum</a>
+                    </html4f>
+                    <br />
                     <html4f>
                         Download Example Configurations <a href="https://www.dropbox.com/scl/fo/xdlsgirw2efdic97epaj0/ANofWQQ4xytKZjatxopJc-4?rlkey=2sl7ll7o4ojfvixq0uktdt8o9&st=jgqrraa1&dl=0" target="_blank" rel="noopener noreferrer">here</a>
                     </html4f>
@@ -242,12 +245,17 @@
                          <label for="run_example-select">Choose Example:</label>
                          <select id="run_example-select" name="run_exampleValue">
                              <option value="0">Ventura Harbor (CA), wind waves</option>
+                             <option value="27">Hermosa Beach (CA), wind waves</option>
+                             <option value="25">Balboa Pier (CA), wind waves</option>
                              <option value="20">Newport Jetties (CA), wind waves</option>
+                             <option value="26">Blacks Beach (CA), wind waves</option>
                              <option value="18">Scripps Pier (CA), wind waves</option>
                              <option value="19">Scripps Canyon (CA), wind waves</option>
+                             <option value="28">Morro Rock (CA), wind waves</option>
                              <option value="1">Santa Cruz Harbor (CA), wind waves</option>
                              <option value="23">Mavericks (CA), wind waves</option>
                              <option value="7">Pillar Point Harbor (CA), wind waves</option>
+                             <option value="29">Pacifica (CA), wind waves</option>
                              <option value="11">Newport (OR), wind waves</option>
                              <option value="21">Waimea Bay (HI), wind waves</option>
                              <option value="24">Ipan Reef (Guam), wind waves</option>
@@ -263,9 +271,12 @@
                              <option value="14">Taan Fjord (AK), tsunami</option>
                              <option value="3">Barry Arm (PWS, AK), tsunami</option>
                              <option value="6">Greenland (Karrat), tsunami</option>
+                             <option value="31">Harrison Lake (BC), tsunami</option>
+                             <option value="32">LA River Gdale Narrows (CA), river</option>
                              <option value="16">San Francisco Bay (CA), tides</option>
                              <option value="15">OSU Directional Wave Basin</option>
                              <option value="17">OSU Seaside Experiments (2007) </option>
+                             <option value="30">Toy Problem, wind waves</option>
                          </select>
                          <br />
                          <br />                        
@@ -1301,6 +1312,16 @@
     <!-- Using ffmpeg to create animations  --><!-- Include ffmpeg.js from a CDN
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.10.1/ffmpeg.min.js" integrity="sha512-NymjIoM3BuPReK5HMHaUg6/lAqOP3d1JagbVMMHHFf2Y8+NqvNwsvVM6XSPWedpjsgtQo1Klf9o5ojErfA+w3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     doesnt work due to the need to have some external called SharedArrayBuffer, which is not allowed due to security risk by default -->
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9G9BM8KTW9"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-9G9BM8KTW9');
+    </script>
 
     <!-- Using gif to create animated gif  --><!-- Include gif.js from a CDN -->    
     <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
