@@ -133,6 +133,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let h_north = eta_north - B_north;
     let h_south = eta_south - B_south;
 
+    let h_cut = globals.delta;
+    if (h_here <= h_cut) {  //if dry and surrounded by dry, then stay dry - no need to calc
+        if(h_north <= h_cut && h_east <= h_cut && h_south <= h_cut && h_west <= h_cut) {
+            let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            textureStore(txNewState, idx, zero);
+            textureStore(dU_by_dt, idx, zero);
+            textureStore(F_G_star, idx, zero);
+            textureStore(current_stateUVstar, idx, zero);
+            return; 
+        }
+    }
+
     var h_min = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     h_min.x= min(h_here, h_north);
     h_min.y= min(h_here, h_east);
@@ -321,7 +333,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     
     // fix slope near shoreline
-    let h_cut = globals.delta;
     if (h_min.x <= h_cut && h_min.z <= h_cut) {
         detady = 0.0;
     }

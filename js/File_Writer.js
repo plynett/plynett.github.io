@@ -66,26 +66,6 @@ export async function readTextureData(device, src_texture, channel) {
     return flatData; // or whatever processed form you prefer
 }
 
-export async function downloadTextureData(device, texture, channel, filename) {
-    // Read data from the texture
-    const data = await readTextureData(device, texture, channel);  //copies texture to buffer, then copies buffer to data, which is a Float32Array(WIDTH * HEIGHT);
-
-    // Create a Blob from the data
-    const blob = new Blob([data.buffer], { type: 'application/octet-stream' }); // or another MIME type as appropriate
-
-    // Create an anchor element and use it to trigger the download
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename; 
-    document.body.appendChild(a);
-    a.click();
-
-    // Clean up
-    document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-}
-
-
 // geotiff writer
 export async function downloadGeoTiffData(device, texture, channel,dx,dy) {
   // Assuming readTextureData returns an array or typed array of values
@@ -330,7 +310,7 @@ export async function TexturetoImageData(device, texture, width, height) {
 }
 
 
-export function saveSingleValueToFile(value, filename) {
+export async function saveSingleValueToFile(value, filename) {
 
     // Convert the float to a string and create a Blob from it
     const blob = new Blob([value.toString()], { type: 'text/plain;charset=utf-8' });
@@ -569,4 +549,86 @@ export async function createAnimatedGifFromTexture(device, texture, textureSize)
 
     gif.render();
 }
+
+export async function writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking) {
+
+    let time_filename = `time_${frame_count_output}.txt`;
+    await saveSingleValueToFile(total_time,time_filename);
+
+    if(frame_count_output == 1){
+        let filename = `bathytopo.bin`;
+        await downloadTextureData(device, txBottom, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+
+        filename = `dx.txt`;
+        await saveSingleValueToFile(calc_constants.dx,filename);
+
+        filename = `dy.txt`;
+        await saveSingleValueToFile(calc_constants.dy,filename);
+
+        filename = `nx.txt`;
+        await saveSingleValueToFile(calc_constants.WIDTH,filename);
+
+        filename = `ny.txt`;
+        await saveSingleValueToFile(calc_constants.HEIGHT,filename);
+    }
+
+    if(calc_constants.write_eta == 1){  // free surface elevation
+        let filename = `elev_${frame_count_output}.bin`;
+        await downloadTextureData(device, txState, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+    }
+
+    if(calc_constants.write_P == 1){  // x-dir flux Hu
+        let filename = `xflux_${frame_count_output}.bin`;
+        await downloadTextureData(device, txState, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+    }
+
+    if(calc_constants.write_Q == 1){  // y-dir flux Hv
+        let filename = `yflux_${frame_count_output}.bin`;
+        await downloadTextureData(device, txState, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+    }
+
+    if(calc_constants.write_turb == 1){  // breaking eddy viscosity
+        let filename = `turb_${frame_count_output}.bin`;
+        await downloadTextureData(device, txBreaking, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+    }
+
+    return
+}
+
+
+export async function downloadTextureData(device, texture, channel, filename) {
+    try {
+        const data = await readTextureData(device, texture, channel);
+
+        // Create a Blob from the data
+        const blob = new Blob([data.buffer], { type: 'application/octet-stream' });
+
+        // Utilize a callback-based approach to create a Blob and initiate the download
+        await blobCreationAndDownload(blob, filename);
+    } catch (error) {
+        console.error('Error during texture data download:', error);
+    }
+}
+
+function blobCreationAndDownload(blob, filename) {
+    return new Promise((resolve, reject) => {
+        if (blob.size === 0) {
+            console.error('Failed to create a valid blob for:', filename);
+            reject('Blob creation failed');
+            return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+        resolve(); // Resolve the promise after the cleanup
+    });
+}
+
 

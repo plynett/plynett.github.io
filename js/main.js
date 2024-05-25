@@ -1,7 +1,7 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
 import { loadDepthSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture} from './File_Writer.js';  // load depth surface and wave data file
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
@@ -73,7 +73,6 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     calc_constants.numberOfWaves = numberOfWaves; 
     return { bathy2D, waveData };
 }
-
 
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
@@ -381,6 +380,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass1_view.setFloat32(36, calc_constants.base_depth, true);       // f32
     Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
     Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+    Pass1_view.setFloat32(48, calc_constants.delta, true);           // f32
 
     //  SedTrans_Pass1 Bindings & Uniforms Config
     const SedTrans_Pass1_BindGroupLayout = create_SedTrans_Pass1_BindGroupLayout(device);
@@ -844,6 +844,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let total_time_time_series = 0;          // duration for time series
     let frame_count_find_render_step = 0;   // Counter to keep track of the number of rendered frames.
     let frame_count_output = 0;   // Counter to keep track of the number of frames saved to file
+    let dt_since_last_write = 0.0 // tracks amount of time since last file write
     let frame_animation = 0; // Counter to track the frames stored for the animation
 
     // variables needed for the "render_step" optimziation
@@ -1500,65 +1501,21 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
         // write surface data to file
-        calc_constants.writesurfaces = 0;
-        let write_eta = 1;
-        let write_P = 1;
-        let write_Q = 1;
-        let write_turb = 1;
-        if(calc_constants.writesurfaces > 0){
-            let dt_inc = 10.0; // incrememnt to write to file
-            let n_inc = Math.ceil(dt_inc / calc_constants.dt);
+        if(calc_constants.writesurfaces > 0 && calc_constants.simPause < 0){
+            dt_since_last_write = dt_since_last_write + calc_constants.dt * calc_constants.render_step;
 
-            // force the simulation to run as slow as possible, in order to give the prog enough time to write data to file
-            calc_constants.setRenderStep = 1;
-            calc_constants.render_step = 1;
-
-            dt_inc = n_inc * calc_constants.dt;
-
-            if(frame_count % n_inc == 0) {
-                console.log('Writing 2D surface data to file at time (s) ', total_time, ' with increment(s) ', dt_inc);
-
-                frame_count_output = frame_count_output + 1;
-
-                let time_filename = `time_${frame_count_output}.txt`;
-                saveSingleValueToFile(total_time,time_filename);
-
-                if(frame_count_output == 1){
-                    let filename = `bathytopo.bin`;
-                    await downloadTextureData(device, txBottom, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
-
-                    filename = `dx.txt`;
-                    saveSingleValueToFile(calc_constants.dx,filename);
-
-                    filename = `dy.txt`;
-                    saveSingleValueToFile(calc_constants.dy,filename);
-
-                    filename = `nx.txt`;
-                    saveSingleValueToFile(calc_constants.WIDTH,filename);
-
-                    filename = `ny.txt`;
-                    saveSingleValueToFile(calc_constants.HEIGHT,filename);
+            if(dt_since_last_write >= calc_constants.dt_writesurface) {
+                
+                try {
+                    frame_count_output = frame_count_output + 1;
+                    console.log('Writing 2D surface data to file at time (s) ', total_time, ' with increment(s) ', dt_since_last_write);
+                    await writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking);
+                    dt_since_last_write = 0.0; // reset time counter
+                } catch (error) {
+                    console.error("Failed to write surface data:", error);
                 }
+                
 
-                if(write_eta == 1){  // free surface elevation
-                    let filename = `elev_${frame_count_output}.bin`;
-                    await downloadTextureData(device, txState, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
-                }
-
-                if(write_P == 1){  // x-dir flux Hu
-                    let filename = `xflux_${frame_count_output}.bin`;
-                    await downloadTextureData(device, txState, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
-                }
-
-                if(write_Q == 1){  // y-dir flux Hv
-                    let filename = `yflux_${frame_count_output}.bin`;
-                    await downloadTextureData(device, txState, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
-                }
-
-                if(write_turb == 1){  // breaking eddy viscosity
-                    let filename = `turb_${frame_count_output}.bin`;
-                    await downloadTextureData(device, txBreaking, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
-                }
             }
             
         }
@@ -1992,8 +1949,8 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'designcomponent_Fric_Berm-button', input: 'designcomponent_Fric_Berm-input', property: 'designcomponent_Fric_Berm' },
         { id: 'designcomponent_Fric_Seawall-button', input: 'designcomponent_Fric_Seawall-input', property: 'designcomponent_Fric_Seawall' },
         { id: 'changeSeaLevel-button', input: 'changeSeaLevel-input', property: 'changeSeaLevel' },
+        { id: 'dt_writesurface-button', input: 'dt_writesurface-input', property: 'dt_writesurface' },
     ];         
-
 
     calc_constants.surfaceToChange == 1
 
@@ -2021,6 +1978,10 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'useBreakingModel-select', property: 'useBreakingModel' },
         { input: 'designcomponentToAdd-select', property: 'designcomponentToAdd' },
         { input: 'ShowLogos-select', property: 'ShowLogos' },
+        { input: 'write_eta-select', property: 'write_eta' },
+        { input: 'write_P-select', property: 'write_P' },
+        { input: 'write_Q-select', property: 'write_Q' },
+        { input: 'write_turb-select', property: 'write_turb' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -2276,6 +2237,15 @@ document.addEventListener('DOMContentLoaded', function () {
      //  can update to write an RGB geotiff, but that doesnt seem too useful
     });
 
+    // Save 2D data to file START - start2Dwrite-button
+    document.getElementById('start2Dwrite-button').addEventListener('click', function () {
+        calc_constants.writesurfaces = 1;  // start writing 2D data to file
+    });
+
+    // Save 2D data to file STOP - stop2Dwrite-button
+    document.getElementById('stop2Dwrite-button').addEventListener('click', function () {
+        calc_constants.writesurfaces = 0;  // stop writing 2D data to file
+    });
 
     // start simulation
 

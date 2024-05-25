@@ -119,7 +119,9 @@ var calc_constants = {
         "./examples/Hermosa_Beach_CA/",
         "./examples/Morro_Rock_CA/",
         "./examples/Pacifica_CA/",
-        "./examples/Toy_Config/"
+        "./examples/Toy_Config/",
+        "./examples/Harrison_Lake/",
+        "./examples/LA_River_Model/"
       ],
 
     // plotting parameters
@@ -228,11 +230,16 @@ var calc_constants = {
     designcomponent_Fric_Seawall: 0.02, // Seawall  friction factor
 
     // save data parameters
-    writesurfaces: 0,  //flag for writing 2D data to file
     create_animation: 0, // create animated gif when = 1
     AnimGif_dt: 0.25, // time between animated gif frames
     JPEGstack_dt: 1.0,  // time between images in jpeg stack
-    JPEGstack_frames: 10  // total number of frames to save in jpg stack
+    JPEGstack_frames: 10,  // total number of frames to save in jpg stack
+    writesurfaces: 0,  //flag for writing 2D data to file
+    write_eta: 1, // flag for writing eta surface data to file, write when = 1
+    write_P: 0, // flag for writing x flux surface data to file, write when = 1
+    write_Q: 0, // flag for writing y flux surface data to file, write when = 1
+    write_turb: 0, // flag for writing eddy visc surface data to file, write when = 1
+    dt_writesurface: 1.0 // incrememnt to write to file    
 
 };
 
@@ -331,7 +338,9 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Hermosa_Beach_CA/",
         "./examples/Morro_Rock_CA/",
         "./examples/Pacifica_CA/",
-        "./examples/Toy_Config/"
+        "./examples/Toy_Config/",
+        "./examples/Harrison_Lake/",
+        "./examples/LA_River_Model/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

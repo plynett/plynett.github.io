@@ -271,6 +271,8 @@
                              <option value="14">Taan Fjord (AK), tsunami</option>
                              <option value="3">Barry Arm (PWS, AK), tsunami</option>
                              <option value="6">Greenland (Karrat), tsunami</option>
+                             <option value="31">Harrison Lake (BC), tsunami</option>
+                             <option value="32">LA River Gdale Narrows (CA), river</option>
                              <option value="16">San Francisco Bay (CA), tides</option>
                              <option value="15">OSU Directional Wave Basin</option>
                              <option value="17">OSU Seaside Experiments (2007) </option>
@@ -1107,6 +1109,65 @@
                     <br />
                     <!-- Download texture button-->
                     <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
+                    <br />
+                    <br />
+                    <br />
+                    <html4f> Write 2D Surface Data Options: </html4f>
+                    <br />
+                    <!-- Updates go to calc_constants.dt_writesurface-->
+                    <label for="dt_writesurface-input">Time interval to write surface data (sec) :</label>
+                    <br />
+                    <input type="number" id="dt_writesurface-input" name="dt_writesurfaceValue">
+                    <button id="dt_writesurface-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    <!-- Updates go to calc_constants.write_eta-->
+                    <label for="write_eta-select">Write free surface elevation to file:</label>
+                    <select id="write_eta-select" name="write_eta">
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                    <br />
+                    <br /> 
+                    <!-- Updates go to calc_constants.write_P-->
+                    <label for="write_P-select">Write x-direction flux (HU) to file:</label>
+                    <select id="write_P-select" name="write_P">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                    <br />
+                    <br />   
+                    <!-- Updates go to calc_constants.write_Q-->
+                    <label for="write_Q-select">Write y-direction flux (HV) to file:</label>
+                    <select id="write_Q-select" name="write_Q">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                    <br />
+                    <br />     
+                    <!-- Updates go to calc_constants.write_turb-->
+                    <label for="write_turb-select">Write turbulent (breaking and mixing) eddy viscosity to file:</label>
+                    <select id="write_turb-select" name="write_turb">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                    <br />
+                    <br />                     
+            
+                    <!-- Start surface write to file button-->
+                    <html4f>
+                    Click the button below to start the writing of 2D surface data to files.
+                    Data will be written in raw binary for surface data, and ASCII for time and coordinate data.   
+                    Note that writing data to files frequently will slow the simulation.  See the console for progress messages.
+                    </html4f>
+                    <br />
+                    <button id="start2Dwrite-button">Start Writing 2D Data to File</button>
+                    <br />
+                    <br />
+                    <button id="stop2Dwrite-button">Stop Writing 2D Data to File</button>
+                    <br />
+                    <br />
+
                 </div>
 
             </div>
@@ -1311,7 +1372,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.10.1/ffmpeg.min.js" integrity="sha512-NymjIoM3BuPReK5HMHaUg6/lAqOP3d1JagbVMMHHFf2Y8+NqvNwsvVM6XSPWedpjsgtQo1Klf9o5ojErfA+w3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     doesnt work due to the need to have some external called SharedArrayBuffer, which is not allowed due to security risk by default -->
 
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js)
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-9G9BM8KTW9"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
@@ -1319,7 +1380,7 @@
     gtag('js', new Date());
 
     gtag('config', 'G-9G9BM8KTW9');
-    </script>
+    </script> -->
 
     <!-- Using gif to create animated gif  --><!-- Include gif.js from a CDN -->    
     <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
