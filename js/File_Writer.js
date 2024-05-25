@@ -626,9 +626,12 @@ function blobCreationAndDownload(blob, filename) {
         link.click();
         document.body.removeChild(link);
 
-        URL.revokeObjectURL(url);
-        resolve(); // Resolve the promise after the cleanup
-    });
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+            console.log('FS end', filename);
+            resolve(); // Resolve the promise after the cleanup
+        }, 100); // Delayed revocation to give the browser more time to handle the download
+     });
 }
 
 
