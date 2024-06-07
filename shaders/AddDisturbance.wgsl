@@ -25,11 +25,11 @@ struct Globals {
 
 fn solitary_wave(xloc: f32, yloc: f32, amplitude: f32, angle: f32, depth: f32, bottom: f32) -> vec4<f32> {
     let k = sqrt(0.75 * abs(amplitude)/pow(depth,3.0));
-    let c = sqrt(globals.g * (amplitude+depth));
+    let c = sqrt(globals.g * (amplitude + depth));
 
     var eta = amplitude / pow(cosh(k * (xloc * cos(angle) + yloc * sin(angle))),2.0);
-    let P = eta * c * cos(angle);
-    let Q = eta * c * sin(angle);
+    let P = sqrt(1.0 + 0.5 * amplitude / depth) * eta * c * cos(angle);
+    let Q = sqrt(1.0 + 0.5 * amplitude / depth) * eta * c * sin(angle);
     
     if(bottom > 0.0){
         eta = max(0.0, eta - bottom);  // since this is added to the existing state - which for dry areas, eta = bottom already

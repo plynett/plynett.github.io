@@ -36,7 +36,6 @@ const gpu = navigator.gpu;
 
 // globals in this source file
 let device = null;
-let txSaveOut = null;
 let txScreen = null;
 let txAnimation = null;
 let txOverlayMap = null;
@@ -225,7 +224,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txtemp_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txBaseline_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores "baseline" wave height surface
     const txzeros = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores a zeros texture, for reseting textures to zero
-    txSaveOut = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // used for bindary output
     txScreen = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for jpg output
     txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for creating text & shapes on an HTML5 canvas
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
@@ -525,8 +523,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
     BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
     BoundaryPass_view.setFloat32(76, calc_constants.delta, true);           // f32 
-    BoundaryPass_view.setInt32(80, calc_constants.boundary_shift, true);           // f32 
+    BoundaryPass_view.setInt32(80, calc_constants.boundary_shift, true);           // i32 
     BoundaryPass_view.setFloat32(84, calc_constants.base_depth, true);           // f32 
+    BoundaryPass_view.setInt32(88, calc_constants.incident_wave_type, true);           // i32 
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -996,6 +995,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             BoundaryPass_view.setInt32(60, calc_constants.east_boundary_type, true);           // f32
             BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
             BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
+            BoundaryPass_view.setInt32(88, calc_constants.incident_wave_type, true);           // i32 
 
             if(calc_constants.OverlayUpdate == 1) {   // overlay image option has been changed, need to update.
                 calc_constants.OverlayUpdate = 0;
@@ -1436,9 +1436,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         calc_constants.elapsedTime = (now - startTime) / 1000;
         calc_constants.elapsedTime_update = (now - startTime_update) / 1000;
 
-        // Update the output texture
-        runCopyTextures(device, commandEncoder, calc_constants, txNewState, txSaveOut)
-
         // Call the function to display the constants in the index.html page
         calc_constants.clearConc = 0; // reset back to default value - no easier place to set this back.
         Pass3_view.setInt32(100, calc_constants.clearConc, true);           // i32
@@ -1500,7 +1497,72 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
         }
 
-        // write surface data to file
+        // write individual surface to file
+        if(calc_constants.write_individual_surface == 1){
+            if(calc_constants.which_surface_to_write == 0){  // free surface elevation
+                let filename = 'current_eta.bin';
+                downloadTextureData(device, txNewState, 1, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+             //   downloadGeoTiffData(device, txNewState, 1, calc_constants.dx, calc_constants.dy);  // current implemntation does not allow writing of float32, only uint8
+             //  can update to write an RGB geotiff, but that doesnt seem too useful
+
+            } else if(calc_constants.which_surface_to_write == 1){  // HU
+                let filename = 'current_HU.bin';
+                downloadTextureData(device, txNewState, 2, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 2){  // HV
+                let filename = 'current_HV.bin';
+                downloadTextureData(device, txNewState, 3, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 3){  // eddy viscosity
+                let filename = 'current_eddyvisc.bin';
+                downloadTextureData(device, txBreaking, 2, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 4){  // foam
+                let filename = 'current_tracer.bin';
+                downloadTextureData(device, txNewState, 4, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 5){  // Bathymetry/Topography
+                let filename = 'current_bathytopo.bin';
+                downloadTextureData(device, txBottom, 3, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 6){  // Bottom Friction Map 
+                let filename = 'current_friction.bin';
+                downloadTextureData(device, txBottomFriction, 1, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 7){  // Design Component Map
+                let filename = 'current_designcomponents.bin';
+                downloadTextureData(device, txDesignComponents, 1, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 8){  // RMS Wave Height
+                let filename = 'current_Hrms.bin';
+                downloadTextureData(device, txWaveHeight, 4, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 9){  // Significant Wave Height
+                let filename = 'current_Hs.bin';
+                downloadTextureData(device, txWaveHeight, 3, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 10){  // Max Free Surface Elev 
+                let filename = 'current_FSmax.bin';
+                downloadTextureData(device, txMeans, 4, filename); 
+
+            } else if(calc_constants.which_surface_to_write == 11){  // Mean Free Surface Elev 
+                let filename = 'current_FSmean.bin';
+                downloadTextureData(device, txMeans, 1, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 12){  // Mean Fluid Flux [E-W]
+                let filename = 'current_HUmean.bin';
+                downloadTextureData(device, txMeans, 2, filename);  
+
+            } else if(calc_constants.which_surface_to_write == 13){  // Mean Fluid Flux [N-S]
+                let filename = 'current_HVmean.bin';
+                downloadTextureData(device, txMeans, 3, filename);  
+            }   
+
+            calc_constants.write_individual_surface = 0;  // reset
+        }
+
+
+        // write surface data stack to file
         if(calc_constants.writesurfaces > 0 && calc_constants.simPause < 0){
             dt_since_last_write = dt_since_last_write + calc_constants.dt * calc_constants.render_step;
 
@@ -1952,8 +2014,6 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'dt_writesurface-button', input: 'dt_writesurface-input', property: 'dt_writesurface' },
     ];         
 
-    calc_constants.surfaceToChange == 1
-
     // Specify the inputs for the drop-down menus
     const button_dropdown_Actions = [
         { input: 'nlsw-select', property: 'NLSW_or_Bous' },
@@ -1982,6 +2042,8 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'write_P-select', property: 'write_P' },
         { input: 'write_Q-select', property: 'write_Q' },
         { input: 'write_turb-select', property: 'write_turb' },
+        { input: 'which_surface_to_write-select', property: 'which_surface_to_write' },
+        { input: 'incident_wave_type-select', property: 'incident_wave_type' },
     ];
 
     // Call the function for setting up listeners on dropdown menus
@@ -2229,13 +2291,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
-    // Download channel from txSaveOut Texture
-    document.getElementById('downloadWaveElev-button').addEventListener('click', function () {
-        let filename = 'current_FSE.bin';
-        downloadTextureData(device, txSaveOut, 1, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
-     //   downloadGeoTiffData(device, txSaveOut, 1, calc_constants.dx, calc_constants.dy);  // current implemntation does not allow writing of float32, only uint8
-     //  can update to write an RGB geotiff, but that doesnt seem too useful
+    // Download channel from specified texture
+    document.getElementById('downloadSingleSurface-button').addEventListener('click', function () {
+        calc_constants.write_individual_surface = 1;  // write surface to file
     });
+
 
     // Save 2D data to file START - start2Dwrite-button
     document.getElementById('start2Dwrite-button').addEventListener('click', function () {

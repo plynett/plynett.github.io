@@ -50,6 +50,7 @@ var calc_constants = {
     south_boundary_type: 0,  // Type of boundary condition at the south boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
     north_boundary_type: 0,  // Type of boundary condition at the north boundary. 0: solid wall, 1 :sponge layer, 2: waves loaded from file, created by spectrum_2D.
     BoundaryWidth: 20, //  number of grid points for sponge layer
+    incident_wave_type: -1, // 0 Sine Wave (single harmonic); 1 TMA Spectrum; 2 Transient Pulse (4 waves); 3 Solitary Wave; -1 Custom Spectum from loaded file; 5 Time Series from loaded file
 
     // generic wave parameters used mostly for debug
     amplitude: 0.0,
@@ -239,7 +240,10 @@ var calc_constants = {
     write_P: 0, // flag for writing x flux surface data to file, write when = 1
     write_Q: 0, // flag for writing y flux surface data to file, write when = 1
     write_turb: 0, // flag for writing eddy visc surface data to file, write when = 1
-    dt_writesurface: 1.0 // incrememnt to write to file    
+    dt_writesurface: 1.0, // incrememnt to write to file 
+    fileWritePause: 100, // time (ms) to pause during 2D surface write to not overload write buffer
+    write_individual_surface: 0, // flag to write individual 2D surface
+    which_surface_to_write: 0  // flag for which surface to write 
 
 };
 

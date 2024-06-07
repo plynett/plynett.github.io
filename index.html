@@ -1107,12 +1107,34 @@
                     <button id="download-button">Download Simulation Parameters JSON file</button>
                     <br />
                     <br />
-                    <!-- Download texture button-->
-                    <button id="downloadWaveElev-button">Download Current Wave Elevation Surface Data (binary) </button>
+                    <br />
+                    <html4f> Write Single 2D Surface Options: </html4f>
+                    <br />
+                    <!-- Updates go to calc_constants.surfaceToWrite-->
+                    <label for="which_surface_to_write-select">Property to Write to File:</label>
+                    <select id="which_surface_to_write-select" name="which_surface_to_writeValue">
+                        <option value="0">Free Surface Elevation (m)</option>
+                        <option value="1">X-Dir Fluid Flux [E-W] (m^2/s)</option>
+                        <option value="2">Y-Dir Fluid Flux [N-S] (m^2/s)</option>
+                        <option value="3">Turbulent Eddy Viscosity (m^2/s)</option>
+                        <option value="4">Foam / Tracer Concentration</option>
+                        <option value="5">Bathymetry/Topography (m)</option>
+                        <option value="6">Bottom Friction Map </option>
+                        <option value="7">Design Component Map </option>
+                        <option value="8">RMS Wave Height (m)</option>
+                        <option value="9">Significant Wave Height (m)</option>
+                        <option value="10">Max Free Surface Elev (m)</option>
+                        <option value="11">Mean Free Surface Elev (m)</option>
+                        <option value="12">Mean Fluid Flux [E-W] (m^2/s)</option>
+                        <option value="13">Mean Fluid Flux [N-S] (m^2/s)</option>
+                    </select>
+                    <br />
+                    <br />                    
+                    <button id="downloadSingleSurface-button">Download Single 2D Surface Data (binary) </button>
                     <br />
                     <br />
                     <br />
-                    <html4f> Write 2D Surface Data Options: </html4f>
+                    <html4f> Time Stacks of 2D Surface Data Write Options: </html4f>
                     <br />
                     <!-- Updates go to calc_constants.dt_writesurface-->
                     <label for="dt_writesurface-input">Time interval to write surface data (sec) :</label>
@@ -1158,8 +1180,10 @@
                     <html4f>
                     Click the button below to start the writing of 2D surface data to files.
                     Data will be written in raw binary for surface data, and ASCII for time and coordinate data.
-                    You can use this <a href="/scripts/load_WebGPUCeleris_output.m">example Matlab script</a> to see how to plot the data.   
-                    Note that writing data to files frequently will slow the simulation.  See the console for progress messages.
+                    You can use this <a href="/scripts/load_WebGPUCeleris_output.m">example Matlab script</a> to plot the data.   
+                    Note that writing data to files will slow the simulation, and will tend to make the 
+                    user interface sluggish; when writing data files frequently (>10 writes per wave period), no to minimal interaction with the simulation
+                    is recommended. See the console for progress messages.
                     </html4f>
                     <br />
                     <button id="start2Dwrite-button">Start Writing 2D Data to File</button>
