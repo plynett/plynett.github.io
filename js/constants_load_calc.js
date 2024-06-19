@@ -88,7 +88,7 @@ var calc_constants = {
     disturbanceRake: 0.0,
 
     // define which "Example" to run
-    run_example: 0, // index corresponding to examples below
+    run_example: -1, // index corresponding to examples below
     exampleDirs: [
         "./examples/Ventura/",
         "./examples/Santa_Cruz/",
@@ -123,7 +123,8 @@ var calc_constants = {
         "./examples/Toy_Config/",
         "./examples/Harrison_Lake/",
         "./examples/LA_River_Model/",
-        "./examples/Oceanside_CA/"
+        "./examples/Oceanside_CA/",
+        "./examples/Portage_Lake_AK/"
       ],
 
     // plotting parameters
@@ -346,7 +347,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Toy_Config/",
         "./examples/Harrison_Lake/",
         "./examples/LA_River_Model/",
-        "./examples/Oceanside_CA/"
+        "./examples/Oceanside_CA/",
+        "./examples/Portage_Lake_AK/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

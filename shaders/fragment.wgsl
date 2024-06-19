@@ -249,7 +249,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     var photorealistic = i32(0);  // globals.photorealistic
     
     let bottom = textureSample(bottomTexture, textureSampler, uv).b;
-    let waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
+    var waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
     let friction = textureSample(txBottomFriction, textureSampler, uv).r;  // friction
     let GoogleMap = textureSample(txOverlayMap, textureSampler, uv_mod).rgb;
     let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
@@ -334,6 +334,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = textureSample(txBottomFriction, textureSampler, uv).r; 
     } else if (surfaceToPlot == 16) {  // max free surface map
         render_surface = textureSample(txMeans, textureSampler, uv).a;  
+        waves = render_surface; // change to max so maxs are plotted everywhere, including high runup areas that are not currently wet
     } else if (surfaceToPlot == 17) {  // sed C1 concentration
         render_surface = textureSample(txNewState_Sed, textureSampler, uv).r / H; 
     } else if (surfaceToPlot == 18) {  // sed C1 erosion

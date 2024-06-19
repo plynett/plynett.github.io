@@ -286,7 +286,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     if(OverlayFile){
         console.log('Loading Uploaded Overlay File')
         calc_constants.GoogleMapOverlay = 2;
-    } else {
+    } else if(calc_constants.run_example>=0) {
         OverlayFile = await loadOverlay(calc_constants);
     }
 
@@ -2311,6 +2311,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
     document.getElementById('start-simulation-btn').addEventListener('click', function () {  // running with user loaded files
+        calc_constants.run_example = -1;  // reset back to no example (for case when loading files after running example)
         startSimulation(); 
         const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
         setTimeout(updateAllUIElements, delay);

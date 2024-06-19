@@ -249,7 +249,18 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
     }
 
     // Set text styles
-    ctx.font = '18px Arial';
+    if(calc_constants.WIDTH > 1000) {
+        ctx.font = '22px Arial';
+    } else if(calc_constants.WIDTH > 800) {
+        ctx.font = '20px Arial';
+    } else if(calc_constants.WIDTH > 600) {
+        ctx.font = '14px Arial';
+    } else if(calc_constants.WIDTH > 400) {
+        ctx.font = '12px Arial';
+    } else {
+        ctx.font = '10px Arial';
+    }
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -307,17 +318,35 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
     }
 
     // Add tick labels
-    ctx.font = '14px Arial';
+    if(calc_constants.WIDTH > 1000) {
+        ctx.font = '18px Arial';
+    } else if(calc_constants.WIDTH > 800) {
+        ctx.font = '16px Arial';
+    } else if(calc_constants.WIDTH > 600) {
+        ctx.font = '12px Arial';
+    } else if(calc_constants.WIDTH > 400) {
+        ctx.font = '10px Arial';
+    } else {
+        ctx.font = '8px Arial';
+    }
+
     ctx.textBaseline = 'top';
     let ticklabel_shift = 20;
 
     ctx.textAlign = 'left';
-    ctx.fillText(calc_constants.colorVal_min, lineStartX, lineStartY-tickMarkLength+ticklabel_shift);
+    let disp_val = calc_constants.colorVal_min;
+    ctx.fillText(disp_val.toFixed(2), lineStartX, lineStartY-tickMarkLength+ticklabel_shift);
+
     ctx.textAlign = 'center';
-    ctx.fillText(calc_constants.colorVal_min + (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1), lineStartX + tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
-    ctx.fillText(calc_constants.colorVal_min + (N_ticks-2) * (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1), lineStartX + (N_ticks-2) * tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
+    disp_val = calc_constants.colorVal_min + (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1);
+    ctx.fillText(disp_val.toFixed(2), lineStartX + tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
+    
+    disp_val = calc_constants.colorVal_min + (N_ticks-2) * (calc_constants.colorVal_max - calc_constants.colorVal_min)/(N_ticks-1);
+    ctx.fillText(disp_val.toFixed(2), lineStartX + (N_ticks-2) * tickInterval, lineStartY-tickMarkLength+ticklabel_shift);
+
     ctx.textAlign = 'right';
-    ctx.fillText(calc_constants.colorVal_max, lineStartX + lineLength, lineStartY-tickMarkLength+ticklabel_shift);
+    disp_val = calc_constants.colorVal_max;
+    ctx.fillText(disp_val.toFixed(2), lineStartX + lineLength, lineStartY-tickMarkLength+ticklabel_shift);
 
     // Upload the canvas content as a WebGPU texture
     const imageBitmap = await createImageBitmap(offscreenCanvas);
