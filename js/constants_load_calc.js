@@ -300,7 +300,7 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.one_over_d2y = calc_constants.one_over_dy * calc_constants.one_over_dy;
     calc_constants.one_over_d3y = calc_constants.one_over_d2y * calc_constants.one_over_dy;
     calc_constants.one_over_dxdy = calc_constants.one_over_dx * calc_constants.one_over_dy;
-    calc_constants.delta = Math.min(0.001,calc_constants.base_depth / 10000.0);
+    calc_constants.delta = Math.min(0.005,calc_constants.base_depth / 5000.0);
     calc_constants.epsilon = Math.pow(calc_constants.delta, 2);
     calc_constants.PI = Math.PI;
     calc_constants.boundary_epsilon = calc_constants.epsilon;
