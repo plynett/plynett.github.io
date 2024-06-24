@@ -173,7 +173,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var Psi1y = 0.0;
     var Psi2y = 0.0;
     
-    let d_here = globals.seaLevel - B_here;
+    let d_here = -B_here;
     if (near_dry > 0.)
     { // only proceed if not near an initially dry cell
         let d2_here = d_here * d_here;
@@ -197,30 +197,30 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let F_G_star_oldOldies = textureLoad(F_G_star_oldOldGradients, idx, 0).xyz;
 
     // Calculate d stencil
-        let d_left = globals.seaLevel - B_west;
-        let d_right = globals.seaLevel - B_east;
-        let d_down = globals.seaLevel - B_south;
-        let d_up = globals.seaLevel - B_north;
+        let d_left = -B_west;
+        let d_right = -B_east;
+        let d_down = -B_south;
+        let d_up = -B_north;
 
-        let d_left_left = max(0.0, globals.seaLevel - textureLoad(txBottom, leftleftIdx, 0).z);
-        let d_right_right = max(0.0, globals.seaLevel - textureLoad(txBottom, rightrightIdx, 0).z);
-        let d_down_down = max(0.0, globals.seaLevel - textureLoad(txBottom, downdownIdx, 0).z);
-        let d_up_up = max(0.0, globals.seaLevel - textureLoad(txBottom, upupIdx, 0).z);
+        let d_left_left = max(0.0, -textureLoad(txBottom, leftleftIdx, 0).z);
+        let d_right_right = max(0.0, -textureLoad(txBottom, rightrightIdx, 0).z);
+        let d_down_down = max(0.0, -textureLoad(txBottom, downdownIdx, 0).z);
+        let d_up_up = max(0.0, -textureLoad(txBottom, upupIdx, 0).z);
 
     // Calculate eta stencil
-        let eta_here = in_state_here.x - globals.seaLevel;
-        let eta_left = in_state_left.x - globals.seaLevel;
-        let eta_right = in_state_right.x - globals.seaLevel;
-        let eta_down = in_state_down.x - globals.seaLevel;
-        let eta_up = in_state_up.x - globals.seaLevel;
-        let eta_left_left = textureLoad(txState, leftleftIdx, 0).x - globals.seaLevel;
-        let eta_right_right = textureLoad(txState, rightrightIdx, 0).x - globals.seaLevel;
-        let eta_down_down = textureLoad(txState, downdownIdx, 0).x - globals.seaLevel;
-        let eta_up_up = textureLoad(txState, upupIdx, 0).x - globals.seaLevel;
-        let eta_up_left = in_state_up_left.x - globals.seaLevel;
-        let eta_up_right = in_state_up_right.x - globals.seaLevel;
-        let eta_down_left = in_state_down_left.x - globals.seaLevel;
-        let eta_down_right = in_state_down_right.x - globals.seaLevel;
+        let eta_here = in_state_here.x;
+        let eta_left = in_state_left.x;
+        let eta_right = in_state_right.x;
+        let eta_down = in_state_down.x;
+        let eta_up = in_state_up.x;
+        let eta_left_left = textureLoad(txState, leftleftIdx, 0).x;
+        let eta_right_right = textureLoad(txState, rightrightIdx, 0).x;
+        let eta_down_down = textureLoad(txState, downdownIdx, 0).x;
+        let eta_up_up = textureLoad(txState, upupIdx, 0).x;
+        let eta_up_left = in_state_up_left.x;
+        let eta_up_right = in_state_up_right.x;
+        let eta_down_left = in_state_down_left.x;
+        let eta_down_right = in_state_down_right.x;
 
     // replace with 4th order when dispersion is included
         let detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right + eta_right_right) * globals.one_over_dx;

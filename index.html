@@ -696,7 +696,8 @@
                     <select id="west_boundary_type-select" name="west_boundary_typeValue">
                         <option value="0">Solid Wall</option>
                         <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
+                        <option value="2">Incident Waves</option>
+                        <option value="3">Periodic Boundary</option>
                     </select>
                     <br />
                     <br />
@@ -706,7 +707,8 @@
                     <select id="east_boundary_type-select" name="east_boundary_typeValue">
                         <option value="0">Solid Wall</option>
                         <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
+                        <option value="2">Incident Waves</option>
+                        <option value="3">Periodic Boundary</option>
                     </select>
                     <br />
                     <br />
@@ -716,7 +718,8 @@
                     <select id="south_boundary_type-select" name="south_boundary_typeValue">
                         <option value="0">Solid Wall</option>
                         <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
+                        <option value="2">Incident Waves</option>
+                        <option value="3">Periodic Boundary</option>
                     </select>
                     <br />
                     <br />
@@ -726,7 +729,8 @@
                     <select id="north_boundary_type-select" name="north_boundary_typeValue">
                         <option value="0">Solid Wall</option>
                         <option value="1">Sponge Layer</option>
-                        <option value="2">Incoming Waves</option>
+                        <option value="2">Incident Waves</option>
+                        <option value="3">Periodic Boundary</option>
                     </select>
                     <br />
                     <br />
@@ -838,7 +842,7 @@
                     <br />
 
                     <!-- Updates go to calc_constants.disturbanceCrestamp-->
-                    <label for="disturbanceCrestamp-input">Crest Amplitude / Earthquake Slip / Average Slide Thickness (m):</label>
+                    <label for="disturbanceCrestamp-input">Crest Amplitude / Earthquake Slip / Max Slide Thickness (m):</label>
                     <br />
                     <input type="number" id="disturbanceCrestamp-input" name="disturbanceCrestampValue">
                     <button id="disturbanceCrestamp-button" type="button">Update</button>
@@ -854,7 +858,7 @@
                     <br />       
  
                     <!-- Updates go to calc_constants.disturbanceWidth-->
-                    <label for="disturbanceWidth-input">Width of Source (m, not used for Solitary Wave):</label>
+                    <label for="disturbanceWidth-input">Characteristic Width of Source (m, not used for Solitary Wave):</label>
                     <br />
                     <input type="number" id="disturbanceWidth-input" name="disturbanceWidthValue">
                     <button id="disturbanceWidth-button" type="button">Update</button>
@@ -862,7 +866,7 @@
                     <br />       
  
                     <!-- Updates go to calc_constants.disturbanceLength-->
-                    <label for="disturbanceLength-input">Length of Source (m, not used for Solitary Wave):</label>
+                    <label for="disturbanceLength-input">Characteristic Length of Source (m, not used for Solitary Wave):</label>
                     <br />
                     <input type="number" id="disturbanceLength-input" name="disturbanceLengthValue">
                     <button id="disturbanceLength-button" type="button">Update</button>
@@ -882,6 +886,12 @@
                     <br />
                     <input type="number" id="disturbanceDip-input" name="disturbanceDipValue">
                     <button id="disturbanceDip-button" type="button">Update</button>
+                    <br />
+                    <br />    
+                    
+                    <div id="slidevolume-container" class="flex-container">
+                        <!-- Constants will be dynamically filled in by JavaScript -->
+                    </div>
                     <br />
                     <br />    
 

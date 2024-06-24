@@ -119,6 +119,28 @@ export function displayTimeSeriesLocations(calc_constants) {
     }
 }
 
+export function displaySlideVolume(calc_constants) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => displaySlideVolume(calc_constants));
+        return;
+    }
+
+    const container = document.getElementById('slidevolume-container');
+    if (!container) {
+        console.error("Constants container not found in the DOM.");
+        return;
+    }
+
+    container.innerHTML = ''; // Clear previous contents
+
+    if(calc_constants.disturbanceType == 4) {
+        let slide_vol = calc_constants.disturbanceCrestamp * calc_constants.disturbanceWidth * calc_constants.disturbanceLength / 1000000.0;
+        
+        const slideInfo = `Displaced Water Volume (Mm^3) from Subaerial Slide: ${slide_vol}<br>`;
+        container.innerHTML += slideInfo; // Append location info directly with line breaks
+    }
+}
+
 export function ConsoleLogRedirection() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', ConsoleLogRedirection);
@@ -181,6 +203,8 @@ function addBoundaryDescription(direction, boundaryType, container) {
         boundaryDescription = `${direction} Boundary: Sponge Layer`;
     } else if (boundaryType == 2) {
         boundaryDescription = `${direction} Boundary: Incoming Wave`;
+    } else if (boundaryType == 3) {
+        boundaryDescription = `${direction} Boundary: Periodic Boundary`;
     }
 
     // Use the utility function to add the text to the container

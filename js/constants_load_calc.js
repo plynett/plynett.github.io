@@ -31,7 +31,7 @@ var calc_constants = {
 
     // Physical parameters
     g: 9.80665,  // Gravitational constant.
-    seaLevel: 0.0,  // Water level shift from given datum.
+    seaLevel: 0.0,  // Water level shift from given datum - depreciated - no longer used
     base_depth: 20.0,  // characteristic_depth (m), used to estimate time step, use depth in area of wave generation, or expected largest depth in domain.
     Theta: 2.0,  // Midmod limiter parameter. 1.0 most dissipative(upwind) to 2.0 least dissipative(centered).
     friction: 0.000,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
@@ -52,12 +52,17 @@ var calc_constants = {
     BoundaryWidth: 20, //  number of grid points for sponge layer
     incident_wave_type: -1, // 0 Sine Wave (single harmonic); 1 TMA Spectrum; 2 Transient Pulse (4 waves); 3 Solitary Wave; -1 Custom Spectum from loaded file; 5 Time Series from loaded file
 
-    // generic wave parameters used mostly for debug
+    // generic wave parameters used for debug 
     amplitude: 0.0,
     period: 10.0,
     direction: 0.0,
     rand_phase: 0.0,
-    numberOfWaves: 0,
+
+    // incident wave properties
+    incident_wave_H: 0,  // Height (m) of Sine Wave / Pulse / Solitary Wave, or Significant Wave Height of Spectrum
+    incident_wave_T: 0,  //Period (sec) of Sine Wave / Pulse, or Peak Period of Spectrum [not used for Solitary Wave]
+    incident_wave_direction: 0,  // Wave Direction (deg CCW from E [-180 to 180])
+    numberOfWaves: 0, // number of wave components to be created
 
     // Vessel motion parameters (initial development)
     ship_posx: -100.0,  // initial ship position, if initially inside domain, the initial free surface must include the ship displacement 
@@ -88,7 +93,7 @@ var calc_constants = {
     disturbanceRake: 0.0,
 
     // define which "Example" to run
-    run_example: -1, // index corresponding to examples below
+    run_example: 0, // index corresponding to examples below
     exampleDirs: [
         "./examples/Ventura/",
         "./examples/Santa_Cruz/",

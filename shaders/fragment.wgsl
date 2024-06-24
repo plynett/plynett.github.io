@@ -80,7 +80,7 @@ fn calculateChangeEta(x_global: f32, y_global: f32, dx: f32, amplitude: f32, the
 
         // Loop through wavelengths
         for (var j: f32 = 0.2; j <= 1.0; j = j + 0.2) {
-            let wavelength: f32 = 10.*dx * j;
+            let wavelength: f32 = 10.*min(dx,2.0) * j;
             let k: f32 = 2.0 * pi / wavelength; // Wave number
             let w: f32 = pow(9.81 * k, 0.5);
 

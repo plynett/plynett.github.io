@@ -26,7 +26,7 @@ import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_Bind
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
-import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
+import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, displaySlideVolume, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
@@ -291,7 +291,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     if (calc_constants.GoogleMapOverlay == 2) {  // if there is a loaded overlay file
-        calc_constants.GoogleMapOverlay == 2;
 
         const satimData = await loadUserImage(OverlayFile);
         console.log('Custom overlay image loaded, dimensions:', satimData.width, 'x', satimData.height);
@@ -526,6 +525,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setInt32(80, calc_constants.boundary_shift, true);           // i32 
     BoundaryPass_view.setFloat32(84, calc_constants.base_depth, true);           // f32 
     BoundaryPass_view.setInt32(88, calc_constants.incident_wave_type, true);           // i32 
+    BoundaryPass_view.setFloat32(92, calc_constants.incident_wave_H, true);           // f32 
+    BoundaryPass_view.setFloat32(96, calc_constants.incident_wave_T, true);           // f32 
+    BoundaryPass_view.setFloat32(100, calc_constants.incident_wave_direction, true);           // f32 
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -989,6 +991,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 runCopyTextures(device, commandEncoder, calc_constants, txzeros, txContSource)
             }
 
+            // make sure periodic conditions are always a pair
+            if(calc_constants.west_boundary_type == 3 || calc_constants.east_boundary_type == 3){
+                calc_constants.west_boundary_type = 3;
+                calc_constants.east_boundary_type = 3; 
+            }
+            if(calc_constants.south_boundary_type == 3 || calc_constants.north_boundary_type == 3){
+                calc_constants.south_boundary_type = 3;
+                calc_constants.north_boundary_type = 3; 
+            }
             BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
             BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
             BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // f32
@@ -996,6 +1007,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
             BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
             BoundaryPass_view.setInt32(88, calc_constants.incident_wave_type, true);           // i32 
+            BoundaryPass_view.setFloat32(92, calc_constants.incident_wave_H, true);           // f32 
+            BoundaryPass_view.setFloat32(96, calc_constants.incident_wave_T, true);           // f32 
+            BoundaryPass_view.setFloat32(100, calc_constants.incident_wave_direction, true);           // f32 
 
             if(calc_constants.OverlayUpdate == 1) {   // overlay image option has been changed, need to update.
                 calc_constants.OverlayUpdate = 0;
@@ -1443,6 +1457,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         displayCalcConstants(calc_constants, total_time_since_http_update);
         displaySimStatus(calc_constants, total_time, total_time_since_http_update);
         displayTimeSeriesLocations(calc_constants);
+        displaySlideVolume(calc_constants);
 
         // create Animated Gif or jpg stack
         let nframes = 80;
@@ -2012,6 +2027,9 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'designcomponent_Fric_Seawall-button', input: 'designcomponent_Fric_Seawall-input', property: 'designcomponent_Fric_Seawall' },
         { id: 'changeSeaLevel-button', input: 'changeSeaLevel-input', property: 'changeSeaLevel' },
         { id: 'dt_writesurface-button', input: 'dt_writesurface-input', property: 'dt_writesurface' },
+        { id: 'incident_wave_H-button', input: 'incident_wave_H-input', property: 'incident_wave_H' },
+        { id: 'incident_wave_T-button', input: 'incident_wave_T-input', property: 'incident_wave_T' },
+        { id: 'incident_wave_direction-button', input: 'incident_wave_direction-input', property: 'incident_wave_direction' },
     ];         
 
     // Specify the inputs for the drop-down menus

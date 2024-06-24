@@ -22,6 +22,9 @@ struct Globals {
     boundary_shift: i32,
     base_depth: f32,
     incident_wave_type: i32,
+    incident_wave_H: f32,
+    incident_wave_T: f32,
+    incident_wave_direction: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -89,7 +92,7 @@ fn calc_wavenumber_approx(omega: f32, d: f32) -> f32 {
 fn SolitaryWave(idx: vec2<i32>, x0: f32, y0: f32, theta: f32) -> vec4<f32> {
 
     let B_here = -globals.base_depth; //textureLoad(txBottom, idx, 0).b;
-    let d = max(0.0, globals.seaLevel - B_here);
+    let d = max(0.0, -B_here);
     let x = f32(idx.x) * globals.dx;
     let y = f32(idx.y) * globals.dy;
     let t = globals.total_time;
@@ -127,7 +130,7 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
 
 fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
     let B_here = -globals.base_depth; //textureLoad(txBottom, idx, 0).b;
-    let d_here = max(0.0, globals.seaLevel - B_here);
+    let d_here = max(0.0, -B_here);
     let x = f32(idx.x) * globals.dx;
     let y = f32(idx.y) * globals.dy;
     var result: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
@@ -275,6 +278,39 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             BCState_Sed = zero;
         }
     }
+
+    // Periodic boundary conditions
+    // west boundary
+    if (globals.west_boundary_type == 3 && idx.x <= 2) {
+        let idx_east = vec2<i32>(globals.width - (6 - idx.x), idx.y);
+        BCState = textureLoad(txState, idx_east, 0);
+    }
+
+    // east boundary
+    if (globals.east_boundary_type == 3 && idx.x >= globals.width - 3) {
+        let idx_west = vec2<i32>(idx.x + 6 - globals.width, idx.y);
+        BCState = textureLoad(txState, idx_west, 0);
+    }  
+
+    // south boundary
+    if (globals.south_boundary_type == 3 && idx.y <= 2) {
+        let idx_north = vec2<i32>(idx.x, globals.height - (6 - idx.y));
+        if (idx.y <= 1) {
+            BCState = textureLoad(txState, idx_north, 0);
+        } else {
+            BCState.z = textureLoad(txState, idx_north, 0).z;
+        }        
+    }
+
+    // north boundary
+    if (globals.north_boundary_type == 3 && idx.y >= globals.height - 3) {
+        let idx_south = vec2<i32>(idx.x, idx.y + 6 - globals.height);
+        if (idx.y >= globals.height - 2) {
+            BCState = textureLoad(txState, idx_south, 0);
+        } else {
+            BCState.z = textureLoad(txState, idx_south, 0).z;
+        }
+    }  
 
     let leftIdx = idx + vec2<i32>(-1, 0);
     let rightIdx = idx + vec2<i32>(1, 0);
