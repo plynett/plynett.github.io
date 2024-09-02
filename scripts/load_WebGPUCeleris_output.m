@@ -11,7 +11,7 @@ x = [0:1:nx-1] * dx;
 y = [0:1:ny-1]' * dy;
 
 % Specify number of time steps to plot
-nt = 496;  % need to change manually right now
+nt = 496;  % need to change manually
 
 % load bathy/topo [m]
 fid = fopen('bathytopo.bin', 'r');

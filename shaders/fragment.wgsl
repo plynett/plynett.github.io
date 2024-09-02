@@ -450,7 +450,9 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         // Combine components
         light_effects = ambient + diffuse + specular;
 
-        //Vorticity
+        //Vorticity, this is used to color the water brownish, as a proxy for a vorticity induced sediment plume
+        //one issue is that along the center of the vorticity field, there is a line of zero vorticity, where vort goes from + -> -
+        // the fix for this would be to smooth or find the local max vorticity, but less like overkill right now.
         var uv_vort = uv;
         // up
         uv_vort.y = uv_vort.y + 1/f32(globals.HEIGHT);

@@ -1132,7 +1132,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 Render_view.setFloat32(60, calc_constants.shift_x, true);          // f32  
                 Render_view.setFloat32(64, calc_constants.shift_y, true);          // f32  
                 Render_view.setFloat32(68, calc_constants.forward, true);          // f32  
-                console.log("Updating view in Explorer Mode" )
+            //    console.log("Updating view in Explorer Mode" )
             }
             
             Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
@@ -1710,7 +1710,7 @@ document.addEventListener('DOMContentLoaded', function () {
         calc_constants.yClick = calc_constants.HEIGHT - (event.clientY - rect.top) * scaleY;
         calc_constants.click_update = 1;
 
-        console.log("Canvas clicked/moved at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
+    //    console.log("Canvas clicked/moved at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
     }
 
     // Event listener for mousedown - start of the hold
