@@ -223,8 +223,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let eta_down_right = in_state_down_right.x;
 
     // replace with 4th order when dispersion is included
-        let detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right + eta_right_right) * globals.one_over_dx;
-        let detady = 1.0 / 12.0 * (eta_down_down - 8.0 * eta_down + 8.0 * eta_up + eta_up_up) * globals.one_over_dy;
+        let detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right - eta_right_right) * globals.one_over_dx;
+        let detady = 1.0 / 12.0 * (eta_down_down - 8.0 * eta_down + 8.0 * eta_up - eta_up_up) * globals.one_over_dy;
 
         let v_up = in_state_up.z;
         let v_down = in_state_down.z;
