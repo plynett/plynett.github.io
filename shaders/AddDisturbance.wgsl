@@ -62,6 +62,32 @@ fn landslide_subaerial(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom:
     return vec4(eta, P, Q, 0.0);
 }
 
+fn landslide_submerged(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom: f32, width: f32, length: f32) -> vec4<f32> {
+    let kL = sqrt(3.1415) / length;
+    let kW = sqrt(3.1415) / width;
+
+    let sin_c = sin(angle);
+    let cos_c = cos(angle);
+
+    let xc = xloc * cos_c + yloc * sin_c;
+    let x_sin = xloc * sin_c;
+    let y_cos = yloc * cos_c;
+    let yc = sqrt( x_sin * x_sin + y_cos * y_cos);
+
+    // Modified eta for dipole initial condition
+    var eta = thickness * (2.0 * xc * kL ) * exp(- ( xc * xc * kL * kL )) * exp(- ( yc * yc * kW * kW ));
+    let h = max(1.e-5, (eta - bottom));
+    let P = 0.;
+    let Q = 0.;
+
+    if(bottom > 0.0){
+        eta = max(0.0, eta - bottom);  // Adjust eta for dry areas
+    }
+
+    return vec4(eta, P, Q, 0.0);
+}
+
+
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -98,7 +124,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let angle = globals.disturbanceDir * 3.1415 / 180.;
         let width = globals.disturbanceWidth;
         let length = globals.disturbanceLength;
-   //     disturbance = landslide_submerged(xloc, yloc, thickness, angle, bottom, width, length);
+        disturbance = landslide_submerged(xloc, yloc, thickness, angle, bottom, width, length);
 
     } else if (globals.disturbanceType == 4) {   // subaerial landslide
         let thickness = globals.disturbanceCrestamp;
