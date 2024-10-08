@@ -55,7 +55,7 @@
     "disturbanceLength": 5000,
     "disturbanceDip": 0,
     "disturbanceRake": 0,
-    "run_example": -1,
+    "run_example": 35,
     "exampleDirs": [
         "./examples/Ventura/",
         "./examples/Santa_Cruz/",
@@ -91,7 +91,8 @@
         "./examples/Harrison_Lake/",
         "./examples/LA_River_Model/",
         "./examples/Oceanside_CA/",
-        "./examples/Portage_Lake_AK/"
+        "./examples/Portage_Lake_AK/",
+        "./examples/Greenland_Umanak/"
     ],
     "colorVal_max": 30,
     "colorVal_min": -30,
