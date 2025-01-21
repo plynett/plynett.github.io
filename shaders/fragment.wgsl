@@ -108,6 +108,16 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     var colorMap: array<vec3<f32>, 16>;
     let colorMap_choice = globals.colorMap_choice;
 
+    // grid size ratio, for irregular grids
+    let grid_ratio = globals.dx / globals.dy;
+    var grid_ratio_x = 1.0;
+    var grid_ratio_y = 1.0;
+    if (grid_ratio < 1.0) {
+        grid_ratio_x = grid_ratio;
+    } else {
+        grid_ratio_y = 1.0 / grid_ratio;
+    }
+
     // scale the image coordinates to the domain coordinates
     var uv_mod = uv;
     uv_mod.x = uv.x * globals.scaleX + globals.offsetX;
@@ -699,8 +709,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     for (var i: i32 = 0; i < globals.NumberOfTimeSeries; i = i + 1) {  // cycle through all time series
         let idx = vec2<i32>(i + 1, 0);
         let ts_location = textureLoad(txTimeSeries_Locations, idx, 0).xy;
-        let uv_tsx_diff = uv.x - ts_location.x / f32(globals.WIDTH);
-        let uv_tsy_diff = (uv.y - ts_location.y / f32(globals.HEIGHT)) * f32(globals.HEIGHT) / f32(globals.WIDTH);
+        let uv_tsx_diff = (uv.x - ts_location.x / f32(globals.WIDTH)) / grid_ratio_y;
+        let uv_tsy_diff = (uv.y - ts_location.y / f32(globals.HEIGHT)) * f32(globals.HEIGHT) / f32(globals.WIDTH) / grid_ratio_x;
         let uv_dist = sqrt(uv_tsx_diff * uv_tsx_diff + uv_tsy_diff * uv_tsy_diff);
         if (uv_dist <= 0.005){
             color_rgb = ts_colors[i];
@@ -714,7 +724,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     if (globals.CB_show == 1  && (photorealistic == 0  || uv.y > 0.8) ) {
         let colorbar_LL = vec2<f32>(globals.CB_xstart_uv, 0.0);
         let colorbar_width = globals.CB_width_uv;
-        let colorbar_height = f32(globals.CB_ystart + 20) / f32(globals.HEIGHT); // 20 pixels above tick marks
+        let colorbar_height = f32(globals.CB_ystart + 20) / f32(globals.HEIGHT) * grid_ratio; // 20 pixels above tick marks
         let colorbar_UR = vec2<f32>(colorbar_LL.x + colorbar_width, colorbar_LL.y + colorbar_height);
         let colorbar_buffer =  vec4<f32>(globals.CB_xbuffer_uv, globals.CB_xbuffer_uv, colorbar_LL.y, 0.5*globals.CB_xbuffer_uv);
 

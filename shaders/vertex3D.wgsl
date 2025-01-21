@@ -44,17 +44,27 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
     let position = positions[in_vertex_index];
     out.uv = position * 0.5 + 0.5;
 
+    // grid size ratio, for irregular grids
+    let grid_ratio = globals.dx / globals.dy;
+    var grid_ratio_x = 1.0;
+    var grid_ratio_y = 1.0;
+    if (grid_ratio > 1.0) {
+        grid_ratio_x = grid_ratio;
+    } else {
+        grid_ratio_y = 1.0 / grid_ratio;
+    }
+
     // Load the elevation value from the texture
-    let texelX = i32((position.x * 0.5 + 0.5) * f32(globals.WIDTH));
-    let texelY = i32((position.y * 0.5 + 0.5) * f32(globals.HEIGHT));
+    let texelX = i32((position.x * 0.5 + 0.5) * f32(globals.WIDTH)*grid_ratio_x);
+    let texelY = i32((position.y * 0.5 + 0.5) * f32(globals.HEIGHT)*grid_ratio_y);
     let texelCoords = vec2<i32>(texelX, texelY);
     let elevation = textureLoad(etaTexture, texelCoords, 0).r;  // 0 is the mipmap level
 
     // Convert NDC to pixel coordinates centered at the image
-    let pixelX = (position.x + 1.0) * 0.5 * f32(globals.WIDTH);
-    let pixelY = (position.y + 1.0) * 0.5 * f32(globals.HEIGHT);
-    let centerX = f32(globals.WIDTH) / 2.0;
-    let centerY = f32(globals.HEIGHT) / 2.0;
+    let pixelX = (position.x + 1.0) * 0.5 * f32(globals.WIDTH)*grid_ratio_x;
+    let pixelY = (position.y + 1.0) * 0.5 * f32(globals.HEIGHT)*grid_ratio_y;
+    let centerX = f32(globals.WIDTH) / 2.0 * grid_ratio_x;
+    let centerY = f32(globals.HEIGHT) / 2.0 * grid_ratio_y;
     let centeredX = pixelX - centerX;
     let centeredY = pixelY - centerY;
 
@@ -68,8 +78,8 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
     let rotatedY = sinAngle * centeredX + cosAngle * centeredY;
 
     // Normalize rotated coordinates based on the canvas size
-    let normalizedX = globals.forward*((rotatedX + centerX) / f32(globals.WIDTH) * 2.0 - 1.0 + globals.shift_x)*globals.canvas_width_ratio;
-    let normalizedY = globals.forward*((rotatedY + centerY) / f32(globals.HEIGHT) * 2.0 - 1.0 + globals.shift_y)*globals.canvas_height_ratio;
+    let normalizedX = globals.forward*((rotatedX + centerX) / f32(globals.WIDTH) / grid_ratio_x * 2.0 - 1.0 + globals.shift_x)*globals.canvas_width_ratio;
+    let normalizedY = globals.forward*((rotatedY + centerY) / f32(globals.HEIGHT) / grid_ratio_y * 2.0 - 1.0 + globals.shift_y)*globals.canvas_height_ratio;
 
     out.clip_position = vec4<f32>(normalizedX, normalizedY, 0.0, 1.0);
     return out;

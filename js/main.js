@@ -468,6 +468,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setFloat32(116, calc_constants.infiltrationRate, true);           // f32
     Pass3_view.setInt32(120, calc_constants.useBreakingModel, true);           // i32
     Pass3_view.setInt32(124, calc_constants.showBreaking, true);           // i32
+    Pass3_view.setInt32(128, calc_constants.west_boundary_type, true);       // i32
+    Pass3_view.setInt32(132, calc_constants.east_boundary_type, true);           // i32
+    Pass3_view.setInt32(136, calc_constants.south_boundary_type, true);           // i32
+    Pass3_view.setInt32(140, calc_constants.north_boundary_type, true);       // i32
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
@@ -498,8 +502,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
-    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed);
-    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed);
+    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking);
+    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking);
     const BoundaryPass_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
     BoundaryPass_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -508,18 +512,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setFloat32(12, calc_constants.dx, true);       // f32
     BoundaryPass_view.setFloat32(16, calc_constants.dy, true);           // f32
     BoundaryPass_view.setFloat32(20, 0, true);           // f32
-    BoundaryPass_view.setInt32(24, calc_constants.reflect_x, true);       // f32
-    BoundaryPass_view.setInt32(28, calc_constants.reflect_y, true);           // f32
+    BoundaryPass_view.setInt32(24, calc_constants.reflect_x, true);       // i32
+    BoundaryPass_view.setInt32(28, calc_constants.reflect_y, true);           // i32
     BoundaryPass_view.setFloat32(32, calc_constants.PI, true);           // f32
-    BoundaryPass_view.setInt32(36, calc_constants.BoundaryWidth, true);       // f32
+    BoundaryPass_view.setInt32(36, calc_constants.BoundaryWidth, true);       // i32
     BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
-    BoundaryPass_view.setInt32(44, calc_constants.boundary_nx, true);           // f32
-    BoundaryPass_view.setInt32(48, calc_constants.boundary_ny, true);           // f32
-    BoundaryPass_view.setInt32(52, calc_constants.numberOfWaves, true);             // f32
-    BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // f32
-    BoundaryPass_view.setInt32(60, calc_constants.east_boundary_type, true);           // f32
-    BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
-    BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // f32
+    BoundaryPass_view.setInt32(44, calc_constants.boundary_nx, true);           // i32
+    BoundaryPass_view.setInt32(48, calc_constants.boundary_ny, true);           // i32
+    BoundaryPass_view.setInt32(52, calc_constants.numberOfWaves, true);             // i32
+    BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // i32
+    BoundaryPass_view.setInt32(60, calc_constants.east_boundary_type, true);           // i32
+    BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // i32
+    BoundaryPass_view.setInt32(68, calc_constants.north_boundary_type, true);       // i32
     BoundaryPass_view.setFloat32(72, calc_constants.boundary_g, true);           // f32
     BoundaryPass_view.setFloat32(76, calc_constants.delta, true);           // f32 
     BoundaryPass_view.setInt32(80, calc_constants.boundary_shift, true);           // i32 
@@ -940,7 +944,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // update simulation parameters in buffers if they have been changed by user through html
         if (calc_constants.html_update > 0) {
 
-            calc_constants.dt = calc_constants.Courant_num * calc_constants.dx / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+            calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
             calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
             calc_constants.render_step = Math.round(calc_constants.render_step);
 
@@ -1009,7 +1013,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             BoundaryPass_view.setInt32(88, calc_constants.incident_wave_type, true);           // i32 
             BoundaryPass_view.setFloat32(92, calc_constants.incident_wave_H, true);           // f32 
             BoundaryPass_view.setFloat32(96, calc_constants.incident_wave_T, true);           // f32 
-            BoundaryPass_view.setFloat32(100, calc_constants.incident_wave_direction, true);           // f32 
+            BoundaryPass_view.setFloat32(100, calc_constants.incident_wave_direction, true);   
+            
+            Pass3_view.setInt32(128, calc_constants.west_boundary_type, true);       // i32
+            Pass3_view.setInt32(132, calc_constants.east_boundary_type, true);           // i32
+            Pass3_view.setInt32(136, calc_constants.south_boundary_type, true);           // i32
+            Pass3_view.setInt32(140, calc_constants.north_boundary_type, true);       // i32// f32 
 
             if(calc_constants.OverlayUpdate == 1) {   // overlay image option has been changed, need to update.
                 calc_constants.OverlayUpdate = 0;
@@ -1050,6 +1059,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setFloat32(28, calc_constants.GMscaleY, true);          // f32
             Render_view.setFloat32(32, calc_constants.GMoffsetX, true);          // f32
             Render_view.setFloat32(36, calc_constants.GMoffsetY, true);          // f32
+            Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
+            Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
             Render_view.setInt32(112, calc_constants.NumberOfTimeSeries, true);             // i32  
             Render_view.setFloat32(136, calc_constants.designcomponent_Fric_Coral, true);          // f32 
             Render_view.setFloat32(140, calc_constants.designcomponent_Fric_Oyser, true);          // f32 
@@ -1135,9 +1146,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             //    console.log("Updating view in Explorer Mode" )
             }
             
-            Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
-            Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
-
             calc_constants.click_update = -1;
         }
         
@@ -1216,8 +1224,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // BoundaryPass
                 BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
                 runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                // updated texture is stored in txtemp_boundary, but back into current_stateUVstar
+                // updated texture is stored in txtemp_boundary, but back into current_stateUVstar.  Same with breaking values (mainly for periodic conditions)
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
                 if(calc_constants.useSedTransModel == 1){
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
                 }   
@@ -1288,6 +1297,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     // updated texture is stored in txtemp, but back into current_stateUVstar
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
                     if(calc_constants.useSedTransModel == 1){
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
                     }                    
@@ -1383,6 +1393,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         RenderPass.setPipeline(RenderPipeline);
         RenderPass.setBindGroup(0, RenderBindGroup);
 
+        let grid_ratio = calc_constants.dx / calc_constants.dy;
         if (calc_constants.viewType == 1)
         {
             // Render QUAD
@@ -1391,7 +1402,31 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             RenderPass.draw(4);  // Draw the quad 
         }
         else if (calc_constants.viewType == 2)
-        {
+        {  
+            const window_width = canvas.width;
+            const window_height = canvas.height;
+
+            if (grid_ratio <= 1.0) {
+                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT/grid_ratio) ){
+                    calc_constants.canvas_width_ratio = 1.0;
+                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
+                } else {
+                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width; 
+                    calc_constants.canvas_height_ratio = 1.0; 
+                } 
+            }
+            else {
+                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT*grid_ratio) ){
+                    calc_constants.canvas_width_ratio = 1.0;
+                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width); 
+                } else {
+                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width; 
+                    calc_constants.canvas_height_ratio = 1.0; 
+                } 
+            }
+
+            calc_constants.html_update = 1;  // update the html page with the new values
+            
             // Render Vertex grid
             RenderPass.setVertexBuffer(0, gridVertexBuffer);
             // Issue draw command to draw
@@ -2101,29 +2136,49 @@ document.addEventListener('DOMContentLoaded', function () {
     const fullscreenButton = document.getElementById('fullscreen-button');
     // Function to adjust canvas size
     function resizeCanvas() {
+        
+        let grid_ratio = calc_constants.dx / calc_constants.dy;
         if (document.fullscreenElement) {
             const window_width = window.innerWidth;
             const window_height = window.innerHeight;
 
-            if(calc_constants.WIDTH >= calc_constants.HEIGHT){
-                calc_constants.canvas_width_ratio = 1.0;
-                calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*window_height/window_width); 
-            } else {
-                calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*window_height/window_width; 
-                calc_constants.canvas_height_ratio = 1.0; 
-            } 
+            if (grid_ratio <= 1.0) {
+                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT/grid_ratio) ){
+                    calc_constants.canvas_width_ratio = 1.0;
+                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
+                } else {
+                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width; 
+                    calc_constants.canvas_height_ratio = 1.0; 
+                } 
+            }
+            else {
+                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT*grid_ratio) ){
+                    calc_constants.canvas_width_ratio = 1.0;
+                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width); 
+                } else {
+                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width; 
+                    calc_constants.canvas_height_ratio = 1.0; 
+                } 
+            }
 
             canvas.width = window_width;
             canvas.height = window_height;
         } else {
             // Set canvas size back to normal when exiting full screen
-            canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // widht needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
-            canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
-            calc_constants.canvas_width_ratio = 1.0; 
-            calc_constants.canvas_height_ratio = 1.0; 
+            if (grid_ratio >= 1.0) {
+                canvas.width = Math.ceil(calc_constants.WIDTH/64*grid_ratio)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+                canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH / grid_ratio);
+                calc_constants.canvas_width_ratio = 1/grid_ratio;
+                calc_constants.canvas_height_ratio = 1.0; 
+            }
+            else {
+                canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+                canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH / grid_ratio);
+                calc_constants.canvas_width_ratio = grid_ratio;
+                calc_constants.canvas_height_ratio = 1.0; 
+            }
         }
     }
-
 
     // function to minimize and expand the user input containers
     const windows = document.querySelectorAll('.window-content');

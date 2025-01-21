@@ -36,6 +36,9 @@ struct Globals {
 @group(0) @binding(5) var txNewState: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(6) var txNewState_Sed: texture_storage_2d<rgba32float, write>;
 
+@group(0) @binding(7) var txBreaking: texture_2d<f32>;
+@group(0) @binding(8) var txtemp_Breaking: texture_storage_2d<rgba32float, write>;
+
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let real_idx = vec2<i32>(globals.boundary_shift  - idx.x, idx.y); 
     let in_state_real = textureLoad(txState, real_idx, 0);
@@ -152,6 +155,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
     var BCState = textureLoad(txState, idx, 0);
     var BCState_Sed = textureLoad(txState_Sed, idx, 0);
+    var BCState_Breaking = textureLoad(txBreaking, idx, 0);
     let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     BCState_Sed = max(BCState_Sed,zero);  // concentration can not go negative
     
@@ -284,36 +288,44 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Periodic boundary conditions
     // west boundary
-    if (globals.west_boundary_type == 3 && idx.x <= 2) {
-        let idx_east = vec2<i32>(globals.width - (6 - idx.x), idx.y);
-        BCState = textureLoad(txState, idx_east, 0);
+    if (globals.west_boundary_type == 3) {
+        if (idx.x <= 1) {
+            let idx_east = vec2<i32>(globals.width - (6 - idx.x), idx.y);
+            BCState = textureLoad(txState, idx_east, 0);
+            BCState_Sed = textureLoad(txState_Sed, idx_east, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_east, 0);
+        }
     }
 
     // east boundary
-    if (globals.east_boundary_type == 3 && idx.x >= globals.width - 3) {
-        let idx_west = vec2<i32>(idx.x + 6 - globals.width, idx.y);
-        BCState = textureLoad(txState, idx_west, 0);
-    }  
+    if (globals.east_boundary_type == 3) {
+        if (idx.x >= globals.width - 2) {
+            let idx_west = vec2<i32>(idx.x + 6 - globals.width, idx.y);
+            BCState = textureLoad(txState, idx_west, 0);
+            BCState_Sed = textureLoad(txState_Sed, idx_west, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_west, 0);
+        }
+    }
 
     // south boundary
-    if (globals.south_boundary_type == 3 && idx.y <= 2) {
-        let idx_north = vec2<i32>(idx.x, globals.height - (6 - idx.y));
+    if (globals.south_boundary_type == 3) {
         if (idx.y <= 1) {
+            let idx_north = vec2<i32>(idx.x, globals.height - (6 - idx.y));
             BCState = textureLoad(txState, idx_north, 0);
-        } else {
-            BCState.z = textureLoad(txState, idx_north, 0).z;
-        }        
+            BCState_Sed = textureLoad(txState_Sed, idx_north, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_north, 0);
+        }
     }
 
     // north boundary
-    if (globals.north_boundary_type == 3 && idx.y >= globals.height - 3) {
-        let idx_south = vec2<i32>(idx.x, idx.y + 6 - globals.height);
+    if (globals.north_boundary_type == 3) {
         if (idx.y >= globals.height - 2) {
+            let idx_south = vec2<i32>(idx.x, idx.y + 6 - globals.height);
             BCState = textureLoad(txState, idx_south, 0);
-        } else {
-            BCState.z = textureLoad(txState, idx_south, 0).z;
+            BCState_Sed = textureLoad(txState_Sed, idx_south, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_south, 0);
         }
-    }  
+    }
 
     let leftIdx = idx + vec2<i32>(-1, 0);
     let rightIdx = idx + vec2<i32>(1, 0);
@@ -382,8 +394,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let wetdry = min(h_here, min(h_south, min(h_north, min(h_west, h_east))));
     let nearshore = min(B_here, min(B_south, min(B_north, min(B_west, B_east))));
 
+    var boundary_boolean = -1;
+    if (idx.x >= globals.width - 2 || idx.y >= globals.height - 3 || idx.x <= 1 || idx.y <= 3) {
+        boundary_boolean = 1;
+    }
+
     // remove islands
-    if( dry_here == 1) {  // point is wet
+    if( dry_here == 1 && boundary_boolean < 0) {  // point is wet
         if (sum_dry == 0) {  // freeze single point wet areas
             if (B_here <= 0.0) {
                 BCState = vec4<f32>(max(BCState.x,B_here), 0.0, 0.0, 0.0);
@@ -415,4 +432,5 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     textureStore(txNewState, idx, BCState);
     textureStore(txNewState_Sed, idx, BCState_Sed);
+    textureStore(txtemp_Breaking, idx, BCState_Breaking);
 }

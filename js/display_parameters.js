@@ -36,10 +36,11 @@ export function displayCalcConstants(calc_constants, total_time) {
 
     addTextToContainer(`Using MinMod with Theta: ${calc_constants.Theta}`, container);
 
+    addTextToContainer(`Grid Size in X-direction (m): ${Math.round(calc_constants.dx*1000)/1000}`, container);
+    addTextToContainer(`Grid Size in Y-direction (m): ${Math.round(calc_constants.dy*1000)/1000}`, container);
     addTextToContainer(`Cells in X-direction: ${calc_constants.WIDTH}`, container);
     addTextToContainer(`Cells in Y-direction: ${calc_constants.HEIGHT}`, container);
     addTextToContainer(`Courant Number: ${calc_constants.Courant_num}`, container);
-    addTextToContainer(`Grid Size (m): ${Math.round(calc_constants.dx*1000)/1000}`, container);
     addTextToContainer(`Time Step (s): ${Math.round(calc_constants.dt * 1000) / 1000}`, container);
     addTextToContainer(`Base (deep-water) Depth (m): ${Math.round(calc_constants.base_depth * 1000) / 1000}`, container);
     addBoundaryDescription("West", calc_constants.west_boundary_type, container);

@@ -64,13 +64,31 @@ export function create_BoundaryPass_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
+            },
+            {
+                // 7th binding: A texture that the fragment shader will sample from.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 8th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 8,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
             }
         ]
     });
 }
 
-
-export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed) {
+export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed, txBreaking, txtemp_Breaking) {
     return device.createBindGroup({
         layout: create_BoundaryPass_BindGroupLayout(device),
         entries: [
@@ -104,6 +122,14 @@ export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_sta
                 binding: 6,
                 resource: txtemp_Sed.createView()
             },
+            {
+                binding: 7,
+                resource: txBreaking.createView()
+            },
+            {
+                binding: 8,
+                resource: txtemp_Breaking.createView()
+            } 
         ]
     });
 }

@@ -31,6 +31,10 @@ struct Globals {
     infiltrationRate: f32,
     useBreakingModel: i32,
     showBreaking: i32,
+    west_boundary_type: i32,
+    east_boundary_type: i32,
+    south_boundary_type: i32,
+    north_boundary_type: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -151,7 +155,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     h_min.z= min(h_here, h_south);
     h_min.w= min(h_here, h_west);
 
-    let near_dry = textureLoad(txBottom, idx, 0).w;
+    var near_dry = textureLoad(txBottom, idx, 0).w;
 
     // Load values from txXFlux and txYFlux using idx
     let xflux_here = textureLoad(txXFlux, idx, 0);
@@ -174,7 +178,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var Psi2y = 0.0;
     
     let d_here = -B_here;
-    if (near_dry > 0.)
+    // periodic boundary condition fix for Boussinesq model
+    var periodic_bc_fix = -1;
+    if (globals.west_boundary_type == 3 && (idx.x >= globals.width - 3 || idx.x <= 2) ) {
+        periodic_bc_fix = 1;
+    } 
+
+    if (globals.south_boundary_type == 3 && (idx.y >= globals.height - 3 || idx.y <= 2) ){
+        periodic_bc_fix = 1;
+    } 
+
+    if (near_dry > 0. && periodic_bc_fix < 0)
     { // only proceed if not near an initially dry cell
         let d2_here = d_here * d_here;
         
@@ -223,8 +237,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let eta_down_right = in_state_down_right.x;
 
     // replace with 4th order when dispersion is included
-        let detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right - eta_right_right) * globals.one_over_dx;
-        let detady = 1.0 / 12.0 * (eta_down_down - 8.0 * eta_down + 8.0 * eta_up - eta_up_up) * globals.one_over_dy;
+        detadx = 1.0 / 12.0 * (eta_left_left - 8.0 * eta_left + 8.0 * eta_right - eta_right_right) * globals.one_over_dx;
+        detady = 1.0 / 12.0 * (eta_down_down - 8.0 * eta_down + 8.0 * eta_up - eta_up_up) * globals.one_over_dy;
 
         let v_up = in_state_up.z;
         let v_down = in_state_down.z;

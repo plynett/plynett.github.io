@@ -31,6 +31,10 @@ struct Globals {
     infiltrationRate: f32,
     useBreakingModel: i32,
     showBreaking: i32,
+    west_boundary_type: i32,
+    east_boundary_type: i32,
+    south_boundary_type: i32,
+    north_boundary_type: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;

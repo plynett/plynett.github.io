@@ -293,7 +293,7 @@ async function init_sim_parameters(canvas, configContent) {
 
 
     // Add/update parameters in calc_constants
-    calc_constants.dt = calc_constants.Courant_num * calc_constants.dx / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+    calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
     calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
     calc_constants.half_g = calc_constants.g / 2.0;
     calc_constants.Bcoef_g = calc_constants.Bcoef * calc_constants.g;
@@ -385,8 +385,17 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.sedC1_fallvel = Math.pow(fall_vel_a, 0.5);
  
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
-    canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
-    canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
+    let grid_ratio = calc_constants.dx / calc_constants.dy;
+    if (grid_ratio >= 1.0) {
+        canvas.width = Math.ceil(calc_constants.WIDTH/64*grid_ratio)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+        canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH / grid_ratio);
+        calc_constants.canvas_width_ratio = 1/grid_ratio;
+    }
+    else {
+        canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
+        canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH / grid_ratio);
+        calc_constants.canvas_width_ratio = grid_ratio;
+    }
 
     // colorbar properties
     calc_constants.CB_show = 1; // show colorbar when = 1 
