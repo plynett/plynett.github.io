@@ -63,7 +63,7 @@ fn landslide_subaerial(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom:
 }
 
 fn landslide_submerged(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom: f32, width: f32, length: f32) -> vec4<f32> {
-    let kL = sqrt(3.1415) / length;
+    let kL = sqrt(3.1415) / length / 2;  // /2 for submerged since we have both postive and negative dipole, and each should be "length" long
     let kW = sqrt(3.1415) / width;
 
     let sin_c = sin(angle);
