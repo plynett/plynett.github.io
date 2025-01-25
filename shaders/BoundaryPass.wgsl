@@ -113,13 +113,25 @@ fn SolitaryWave(idx: vec2<i32>, x0: f32, y0: f32, theta: f32) -> vec4<f32> {
     return vec4<f32>(eta, hu, hv, 0.0);
 }
 
-fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: f32, phase: f32) -> vec3<f32> {
+fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: f32, phase: f32, current_boundary: i32) -> vec3<f32> {
     let omega = 2.0 * globals.PI / period;
     let k = calc_wavenumber_approx(omega, d);
     let c = omega / k;
+    let L = 2 * globals.PI / k;
     let theta_mod = theta;
-    let kx = cos(theta_mod) * x * k;
-    let ky = sin(theta_mod) * y * k;
+
+    // modulate the location of the origin slowly in time to reduce the Hs finger effect
+    var yshift= 0.0;
+    var xshift= 0.0;
+    if (current_boundary == 1 || current_boundary == 3) {
+        yshift= L + 2.0*L*sin(0.01 * omega * t);
+    }
+    if (current_boundary == 2 || current_boundary == 4) {
+        xshift= L + 2.0*L*sin(0.01 * omega * t);
+    }
+    
+    let kx = cos(theta_mod) * (x + xshift) * k;
+    let ky = sin(theta_mod) * (y + yshift) * k;
     var eta = amplitude * sin(omega * t - kx - ky + phase) * min(1.0, t / period);
     var num_waves = 0;
     if (globals.incident_wave_type == 2){ // transient pulse
@@ -134,17 +146,17 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
     return vec3<f32>(eta, hu, hv);
 }
 
-fn BoundarySineWave(idx: vec2<i32>) -> vec4<f32> {
+fn BoundarySineWave(idx: vec2<i32>, iBC: i32, jBC: i32, current_boundary: i32) -> vec4<f32> {
     let B_here = -globals.base_depth; //textureLoad(txBottom, idx, 0).b;
     let d_here = max(0.0, -B_here);
-    let x = f32(idx.x) * globals.dx;
-    let y = f32(idx.y) * globals.dy;
+    let x = f32(idx.x - iBC) * globals.dx;
+    let y = f32(idx.y - jBC) * globals.dy;
     var result: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
     
     if (d_here > 0.0001) {
         for (var iw: i32 = 0; iw < globals.numberOfWaves; iw = iw + 1) {
             let wave = textureLoad(txWaves, vec2<i32>(iw, 0), 0);
-            result = result + sineWave(x, y, globals.total_time, d_here, wave.r, wave.g, wave.b, wave.a);
+            result = result + sineWave(x, y, globals.total_time, d_here, wave.r, wave.g, wave.b, wave.a, current_boundary);
         }
     }
     return vec4<f32>(result, 0.0);
@@ -233,7 +245,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // west boundary
     if (globals.west_boundary_type == 2 && idx.x <= 2) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
-            BCState = BoundarySineWave(idx);
+            let iBC = 1;
+            let jBC = globals.height / 2;
+            let current_boundary = 1;
+            BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
             BCState_Sed = zero;
         } else if (globals.incident_wave_type == 3) {  // solitary wave
             let x0 = -10.0 * globals.base_depth;
@@ -247,7 +262,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // east boundary
     if (globals.east_boundary_type == 2 && idx.x >= globals.width - 3) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
-            BCState = BoundarySineWave(idx);
+            let iBC = globals.width - 2;
+            let jBC = globals.height / 2;
+            let current_boundary = 3;
+            BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
             BCState_Sed = zero;
         } else if (globals.incident_wave_type == 3) {  // solitary wave
             let x0 = f32(globals.width) * globals.dx + 10.0 * globals.base_depth;
@@ -261,7 +279,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // south boundary
     if (globals.south_boundary_type == 2 && idx.y <= 2) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
-            BCState = BoundarySineWave(idx);
+            let iBC = globals.width / 2;
+            let jBC = 1;
+            let current_boundary = 2;
+            BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
             BCState_Sed = zero;
         } else if (globals.incident_wave_type == 3) {  // solitary wave
             let x0 = 0.0;
@@ -275,7 +296,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // north boundary
     if (globals.north_boundary_type == 2 && idx.y >= globals.height - 3) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
-            BCState = BoundarySineWave(idx);
+            let iBC = globals.width / 2;
+            let jBC = globals.height - 2;
+            let current_boundary = 4;
+            BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
             BCState_Sed = zero;
         } else if (globals.incident_wave_type == 3) {  // solitary wave
             let x0 = 0.0;
