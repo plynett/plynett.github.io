@@ -124,10 +124,10 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
     var yshift= 0.0;
     var xshift= 0.0;
     if (current_boundary == 1 || current_boundary == 3) {
-        yshift= L + 2.0*L*sin(0.01 * omega * t);
+        yshift= 5.0 * L + 0.05 * L * t / period;
     }
     if (current_boundary == 2 || current_boundary == 4) {
-        xshift= L + 2.0*L*sin(0.01 * omega * t);
+        xshift= 5.0 * L + 0.05 * L * t / period;
     }
     
     let kx = cos(theta_mod) * (x + xshift) * k;
@@ -246,7 +246,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.west_boundary_type == 2 && idx.x <= 2) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
             let iBC = 1;
-            let jBC = globals.height / 2;
+            let jBC = 1;
             let current_boundary = 1;
             BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
             BCState_Sed = zero;
@@ -263,7 +263,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.east_boundary_type == 2 && idx.x >= globals.width - 3) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
             let iBC = globals.width - 2;
-            let jBC = globals.height / 2;
+            let jBC = 1;
             let current_boundary = 3;
             BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
             BCState_Sed = zero;
@@ -279,7 +279,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // south boundary
     if (globals.south_boundary_type == 2 && idx.y <= 2) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
-            let iBC = globals.width / 2;
+            let iBC = 1;
             let jBC = 1;
             let current_boundary = 2;
             BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
@@ -296,7 +296,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // north boundary
     if (globals.north_boundary_type == 2 && idx.y >= globals.height - 3) {
         if (globals.incident_wave_type <= 2) { // Sine Waves
-            let iBC = globals.width / 2;
+            let iBC = 1;
             let jBC = globals.height - 2;
             let current_boundary = 4;
             BCState = BoundarySineWave(idx, iBC, jBC, current_boundary);
