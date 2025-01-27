@@ -351,6 +351,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
+
+    // Constant elevation boundary conditions
+    // west boundary
+    if (globals.west_boundary_type == 4) {
+        if (idx.x <= 1) {
+            BCState = vec4<f32>(6.0, 10.0, 0.0, 0.0);
+            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+
     let leftIdx = idx + vec2<i32>(-1, 0);
     let rightIdx = idx + vec2<i32>(1, 0);
     let downIdx = idx + vec2<i32>(0, -1);

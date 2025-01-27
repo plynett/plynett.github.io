@@ -19,7 +19,7 @@
     "T_star_coef": 5,
     "dzdt_I_coef": 0.5,
     "dzdt_F_coef": 0.15,
-    "west_boundary_type": 0,
+    "west_boundary_type": 4,
     "east_boundary_type": 1,
     "south_boundary_type": 0,
     "north_boundary_type": 0,
