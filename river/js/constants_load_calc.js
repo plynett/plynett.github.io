@@ -93,9 +93,44 @@ var calc_constants = {
     disturbanceRake: 0.0,
 
     // define which "Example" to run
-    run_example: 0, // index corresponding to examples below
+    run_example: 32, // LARIVER EDIT TO DEFAULT TO river example
     exampleDirs: [
-        "./examples/LA_River_Model/"
+        "./examples/Ventura/",
+        "./examples/Santa_Cruz/",
+        "./examples/Santa_Cruz_tsunami/",
+        "./examples/Barry_Arm/",
+        "./examples/Crescent_City/",
+        "./examples/DuckFRF_NC/",
+        "./examples/Greenland/",
+        "./examples/Half_Moon_Bay/",
+        "./examples/Hania_Greece/",
+        "./examples/Miami_Beach_FL/",
+        "./examples/Miami_FL/",
+        "./examples/Newport_OR/",
+        "./examples/POLALB/",
+        "./examples/SantaBarbara/",
+        "./examples/Taan_fjord/",
+        "./examples/OSU_WaveBasin/",
+        "./examples/SF_Bay_tides/",
+        "./examples/OSU_Seaside/",
+        "./examples/Scripps_Pier/",
+        "./examples/Scripps_Canyon/",
+        "./examples/Newport_Jetties_CA/",
+        "./examples/Waimea_Bay/",
+        "./examples/Tyndall_FL/",
+        "./examples/Mavericks/",
+        "./examples/Ipan_Guam/",
+        "./examples/Balboa_Pier_CA/",
+        "./examples/Blacks_Beach_CA/",
+        "./examples/Hermosa_Beach_CA/",
+        "./examples/Morro_Rock_CA/",
+        "./examples/Pacifica_CA/",
+        "./examples/Toy_Config/",
+        "./examples/Harrison_Lake/",
+        "./examples/LA_River_Model/",
+        "./examples/Oceanside_CA/",
+        "./examples/Portage_Lake_AK/",
+        "./examples/Greenland_Umanak/"
       ],
 
     // plotting parameters
@@ -169,9 +204,9 @@ var calc_constants = {
     changeSeaLevel_delta: 0.0, // changeSeaLevel - changeSeaLevel_current
     surfaceToChange: 1, // which surface to change (bathy, friction)
     clearConc: 0, // will clear the concentration channel if = 1
-    changeType: 1, // Change Property Continuously (1) or Set to Specific Value (2)
-    changeRadius: 1, // lengthscale of change function, in meters
-    changeAmplitude: 1, // amplitude of change function, in units of the surfaceToChange
+    changeType: 2, // Change Property Continuously (1) or Set to Specific Value (2)
+    changeRadius: 25.0, // lengthscale of change function, in meters
+    changeAmplitude: -3.0, // amplitude of change function, in units of the surfaceToChange
     viewType: 1, // 1 = plan-view design mode, 2 = 3D explorer mode
     rotationAngle_xy: 0.0, // rotation angle of 2D plane
     shift_x: 0.0, // x shift of 2D plane
@@ -271,7 +306,7 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.one_over_d2y = calc_constants.one_over_dy * calc_constants.one_over_dy;
     calc_constants.one_over_d3y = calc_constants.one_over_d2y * calc_constants.one_over_dy;
     calc_constants.one_over_dxdy = calc_constants.one_over_dx * calc_constants.one_over_dy;
-    calc_constants.delta = Math.min(0.0005,calc_constants.base_depth / 5000.0);
+    calc_constants.delta = Math.min(0.00005,calc_constants.base_depth / 5000.0);
     calc_constants.epsilon = Math.pow(calc_constants.delta, 2);
     calc_constants.PI = Math.PI;
     calc_constants.boundary_epsilon = calc_constants.epsilon;
@@ -285,7 +320,42 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.Py = Math.ceil(Math.log(calc_constants.HEIGHT) / Math.log(2));
 
     calc_constants.exampleDirs = [
-        "./examples/LA_River_Model/"
+        "./examples/Ventura/",
+        "./examples/Santa_Cruz/",
+        "./examples/Santa_Cruz_tsunami/",
+        "./examples/Barry_Arm/",
+        "./examples/Crescent_City/",
+        "./examples/DuckFRF_NC/",
+        "./examples/Greenland/",
+        "./examples/Half_Moon_Bay/",
+        "./examples/Hania_Greece/",
+        "./examples/Miami_Beach_FL/",
+        "./examples/Miami_FL/",
+        "./examples/Newport_OR/",
+        "./examples/POLALB/",
+        "./examples/SantaBarbara/",
+        "./examples/Taan_fjord/",
+        "./examples/OSU_WaveBasin/",
+        "./examples/SF_Bay_tides/",
+        "./examples/OSU_Seaside/",
+        "./examples/Scripps_Pier/",
+        "./examples/Scripps_Canyon/",
+        "./examples/Newport_Jetties_CA/",
+        "./examples/Waimea_Bay/",
+        "./examples/Tyndall_FL/",
+        "./examples/Mavericks/",
+        "./examples/Ipan_Guam/",
+        "./examples/Balboa_Pier_CA/",
+        "./examples/Blacks_Beach_CA/",
+        "./examples/Hermosa_Beach_CA/",
+        "./examples/Morro_Rock_CA/",
+        "./examples/Pacifica_CA/",
+        "./examples/Toy_Config/",
+        "./examples/Harrison_Lake/",
+        "./examples/LA_River_Model/",
+        "./examples/Oceanside_CA/",
+        "./examples/Portage_Lake_AK/",
+        "./examples/Greenland_Umanak/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation
@@ -306,8 +376,8 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.ship_c3b = 1.0 / (2.0 * Math.pow(calc_constants.ship_width / Math.PI, 2));
     calc_constants.elapsedTime = 0.0;
     calc_constants.elapsedTime_update = 0.0;
-    calc_constants.changeRadius = 50. * calc_constants.dx;
-    calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
+    //calc_constants.changeRadius = 50. * calc_constants.dx;  //LARIVER mod
+    //calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
 
     calc_constants.sedC1_erosion = calc_constants.sedC1_psi*Math.pow(calc_constants.sedC1_d50/1000.,-0.2);
     calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * 9.81 * calc_constants.sedC1_d50/1000.);

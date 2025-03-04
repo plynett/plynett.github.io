@@ -1931,8 +1931,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateTooltip() {
         // Assuming x_position and y_position are updated elsewhere in your code and accessible here
         
-        if (calc_constants.viewType == 1){ 
-            tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+        if (calc_constants.viewType == 1){   // LARIVER MOD
+            let flow_depth = calc_constants.tooltipVal_eta - calc_constants.tooltipVal_bottom;
+            tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bottom elevation (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>flow depth (m): ${flow_depth.toFixed(2)} <br>flow speed (m/s): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
         } else {
             tooltip.innerHTML = ``;
         }
@@ -2283,13 +2284,13 @@ document.addEventListener('DOMContentLoaded', function () {
         calc_constants.OverlayUpdate = 1;  // triggers logic to update transforms for the two overlay options
     });    
     
-    // // if changing sea level, make sure surfaceToChange == 1 (bathy / topo)
-    // document.getElementById('changeSeaLevel-button').addEventListener('click', function () {
-    //     calc_constants.click_update = 1; // trigger click update block so txBottom gets updated
-    //     calc_constants.surfaceToChange = 1;  // by setting to one, will tell timesereies shader to run
-    //     calc_constants.changeSeaLevel_delta = calc_constants.changeSeaLevel - calc_constants.changeSeaLevel_current;
-    //     calc_constants.changeSeaLevel_current = calc_constants.changeSeaLevel;        
-    // });
+    // if changing sea level, make sure surfaceToChange == 1 (bathy / topo)
+    document.getElementById('changeSeaLevel-button').addEventListener('click', function () {
+        calc_constants.click_update = 1; // trigger click update block so txBottom gets updated
+        calc_constants.surfaceToChange = 1;  // by setting to one, will tell timesereies shader to run
+        calc_constants.changeSeaLevel_delta = calc_constants.changeSeaLevel - calc_constants.changeSeaLevel_current;
+        calc_constants.changeSeaLevel_current = calc_constants.changeSeaLevel;        
+    });
     
     // add time series listener, to update time series location texture changeXTimeSeries-button
     document.getElementById('changeXTimeSeries-button').addEventListener('click', function () {
@@ -2310,11 +2311,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
-    // // Add disturbance button
-    // document.getElementById('disturbance-button').addEventListener('click', function () {
-    //     calc_constants.add_Disturbance = 1;  // by setting to one, will add disturbance at start of next time step
-    //     calc_constants.chartDataUpdate = 1;  // update time vector on chart to be zero when adding impluse
-    // });
+    // Add disturbance button
+    document.getElementById('disturbance-button').addEventListener('click', function () {
+        calc_constants.add_Disturbance = 1;  // by setting to one, will add disturbance at start of next time step
+        calc_constants.chartDataUpdate = 1;  // update time vector on chart to be zero when adding impluse
+    });
 
 
     // Download jpg of screen output
@@ -2334,22 +2335,22 @@ document.addEventListener('DOMContentLoaded', function () {
         calc_constants.create_animation = 2;  //triggers save jpegs logic
     });    
 
-    // // Save baseline wave height surface
-    // document.getElementById('save-baseline-texture-btn').addEventListener('click', function () {
-    //     calc_constants.save_baseline = 1;  // store baseline wave height
-    // });
+    // Save baseline wave height surface
+    document.getElementById('save-baseline-texture-btn').addEventListener('click', function () {
+        calc_constants.save_baseline = 1;  // store baseline wave height
+    });
 
 
-    // // Reset mean surfaces - reset-mean-texture-btn
-    // document.getElementById('reset-mean-texture-btn').addEventListener('click', function () {
-    //     calc_constants.n_time_steps_means = 0;  // reset means counter - compute shader will automatically reset
-    // });
+    // Reset mean surfaces - reset-mean-texture-btn
+    document.getElementById('reset-mean-texture-btn').addEventListener('click', function () {
+        calc_constants.n_time_steps_means = 0;  // reset means counter - compute shader will automatically reset
+    });
 
 
-    // // Reset wave height surface - reset-waveheight-texture-btn
-    // document.getElementById('reset-waveheight-texture-btn').addEventListener('click', function () {
-    //     calc_constants.n_time_steps_waveheight = 0;  // reset wave height counter - compute shader will automatically reset
-    // });
+    // Reset wave height surface - reset-waveheight-texture-btn
+    document.getElementById('reset-waveheight-texture-btn').addEventListener('click', function () {
+        calc_constants.n_time_steps_waveheight = 0;  // reset wave height counter - compute shader will automatically reset
+    });
 
 
     // Add event listeners for the file inputs
@@ -2382,13 +2383,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // start simulation
 
-    // // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
-    // document.getElementById('start-simulation-btn').addEventListener('click', function () {  // running with user loaded files
-    //     calc_constants.run_example = -1;  // reset back to no example (for case when loading files after running example)
-    //     startSimulation(); 
-    //     const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
-    //     setTimeout(updateAllUIElements, delay);
-    // });
+    // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
+    document.getElementById('start-simulation-btn').addEventListener('click', function () {  // running with user loaded files
+        calc_constants.run_example = -1;  // reset back to no example (for case when loading files after running example)
+        startSimulation(); 
+        const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
+        setTimeout(updateAllUIElements, delay);
+    });
 
     // run example simulation
 

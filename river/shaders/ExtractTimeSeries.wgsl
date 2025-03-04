@@ -28,10 +28,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (idx.x == 0) { // for the first index in the texture, store the tooltip
         current_location = vec2<i32>(globals.mouse_current_canvas_indX, globals.mouse_current_canvas_indY);
         let bottom = textureLoad(txBottom, current_location, 0).z; 
-        let waves = textureLoad(txState, current_location, 0).x;  // Free surface elevation
-        let hsig = textureLoad(txWaveHeight, current_location, 0).z;  // Significant wave height
+        let state = textureLoad(txState, current_location, 0).xyz;  // Free surface elevation, P, Q  LARIVER mod
+        let waves = state.x;
+        let H = max(waves - bottom, 0.01);
+        let u = state.y / H;
+        let v = state.z / H;
+        let speed = sqrt(u * u + v * v);
+
+        //let hsig = textureLoad(txWaveHeight, current_location, 0).z;  // Significant wave height
+        
         let friction = textureLoad(txBottomFriction, current_location, 0).x;   // friction factor, always between [0 and 1], no normalization needed 
-        output = vec4<f32>(bottom, waves, hsig, friction);
+        output = vec4<f32>(bottom, waves, speed, friction);
     } else {  // for all other indices, store the time series data
         current_location = vec2<i32>(textureLoad(txTimeSeries_Locations, idx, 0).xy);
         let waves = textureLoad(txState, current_location, 0).x;  // Free surface elevation

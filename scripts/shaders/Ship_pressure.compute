@@ -1,0 +1,81 @@
+#pragma kernel Ship_Pressure
+
+float ship_posx;
+float ship_posy;
+float ship_width;
+float ship_length;
+float ship_draft;
+float ship_heading;
+float dx;
+float dy;
+float ship_c1a;
+float ship_c1b;
+float ship_c2;
+float ship_c3a;
+float ship_c3b;
+float total_time;
+
+RWTexture2D<float4> ship_pressure; // will store ship_pressure
+
+float ComputePressure(float2 idx) {
+    float cos_heading2 = pow(cos(ship_heading), 2.0); 
+    float sin_heading2 = pow(sin(ship_heading), 2.0); 
+    float c1 = cos_heading2 * ship_c1a + sin_heading2 * ship_c1b;
+    float c2 = sin(2.0 * ship_heading) * ship_c2;
+    float c3 = sin_heading2 * ship_c3a + cos_heading2 * ship_c3b;
+
+    float xc = idx.x * dx - ship_posx;
+    float yc = idx.y * dy - ship_posy;
+
+    float Z = ship_draft * exp(-pow(c1 * pow(xc, 2.0) + 2.0 * c2 * xc * yc + c3 * pow(yc, 2.0), 2.0));
+
+    // float speed = 306.0 * tanh((total_time + 300.0) / 4000.0);
+    // float front_distance = speed * total_time;
+    // float pwave_period = 2300.0 * pow(total_time, -0.1);
+    // float pwave_length = max(1.0e2, speed * pwave_period);
+
+    // float A_current = 2.0 * 3.1415 * sqrt(front_distance);
+    // float pmax = max(0.0, min(1.0e5, 2.2e6 / A_current * pow(tanh(front_distance / 3.0e5), 2.0)));
+
+    // float speed_t = 295.0 * tanh(total_time / 7000.0);
+    // float front_distance_t = speed_t * total_time;
+    // float pwave_period_t = 3300.0 * pow(total_time, -0.1);
+    // float pwave_length_t = max(1.0e2, speed_t * pwave_period_t);
+
+    // A_current = 2.0 * 3.1415 * pow((front_distance_t + 2.0e5), 0.9);
+    // float pmin = min(1.0e5, 8.0e8 / A_current);
+
+    // float x = idx.x * dx;
+    // float y = idx.y * dy;
+
+    // float p_loc = sqrt(pow((x - p_xo), 2.0) + pow((y - p_yo), 2.0));
+
+    // float loc_arg_crest = (p_loc - speed * total_time) / (pwave_length / 1.5);
+    // float loc_arg_troug = (p_loc - speed_t * total_time) / (pwave_length_t / 1.5);
+
+    // float Z = pmax * exp(-pow(loc_arg_crest, 2.0)) - pmin * exp(-pow(loc_arg_troug, 2.0));
+    // Z = Z / 9810; // convert to meters - Pass3 wants pressure head
+
+    return Z;
+}
+
+#pragma multi_compile THREADS_8x8 THREADS_16x16 THREADS_32x32
+
+#ifdef THREADS_8x8
+#define THREAD_X 8
+#define THREAD_Y 8
+#elif defined(THREADS_16x16)
+#define THREAD_X 16
+#define THREAD_Y 16
+#elif defined(THREADS_32x32)
+#define THREAD_X 32
+#define THREAD_Y 32
+#endif
+
+[numthreads(THREAD_X, THREAD_Y, 1)]
+void Ship_Pressure(uint3 id : SV_DispatchThreadID) {
+    int2 idx = id.xy;
+
+    float Z = ComputePressure(float2(idx.x, idx.y));
+    ship_pressure[idx] = float4(Z, 0.0, 0.0, 0.0);
+}

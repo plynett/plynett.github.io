@@ -414,27 +414,27 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         // Normal vector calcs
         var roughnessFactor = 0.002 * min(H, globals.base_depth / 2.);
         if(component_index == 4) {roughnessFactor = 0.0;}  // kelp knocks out chop
-        var delta_eta = calculateChangeEta(x_world, y_world, globals.dx, roughnessFactor, thetap);   
+        var delta_eta = 0.0; //calculateChangeEta(x_world, y_world, globals.dx, roughnessFactor, thetap);   //LARIVER mod remove short waves
         render_surface = render_surface + delta_eta;
             // up
         var uv_grad = uv;
         uv_grad.y = uv_grad.y + 1/f32(globals.HEIGHT);
-        delta_eta = calculateChangeEta(x_world, y_world + globals.dy, globals.dx, roughnessFactor, thetap);        
+        delta_eta = 0.0; //calculateChangeEta(x_world, y_world + globals.dy, globals.dx, roughnessFactor, thetap);        
         let eta_up = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r; 
             // down
         uv_grad = uv;
         uv_grad.y = uv_grad.y - 1/f32(globals.HEIGHT);
-        delta_eta = calculateChangeEta(x_world, y_world - globals.dy, globals.dx, roughnessFactor, thetap);   
+        delta_eta = 0.0; //calculateChangeEta(x_world, y_world - globals.dy, globals.dx, roughnessFactor, thetap);   
         let eta_down = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r; 
             // right
         uv_grad = uv;
         uv_grad.x = uv_grad.x + 1/f32(globals.WIDTH);
-        delta_eta = calculateChangeEta(x_world + globals.dx, y_world, globals.dx, roughnessFactor, thetap);   
+        delta_eta = 0.0; //calculateChangeEta(x_world + globals.dx, y_world, globals.dx, roughnessFactor, thetap);   
         let eta_right = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r;  
             // left
         uv_grad = uv;
         uv_grad.x = uv_grad.x - 1/f32(globals.WIDTH);
-        delta_eta = calculateChangeEta(x_world - globals.dx, y_world, globals.dx, roughnessFactor, thetap);   
+        delta_eta = 0.0; //calculateChangeEta(x_world - globals.dx, y_world, globals.dx, roughnessFactor, thetap);   
         let eta_left = delta_eta + textureSample(etaTexture, textureSampler, uv_grad).r; 
 
         let detadx = 0.5*(eta_right - eta_left)/globals.dx;
