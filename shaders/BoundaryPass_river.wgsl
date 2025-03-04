@@ -386,7 +386,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let hu = flow_depth * stage_speed;
             let hv = 0.0;
             var conc = 0.0;
-            if (f32(idx.y) * globals.dy > 525 && f32(idx.y) * globals.dy < 550. ) {conc = 1.0;}
+            if (f32(idx.y) * globals.dy > 505 && f32(idx.y) * globals.dy < 570. && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
             BCState = vec4<f32>(stage_elevation, hu, hv, conc);
             BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
