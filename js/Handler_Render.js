@@ -237,15 +237,13 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
 }
 
 
-export async function update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) {
+export async function update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right) {
     if(calc_constants.ShowLogos == 0){
         // Load the logo image
-        const logo_USACE = await loadImage('./logo_USACE.png');
-        ctx.drawImage(logo_USACE, 0, 0, logo_USACE.width, logo_USACE.height);  // upper left
+        ctx.drawImage(logo_left, 0, 0, logo_left.width, logo_left.height);  // upper left
 
-        const logo_USC = await loadImage('./logo_USC.png');
-        const xPosition = offscreenCanvas.width - logo_USC.width;
-        ctx.drawImage(logo_USC, xPosition, 0, logo_USC.width, logo_USC.height);   // upper right 
+        const xPosition = offscreenCanvas.width - logo_right.width;
+        ctx.drawImage(logo_right, xPosition, 0, logo_right.width, logo_right.height);   // upper right 
     }
 
     // Set text styles
@@ -354,7 +352,7 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
 }
 
 // Helper function to load an image
-function loadImage(url) {
+export function loadImage(url) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);

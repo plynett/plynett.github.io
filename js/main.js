@@ -5,7 +5,7 @@ import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileS
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
-import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar } from './Handler_Render.js';  // group bindings for render shaders
+import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
 import { create_SedTrans_Pass1_BindGroupLayout, create_SedTrans_Pass1_BindGroup } from './Handler_SedTrans_Pass1.js';  // group bindings for SedTrans_Pass1 shaders
@@ -873,7 +873,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
     // create initial colorbar
-    update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw)
+    const logo_left = await loadImage('./logo_USACE.png');
+    const logo_right = await loadImage('./logo_USC.png');
+    update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right)
 
     console.log("Compute / Render loop starting.");
     // This function, `frame`, serves as the main loop of the application,
@@ -1076,7 +1078,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // reset canvas
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-            update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw) // update colorbar with new climits
+            update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right) // update colorbar with new climits
 
             startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
             frame_count_since_http_update = 0;
