@@ -87,7 +87,12 @@ export function displaySimStatus(calc_constants, total_time, total_time_since_ht
 
     // Add text 
     if (calc_constants.NLSW_or_Bous == 0) {
-        addTextToContainer(`NLSW Simulation`, container);
+        if(calc_constants.river_sim == 1){
+            addTextToContainer(`River Simulation`, container);
+        }
+        else {
+            addTextToContainer(`NLSW Simulation`, container);
+        }
     }
     else {
         addTextToContainer(`Boussinesq Simulation`, container);

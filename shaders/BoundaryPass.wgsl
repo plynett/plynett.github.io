@@ -168,6 +168,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var BCState = textureLoad(txState, idx, 0);
     var BCState_Sed = textureLoad(txState_Sed, idx, 0);
     var BCState_Breaking = textureLoad(txBreaking, idx, 0);
+    let B_here = textureLoad(txBottom, idx, 0).z;
     let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     BCState_Sed = max(BCState_Sed,zero);  // concentration can not go negative
     
@@ -351,12 +352,54 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-
     // Constant elevation boundary conditions
     // west boundary
+    var stage_elevation = 0.0;
+    var stage_speed = 0.0;
+    if (globals.incident_wave_type == 10) {  // 10-year flood
+        stage_elevation = 8.2;
+        stage_speed = 1.5;
+    }
+    else if (globals.incident_wave_type == 11) { // 50-year flood
+        stage_elevation = 10.2;
+        stage_speed = 2.;
+    }
+    else if (globals.incident_wave_type == 12) { // 100-yr flood
+        stage_elevation = 10.6;
+        stage_speed = 2.2;
+    }
+    else if (globals.incident_wave_type == 13) {  // 200-yr flood
+        stage_elevation = 11.2;
+        stage_speed = 2.3;
+    }
+    else if (globals.incident_wave_type == 14) {  // 500-yr flood
+        stage_elevation = 11.8;
+        stage_speed = 2.5;
+    }
+
+
     if (globals.west_boundary_type == 4) {
-        if (idx.x <= 1) {
-            BCState = vec4<f32>(6.0, 10.0, 0.0, 0.0);
+        var left_bottom_start = 490.;
+        if (stage_elevation > 10.0) {left_bottom_start = 390.;}
+        if (idx.x <= 1 && f32(idx.y) * globals.dy > left_bottom_start && f32(idx.y) * globals.dy < 600. ) {  //LARIVER MOD
+            let flow_depth = max(stage_elevation - B_here, 0.0);
+            let hu = flow_depth * stage_speed;
+            let hv = 0.0;
+            var conc = 0.0;
+            if (f32(idx.y) * globals.dy > 505 && f32(idx.y) * globals.dy < 570. && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
+            BCState = vec4<f32>(stage_elevation, hu, hv, conc);
+            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        }
+    }
+    // east boundary
+    if (globals.east_boundary_type == 4) {
+        if (idx.x >= globals.width - 2 && f32(idx.y) * globals.dy > 575. && f32(idx.y) * globals.dy < 685. ) {  //LARIVER MOD
+            let elev_downstream = stage_elevation - 5.0; 
+            let flow_depth = max(elev_downstream - B_here, 0.0);
+            let hu = flow_depth * stage_speed;
+            let hv = 0.0;
+            BCState = vec4<f32>(elev_downstream , hu, hv, 0.0);
             BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         }
@@ -368,7 +411,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let downIdx = idx + vec2<i32>(0, -1);
     let upIdx = idx + vec2<i32>(0, 1);
 
-    let B_here = textureLoad(txBottom, idx, 0).z;
     let B_south = textureLoad(txBottom, downIdx, 0).z;
     let B_north = textureLoad(txBottom, upIdx, 0).z;
     let B_west = textureLoad(txBottom, leftIdx, 0).z;

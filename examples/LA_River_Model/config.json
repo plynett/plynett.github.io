@@ -14,6 +14,7 @@
     "Theta": 2,
     "friction": 0.05,
     "isManning": 1,
+    "min_allowable_depth": 0.000005,
     "useBreakingModel": 0,
     "delta_breaking": 2,
     "T_star_coef": 5,
@@ -55,6 +56,7 @@
     "disturbanceLength": 0,
     "disturbanceDip": 0,
     "disturbanceRake": 0,
+    "river_sim": 1,
     "run_example": 32,
     "exampleDirs": [
         "./examples/Ventura/",

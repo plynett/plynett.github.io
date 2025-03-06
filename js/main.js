@@ -262,23 +262,28 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     calc_constants.IsGMMapLoaded = 0;
     calc_constants.IsSatMapLoaded = 0;
     if (calc_constants.GoogleMapOverlay == 1) {  // if using GM overlay
+        try {
+            let ImageGoogleMap = await CreateGoogleMapImage(device, context, calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
 
-        let ImageGoogleMap = await CreateGoogleMapImage(device, context, calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
+            console.log('Google Maps image loaded, dimensions:', ImageGoogleMap.width, 'x', ImageGoogleMap.height);
 
-        console.log('Google Maps image loaded, dimensions:', ImageGoogleMap.width, 'x', ImageGoogleMap.height);
+            // Now that the image is loaded, you can copy it to the texture.
+            copyImageBitmapToTexture(device, ImageGoogleMap, txGoogleMap)
 
-        // Now that the image is loaded, you can copy it to the texture.
-        copyImageBitmapToTexture(device, ImageGoogleMap, txGoogleMap)
+            transforms = calculateGoogleMapScaleAndOffset(calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
+            calc_constants.GMscaleX = transforms.scaleX;
+            calc_constants.GMscaleY = transforms.scaleY;
+            calc_constants.GMoffsetX = transforms.offsetX;
+            calc_constants.GMoffsetY = transforms.offsetY;
 
-        transforms = calculateGoogleMapScaleAndOffset(calc_constants.lat_LL, calc_constants.lon_LL, calc_constants.lat_UR, calc_constants.lon_UR, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight);
-        calc_constants.GMscaleX = transforms.scaleX;
-        calc_constants.GMscaleY = transforms.scaleY;
-        calc_constants.GMoffsetX = transforms.offsetX;
-        calc_constants.GMoffsetY = transforms.offsetY;
-
-        txOverlayMap = txGoogleMap;
-        calc_constants.IsGMMapLoaded = 1;
-        calc_constants.IsOverlayMapLoaded = 1;
+            txOverlayMap = txGoogleMap;
+            calc_constants.IsGMMapLoaded = 1;
+            calc_constants.IsOverlayMapLoaded = 1;
+        }
+        catch {
+            console.log('Unable to load Google Maps overlay')
+            calc_constants.GoogleMapOverlay == 0
+        }
     }    
     
     
@@ -656,7 +661,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     ExtractTimeSeries_view.setFloat32(12, calc_constants.dy, true);             // f32
     ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
     ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
-    ExtractTimeSeries_view.setFloat32(24, 0.0, true);             // f32, total_time
+    ExtractTimeSeries_view.setFloat32(24, 0.0, true);             // f32, total_time 
+    ExtractTimeSeries_view.setInt32(28, calc_constants.river_sim, true);             // i32
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
@@ -873,8 +879,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
     // create initial colorbar
-    const logo_left = await loadImage('./logo_USACE.png');
-    const logo_right = await loadImage('./logo_USC.png');
+    
+    var logo_left = await loadImage('./logo_USACE.png');
+    var logo_right = await loadImage('./logo_USC.png');
+    if (calc_constants.river_sim == 1){
+        logo_left = await loadImage('./logo_USC_river.png');
+        logo_right = await loadImage('./logo_publicex_river.png');
+    }
+
     update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right)
 
     console.log("Compute / Render loop starting.");
@@ -1934,8 +1946,14 @@ document.addEventListener('DOMContentLoaded', function () {
         // Assuming x_position and y_position are updated elsewhere in your code and accessible here
         
         if (calc_constants.viewType == 1){ 
-            tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
-        } else {
+            if (calc_constants.river_sim == 1){
+                let flow_depth = calc_constants.tooltipVal_eta - calc_constants.tooltipVal_bottom;
+                tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bottom elevation (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>flow depth (m): ${flow_depth.toFixed(2)} <br>flow speed (m/s): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;    
+            }
+            else {
+                tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+            }
+         } else {
             tooltip.innerHTML = ``;
         }
     }
@@ -2396,6 +2414,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
     document.getElementById('run-example-simulation-btn').addEventListener('click', function () {  // running with user example files
+        calc_constants.run_example = document.getElementById('run_example-select').value;
         initializeWebGPUApp();
         const delay = 5000; // Time in milliseconds (1000 ms = 1 second)
         setTimeout(updateAllUIElements, delay);
