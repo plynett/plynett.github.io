@@ -404,6 +404,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         }
     }
+    //north
+    if (globals.north_boundary_type == 4) {
+        var left_bottom_start = 300.;
+        if (stage_elevation > 10.0) {left_bottom_start = 200.;}
+        if (idx.y >= globals.length - 2 && f32(idx.x) * globals.dx > left_bottom_start && f32(idx.x) * globals.dx < 500. ) {  //LARIVER MOD
+            let flow_depth = max(stage_elevation - B_here, 0.0);
+            let hu = 0.0;
+            let hv = -flow_depth * stage_speed;
+            var conc = 0.0;
+            if (f32(idx.y) * globals.dy > 505 && f32(idx.y) * globals.dy < 570. && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
+            BCState = vec4<f32>(stage_elevation, hu, hv, conc);
+            BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        }
+    }    
 
 
     let leftIdx = idx + vec2<i32>(-1, 0);
