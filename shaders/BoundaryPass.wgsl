@@ -408,7 +408,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (globals.north_boundary_type == 4) {
         var left_bottom_start = 300.;
         if (stage_elevation > 10.0) {left_bottom_start = 200.;}
-        if (idx.y >= globals.length - 2 && f32(idx.x) * globals.dx > left_bottom_start && f32(idx.x) * globals.dx < 500. ) {  //LARIVER MOD
+        if (idx.y >= globals.height - 2 && f32(idx.x) * globals.dx > left_bottom_start && f32(idx.x) * globals.dx < 500. ) {  //LARIVER MOD
             let flow_depth = max(stage_elevation - B_here, 0.0);
             let hu = 0.0;
             let hv = -flow_depth * stage_speed;
