@@ -83,7 +83,23 @@ var calc_constants = {
 
     // River sim parameters
     river_sim: 0, // equal to oneif running a river simulation, using river.html
-
+    mean_upstream_channel_elevation: 0.0, // mean elevation of the upstream (incoming flow) river channel bed
+    channel_bottom_width: 1.0, // width of the channel along the upstream boundary
+    channel_side_slope: 1.0, // average rise/run of channel side slipes
+    channel_bank_start_upstream: 0.0, // coordinate of start of channel, including sloping side banks.  Use this parameter to restrict the location that water is allowed to flow into the domain
+    channel_bank_end_upstream: 0.0, // coordinate of end of channel
+    // return period discharge and stages
+    Q_10: 0.0,
+    Q_50: 0.0,
+    Q_100: 0.0,
+    Q_200: 0.0,
+    Q_500: 0.0,
+    stage_10: 0.0,
+    stage_50: 0.0,
+    stage_100: 0.0,
+    stage_200: 0.0,
+    stage_500: 0.0,
+    
     //  add disturbence parameters
     add_Disturbance: -1, // will be changed to 1 when user clicks "Add"
     disturbanceType: 1, // for various choices, 1= solitary wave, etc.
@@ -142,6 +158,7 @@ var calc_constants = {
     colorVal_min: -1.0,  // value that maps to the "lowest" color
     colorMap_choice: 0,  // decision variable for the colormap to use during rendering
     surfaceToPlot: 0, // which surface (eta, u, v, vort) to plot
+    bathy_cmap_zero: 0.0, // shift in the topo shading colormap, sometimes need to move to see topo
     showBreaking: 1,  //  show breaking (foam) areas when ==1
     dissipation_threshold: 0.2, // wave slope for breaking 
     whiteWaterDecayRate: 0.02, // "turbulence" decay rate   

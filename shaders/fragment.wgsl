@@ -47,6 +47,7 @@ struct Globals {
     designcomponent_Fric_Dune: f32,
     designcomponent_Fric_Berm: f32,
     designcomponent_Fric_Seawall: f32,
+    bathy_cmap_zero: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -530,7 +531,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
             color_rgb = GoogleMap;
         }
         else {
-            color_rgb = vec3<f32>(210.0 / 255.0, 180.0 / 255.0, 140.0 / 255.0) + 0.5 * bottom / globals.base_depth;
+            color_rgb = vec3<f32>(210.0 / 255.0, 180.0 / 255.0, 140.0 / 255.0) + 0.25 * (bottom - globals.bathy_cmap_zero) / globals.base_depth;
         }
     } else {
         if (photorealistic == 0) {

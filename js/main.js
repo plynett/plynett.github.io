@@ -537,6 +537,21 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setFloat32(92, calc_constants.incident_wave_H, true);           // f32 
     BoundaryPass_view.setFloat32(96, calc_constants.incident_wave_T, true);           // f32 
     BoundaryPass_view.setFloat32(100, calc_constants.incident_wave_direction, true);           // f32 
+    BoundaryPass_view.setFloat32(104, calc_constants.mean_upstream_channel_elevation, true);           // f32 
+    BoundaryPass_view.setFloat32(108, calc_constants.channel_bottom_width, true);           // f32 
+    BoundaryPass_view.setFloat32(112, calc_constants.channel_side_slope, true);           // f32 
+    BoundaryPass_view.setFloat32(116, calc_constants.channel_bank_start_upstream, true);           // f32 
+    BoundaryPass_view.setFloat32(120, calc_constants.channel_bank_end_upstream, true);           // f32 
+    BoundaryPass_view.setFloat32(124, calc_constants.Q_10, true);           // f32 
+    BoundaryPass_view.setFloat32(128, calc_constants.Q_50, true);           // f32 
+    BoundaryPass_view.setFloat32(132, calc_constants.Q_100, true);           // f32 
+    BoundaryPass_view.setFloat32(136, calc_constants.Q_200, true);           // f32 
+    BoundaryPass_view.setFloat32(140, calc_constants.Q_500, true);           // f32 
+    BoundaryPass_view.setFloat32(144, calc_constants.stage_10, true);           // f32 
+    BoundaryPass_view.setFloat32(148, calc_constants.stage_50, true);           // f32 
+    BoundaryPass_view.setFloat32(152, calc_constants.stage_100, true);           // f32 
+    BoundaryPass_view.setFloat32(156, calc_constants.stage_200, true);           // f32 
+    BoundaryPass_view.setFloat32(160, calc_constants.stage_500, true);           // f32 
 
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -713,8 +728,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(164, calc_constants.designcomponent_Fric_Dune, true);          // f32 
     Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
     Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32 
-
-
+    Render_view.setFloat32(176, calc_constants.bathy_cmap_zero, true);          // f32 
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');

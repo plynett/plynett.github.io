@@ -195,7 +195,10 @@ function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txSt
             let dy = y - calc_constants.HEIGHT / 3.;
             let sigma = 24.0;
 
-            let eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
+            var eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
+            if (calc_constants.river_sim == 1){
+                eta = bathy2D[x][y]
+            }
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
             paddedFlatData[paddedIndex] = eta;  // red

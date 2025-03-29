@@ -25,6 +25,21 @@ struct Globals {
     incident_wave_H: f32,
     incident_wave_T: f32,
     incident_wave_direction: f32,
+    mean_upstream_channel_elevation: f32,
+    channel_bottom_width: f32,
+    channel_side_slope: f32,
+    channel_bank_start_upstream: f32,
+    channel_bank_end_upstream: f32,
+    Q_10: f32,
+    Q_50: f32,
+    Q_100: f32,
+    Q_200: f32,
+    Q_500: f32,
+    stage_10: f32,
+    stage_50: f32,
+    stage_100: f32,
+    stage_200: f32,
+    stage_500: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -69,7 +84,7 @@ fn WestBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
     return vec4<f32>(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
 
-fn EastBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
+fn EastBoundarySponge(idx: vec2<i32>, B_here: f32) -> vec4<f32> {
     let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - globals.boundary_nx - idx.x)) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
     return vec4<f32>(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
@@ -78,13 +93,13 @@ fn EastBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
 fn SouthBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
     let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - idx.y) + 2.0) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
-    return vec4<f32>(new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
+    return vec4<f32>(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
 
 fn NorthBoundarySponge(idx: vec2<i32>) -> vec4<f32> {
     let gamma = pow(0.5 * (0.5 + 0.5 * cos(globals.PI * (f32(globals.BoundaryWidth - globals.boundary_ny - idx.y)) / f32(globals.BoundaryWidth - 1))), 0.005);
     let new_state = textureLoad(txState, idx, 0);
-    return vec4<f32>(new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
+    return vec4<f32>(gamma * new_state.r, gamma * new_state.g, gamma * new_state.b, gamma * new_state.a);
 }
 
 fn calc_wavenumber_approx(omega: f32, d: f32) -> f32 {
@@ -181,7 +196,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // east boundary
     if (globals.east_boundary_type == 1 && idx.x >= globals.width - (globals.BoundaryWidth) - 1) {
-        BCState = EastBoundarySponge(idx);
+        BCState = EastBoundarySponge(idx, B_here);
         BCState_Sed = zero;
     }
 
@@ -354,39 +369,41 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Constant elevation boundary conditions
     // west boundary
-    var stage_elevation = 0.0;
-    var stage_speed = 0.0;
+    var stage_c = 1.0;
+    var Q_c = 0.0;
     if (globals.incident_wave_type == 10) {  // 10-year flood
-        stage_elevation = 8.2;
-        stage_speed = 1.5;
+        stage_c = globals.stage_10;
+        Q_c = globals.Q_10;
     }
     else if (globals.incident_wave_type == 11) { // 50-year flood
-        stage_elevation = 10.2;
-        stage_speed = 2.;
+        stage_c = globals.stage_50;
+        Q_c = globals.Q_50;
     }
     else if (globals.incident_wave_type == 12) { // 100-yr flood
-        stage_elevation = 10.6;
-        stage_speed = 2.2;
+        stage_c = globals.stage_100;
+        Q_c = globals.Q_100;
     }
     else if (globals.incident_wave_type == 13) {  // 200-yr flood
-        stage_elevation = 11.2;
-        stage_speed = 2.3;
+        stage_c = globals.stage_200;
+        Q_c = globals.Q_200;
     }
     else if (globals.incident_wave_type == 14) {  // 500-yr flood
-        stage_elevation = 11.8;
-        stage_speed = 2.5;
+        stage_c = globals.stage_500;
+        Q_c = globals.Q_500;
     }
+    
+    let stage_elevation = globals.mean_upstream_channel_elevation + stage_c;
+    let stage_speed = Q_c / stage_c / (globals.channel_bottom_width + stage_c / globals.channel_side_slope) ;
 
 
     if (globals.west_boundary_type == 4) {
-        var left_bottom_start = 490.;
-        if (stage_elevation > 10.0) {left_bottom_start = 390.;}
-        if (idx.x <= 1 && f32(idx.y) * globals.dy > left_bottom_start && f32(idx.y) * globals.dy < 600. ) {  //LARIVER MOD
+        var left_bottom_start = globals.channel_bank_start_upstream;
+        if (idx.x <= 1 && f32(idx.y) * globals.dy > left_bottom_start && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let flow_depth = max(stage_elevation - B_here, 0.0);
             let hu = flow_depth * stage_speed;
             let hv = 0.0;
             var conc = 0.0;
-            if (f32(idx.y) * globals.dy > 505 && f32(idx.y) * globals.dy < 570. && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
+            if (f32(idx.y) * globals.dy > globals.channel_bank_start_upstream && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
             BCState = vec4<f32>(stage_elevation, hu, hv, conc);
             BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -394,7 +411,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     // east boundary
     if (globals.east_boundary_type == 4) {
-        if (idx.x >= globals.width - 2 && f32(idx.y) * globals.dy > 575. && f32(idx.y) * globals.dy < 685. ) {  //LARIVER MOD
+        if (idx.x >= globals.width - 2 && f32(idx.y) * globals.dy > globals.channel_bank_start_upstream && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let elev_downstream = stage_elevation - 5.0; 
             let flow_depth = max(elev_downstream - B_here, 0.0);
             let hu = flow_depth * stage_speed;
@@ -406,9 +423,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     //north
     if (globals.north_boundary_type == 4) {
-        var left_bottom_start = 300.;
-        if (stage_elevation > 10.0) {left_bottom_start = 200.;}
-        if (idx.y >= globals.height - 2 && f32(idx.x) * globals.dx > left_bottom_start && f32(idx.x) * globals.dx < 500. ) {  //LARIVER MOD
+        var left_bottom_start = globals.channel_bank_start_upstream;
+        if (idx.y >= globals.height - 2 && f32(idx.x) * globals.dx > left_bottom_start && f32(idx.x) * globals.dx < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let flow_depth = max(stage_elevation - B_here, 0.0);
             let hu = 0.0;
             let hv = -flow_depth * stage_speed;
