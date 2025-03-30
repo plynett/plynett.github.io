@@ -18,14 +18,14 @@ chromedriver_path = os.path.join(current_dir, "chromedriver-win64/chromedriver.e
 # Set up Chrome options
 chrome_options = webdriver.ChromeOptions()
 # Uncomment the next line if you wish to run headless (without a GUI)
-#chrome_options.add_argument("--headless=new")
+chrome_options.add_argument("--headless=new")
 
 # Initialize the Chrome driver
 driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
 
 try:
     # Open the simulation webpage
-    driver.get("https://127.0.0.1:8080/")
+    driver.get("https://plynett.github.io/")
     time.sleep(5)  # Wait for the page to fully load
 
     # Define file paths relative to the script directory

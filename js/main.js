@@ -1523,11 +1523,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         displaySlideVolume(calc_constants);
 
         // create Animated Gif or jpg stack
-        if(calc_constants.trigger_animation == 1 && calc_constants.trigger_animation_start_time <= total_time) {
-            console.log('Creating animation of the simulation')
+        // if using trigger, see if animation start time has been reached
+        if(calc_constants.trigger_animation == 1 && total_time >= calc_constants.trigger_animation_start_time) {
+            console.log('Trigger write - Creating animation of the simulation')
             calc_constants.create_animation = 1; // create animated gif
             calc_constants.trigger_animation = 0; // reset trigger
         }
+
         let nframes = 80;
         if(calc_constants.create_animation == 2) {nframes = calc_constants.JPEGstack_frames;}
         if(calc_constants.create_animation > 0){
@@ -1644,8 +1646,79 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             calc_constants.write_individual_surface = 0;  // reset
         }
 
+        // Trigger write individual surface to file
+        // Reset mean surfaces
+        if(calc_constants.trigger_writeWaveHeight == 1 && total_time >= calc_constants.trigger_resetMeans_time){
+            console.log('Trigger write - Reseting mean surfaces')
+            calc_constants.n_time_steps_means = 0;  // reset means counter - compute shader will automatically reset
+            calc_constants.trigger_writeWaveHeight = 2;  // step up trigger index
+        }
+
+        // Reset mean surfaces
+        if(calc_constants.trigger_writeWaveHeight == 2 && total_time >= calc_constants.trigger_resetWaveHeight_time){
+            console.log('Trigger write - Reseting wave height surfaces')
+            calc_constants.n_time_steps_waveheight = 0;  // reset wave height counter - compute shader will automatically reset
+            calc_constants.trigger_writeWaveHeight = 3;  // step up trigger index
+        }        
+
+        // write individual surfaces to file
+        if(calc_constants.trigger_writeWaveHeight == 3 && total_time >= calc_constants.trigger_writeWaveHeight_time){
+            console.log('Trigger write - Writing wave height and other surfaces to file')
+            var filename = 'current_bathytopo.bin';
+            downloadTextureData(device, txBottom, 3, filename);  
+
+            filename = 'current_Hrms.bin';
+            downloadTextureData(device, txWaveHeight, 4, filename);  
+
+            filename = 'current_Hs.bin';
+            downloadTextureData(device, txWaveHeight, 3, filename);  
+
+            filename = 'current_FSmax.bin';
+            downloadTextureData(device, txMeans, 4, filename); 
+
+            filename = 'current_FSmean.bin';
+            downloadTextureData(device, txMeans, 1, filename);  
+
+            filename = 'current_HUmean.bin';
+            downloadTextureData(device, txMeans, 2, filename);  
+
+            filename = 'current_HVmean.bin';
+            downloadTextureData(device, txMeans, 3, filename);    
+
+            calc_constants.trigger_writeWaveHeight = 0;  // reset
+
+            // write complete file
+            const text_complete = "Simulation Completed";
+            const blob_complete = new Blob([text_complete], { type: "text/plain" });
+          
+            // Create a temporary URL for the Blob
+            const url_complete = URL.createObjectURL(blob_complete);
+          
+            // Create a temporary anchor element and trigger the download
+            const a_complete = document.createElement("a");
+            a_complete.href = url_complete;
+            a_complete.download = "completed.txt";
+            document.body.appendChild(a_complete);
+            a_complete.click();
+          
+            // Cleanup: remove the anchor and revoke the Blob URL
+            document.body.removeChild(a_complete);
+            URL.revokeObjectURL(url_complete);
+        }
 
         // write surface data stack to file
+        // if using trigger, see if surface write start / end time has been reached
+        if(calc_constants.trigger_writesurface == 1 && total_time >= calc_constants.trigger_writesurface_start_time) {
+            console.log('Trigger write - Start 2D surface data to file')
+            calc_constants.writesurfaces = 1; // write surfaces
+            calc_constants.trigger_writesurface = 2; // =2 means actively writing data
+        }
+        else if(calc_constants.trigger_writesurface == 2 && total_time >= calc_constants.trigger_writesurface_end_time) {
+            console.log('Trigger write - Stop 2D surface data to file')
+            calc_constants.writesurfaces = 0; // do not write surfaces
+            calc_constants.trigger_writesurface = 0; // reset trigger
+        }
+
         if(calc_constants.writesurfaces > 0 && calc_constants.simPause < 0){
             dt_since_last_write = dt_since_last_write + calc_constants.dt * calc_constants.render_step;
 
@@ -1660,7 +1733,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     console.error("Failed to write surface data:", error);
                 }
                 
-
             }
             
         }
