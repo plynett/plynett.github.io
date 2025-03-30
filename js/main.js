@@ -1706,6 +1706,26 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             URL.revokeObjectURL(url_complete);
         }
 
+        // when in trigger mode, write current time to file
+        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % 10 == 0) { 
+            const text_current_time = String(total_time); // Convert the float to a string
+            const blob_current_time = new Blob([text_current_time], { type: "text/plain" });
+            
+            // Create a temporary URL for the Blob
+            const url_current_time = URL.createObjectURL(blob_current_time);
+            
+            // Create a temporary anchor element and trigger the download
+            const a_current_time = document.createElement("a");
+            a_current_time.href = url_current_time;
+            a_current_time.download = "current_time.txt";
+            document.body.appendChild(a_current_time);
+            a_current_time.click();
+            
+            // Cleanup: remove the anchor and revoke the Blob URL
+            document.body.removeChild(a_current_time);
+            URL.revokeObjectURL(url_current_time);            
+        }
+
         // write surface data stack to file
         // if using trigger, see if surface write start / end time has been reached
         if(calc_constants.trigger_writesurface == 1 && total_time >= calc_constants.trigger_writesurface_start_time) {
