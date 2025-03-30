@@ -1523,6 +1523,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         displaySlideVolume(calc_constants);
 
         // create Animated Gif or jpg stack
+        if(calc_constants.trigger_animation == 1 && calc_constants.trigger_animation_start_time >= total_time) {
+            console.log('Creating animation of the simulation')
+            calc_constants.create_animation = 1; // create animated gif
+            calc_constants.trigger_animation = 0; // reset trigger
+        }
         let nframes = 80;
         if(calc_constants.create_animation == 2) {nframes = calc_constants.JPEGstack_frames;}
         if(calc_constants.create_animation > 0){

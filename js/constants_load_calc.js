@@ -261,7 +261,7 @@ var calc_constants = {
 
     // save data parameters
     create_animation: 0, // create animated gif when = 1
-    AnimGif_dt: 0.25, // time between animated gif frames
+    AnimGif_dt: 1.0, // time between animated gif frames
     JPEGstack_dt: 1.0,  // time between images in jpeg stack
     JPEGstack_frames: 10,  // total number of frames to save in jpg stack
     writesurfaces: 0,  //flag for writing 2D data to file
@@ -272,8 +272,25 @@ var calc_constants = {
     dt_writesurface: 1.0, // incrememnt to write to file 
     fileWritePause: 100, // time (ms) to pause during 2D surface write to not overload write buffer
     write_individual_surface: 0, // flag to write individual 2D surface
-    which_surface_to_write: 0  // flag for which surface to write 
+    which_surface_to_write: 0,  // flag for which surface to write 
 
+    // save trigger parameters, for automatically saving data
+    trigger_animation: 1, // user trigger / automation when = 1, 
+    // will change to 2 while storing frames, and back to 0 when done
+    trigger_animation_start_time: 10.0, // start time of animation trigger
+
+    trigger_writesurface: 0, // user trigger / automation when = 1, 
+    // will change to 2 while writing data, and back to 0 when done
+    trigger_writesurface_start_time: 0.0, // start time of surface write trigger
+    trigger_writesurface_end_time: 0.0, // end time of surface write trigger
+    
+    trigger_writeWaveHeight:0, // user trigger / automation when = 1, 
+    // will change to 2 after resetMeans
+    // will change to 3 after resetWaveHeight
+    // will change back to 0 when done writing waveheight, and will write complete.txt to file
+    trigger_resetMeans_time: 0.0, // time to reset means
+    trigger_resetWaveHeight_time: 0.0, // time to reset wave height
+    trigger_writeWaveHeight_time: 0.0, // time to write wave height
 };
 
 // load the control file
