@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import glob
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -17,7 +18,7 @@ use_sat_image = 0  # Flag to indicate whether to use a satellite image (1 = yes,
 sat_image_file = "overlay.jpg"  # Satellite image file for the simulation (optional)
 output_folder = os.path.join(sim_directory, "output/") # Path to directory where the simulation will save its output files
 chromedriver_path = os.path.join(current_dir, "chromedriver-win64/chromedriver.exe")  # Path to the chromedriver executable is located
-run_headless = 1  # Flag to indicate whether to run the browser in headless mode (1 = yes, 0 = no)
+run_headless = 1  # Flag to indicate whether to run the browser in headless (no browser window) mode (1 = yes, 0 = no)
 
 # Save trigger parameters for automatically saving data, these will be added to json
 trigger_animation = 1  # automation trigger for animated gif when = 1
@@ -37,6 +38,7 @@ trigger_writeWaveHeight = 1  # automation trigger for writing mean/max/wave heig
 trigger_resetMeans_time = 60.0  # time to reset means
 trigger_resetWaveHeight_time = 120.0  # time to reset wave height
 trigger_writeWaveHeight_time = 180.0  # time to write wave height, this is also the end time for the simulation
+# Note: The simulation will never close if trigger_writeWaveHeight~=1
 # End Inputs - should not need to edit below this
 
 # Define file paths relative to the script directory
@@ -103,6 +105,9 @@ if run_headless == 1:
 # Initialize the Chrome driver
 driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
 
+# initialize some variables
+current_time = 0.0  # Initialize current time to 0.0
+previous_time = 0.0  # Initialize previous time to 0.0
 try:
     # Open the simulation webpage
     driver.get("https://plynett.github.io/")
@@ -131,12 +136,47 @@ try:
     start_button.click()
     
     # Poll for the existence of "completed.txt" every 10 seconds.
+    pause_time = 10  # seconds
     print("Waiting for the completed.txt file to appear...")
     while not os.path.exists(completed_file):
-        print("Simulation not yet completed, will check again in 10 seconds...")
-        time.sleep(10)
+        # 1) Find all files with name current_timeXXX.txt in the output_folder
+        pattern = os.path.join(output_folder, "current_time*.txt")
+        file_list = glob.glob(pattern)
+
+        if not file_list:
+            print("Simulation not yet started, or trigger_writeWaveHeight = 0.")
+        else:
+            # 2) Load only the newest file (based on modification time) and print its contents
+            newest_file = max(file_list, key=os.path.getmtime)
+            with open(newest_file, 'r') as f:
+                current_time_str = f.read().strip()  # Read the current time value as a string
+
+            # Convert the string to a float
+            current_time = float(current_time_str)
+
+            # Calculate the real-time ratio and estimate the finish time
+            realtime_ratio = (current_time - previous_time) / pause_time  
+            estimated_time_to_finish = (trigger_writeWaveHeight_time - current_time) / realtime_ratio  
+
+            print("Current simulation time", current_time, "of", trigger_writeWaveHeight_time, "seconds")
+            print("Realtime ratio:", realtime_ratio, "Estimated time to finish:", estimated_time_to_finish, "seconds")
+
+            # Update previous_time to the current time
+            previous_time = current_time
+            
+            # 3) Delete all the found files
+            for file in file_list:
+                os.remove(file)
+
+        time.sleep(pause_time)
     
     print("completed.txt found. Simulation has completed, closing all files in 30 seconds.")
     time.sleep(30)
 finally:
+    # delete current_timeXXX.txt files
+    pattern = os.path.join(output_folder, "current_time*.txt")
+    file_list = glob.glob(pattern) 
+    for file in file_list:
+        os.remove(file)
+
     driver.quit()
