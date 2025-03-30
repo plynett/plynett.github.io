@@ -277,7 +277,7 @@ var calc_constants = {
     // save trigger parameters, for automatically saving data
     trigger_animation: 1, // user trigger / automation when = 1, 
     // will change to 2 while storing frames, and back to 0 when done
-    trigger_animation_start_time: 10.0, // start time of animation trigger
+    trigger_animation_start_time: 30.0, // start time of animation trigger
 
     trigger_writesurface: 0, // user trigger / automation when = 1, 
     // will change to 2 while writing data, and back to 0 when done
