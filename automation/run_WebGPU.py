@@ -17,8 +17,16 @@ chromedriver_path = os.path.join(current_dir, "chromedriver-win64/chromedriver.e
 
 # Set up Chrome options
 chrome_options = webdriver.ChromeOptions()
+prefs = {
+    "download.default_directory": downloads_folder,  # Set your desired downloads folder
+    "download.prompt_for_download": False,                       # Disable download prompt
+    "download.directory_upgrade": True,
+    "safebrowsing.enabled": True,
+    "profile.default_content_setting_values.automatic_downloads": 1  # Allow multiple downloads
+}
+chrome_options.add_experimental_option("prefs", prefs)
 # Uncomment the next line if you wish to run headless (without a GUI)
-chrome_options.add_argument("--headless=new")
+#chrome_options.add_argument("--headless=new")
 
 # Initialize the Chrome driver
 driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
@@ -59,7 +67,7 @@ try:
     # Poll for the existence of "completed.txt" every 10 seconds.
     print("Waiting for the completed.txt file to appear...")
     while not os.path.exists(completed_file):
-        print("File not found, waiting 10 seconds...")
+        print("Simulation not yet completed, will check again in 10 seconds...")
         time.sleep(10)
     
     print("completed.txt found. Simulation has completed.")

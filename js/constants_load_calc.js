@@ -275,22 +275,22 @@ var calc_constants = {
     which_surface_to_write: 0,  // flag for which surface to write 
 
     // save trigger parameters, for automatically saving data
-    trigger_animation: 1, // user trigger / automation when = 1, 
+    trigger_animation: 0, // user trigger / automation when = 1, 
     // will change to 2 while storing frames, and back to 0 when done
-    trigger_animation_start_time: 60.0, // start time of animation trigger
+    trigger_animation_start_time: 0.0, // start time of animation trigger
 
-    trigger_writesurface: 1, // user trigger / automation when = 1, 
+    trigger_writesurface: 0, // user trigger / automation when = 1, 
     // will change to 2 while writing data, and back to 0 when done
-    trigger_writesurface_start_time: 100.0, // start time of surface write trigger
-    trigger_writesurface_end_time: 120.0, // end time of surface write trigger
+    trigger_writesurface_start_time: 0.0, // start time of surface write trigger
+    trigger_writesurface_end_time: 0.0, // end time of surface write trigger
     
-    trigger_writeWaveHeight:1, // user trigger / automation when = 1, 
+    trigger_writeWaveHeight:0, // user trigger / automation when = 1, 
     // will change to 2 after resetMeans
     // will change to 3 after resetWaveHeight
     // will change back to 0 when done writing waveheight, and will write complete.txt to file
-    trigger_resetMeans_time: 60.0, // time to reset means
-    trigger_resetWaveHeight_time: 120.0, // time to reset wave height
-    trigger_writeWaveHeight_time: 180.0, // time to write wave height
+    trigger_resetMeans_time: 0.0, // time to reset means
+    trigger_resetWaveHeight_time: 0.0, // time to reset wave height
+    trigger_writeWaveHeight_time: 0.0, // time to write wave height
 };
 
 // load the control file
