@@ -83,6 +83,7 @@ var calc_constants = {
 
     // River sim parameters
     river_sim: 0, // equal to oneif running a river simulation, using river.html
+    river_inflow_angle: 0.0, // angle of inflow from the boundary
     mean_upstream_channel_elevation: 0.0, // mean elevation of the upstream (incoming flow) river channel bed
     channel_bottom_width: 1.0, // width of the channel along the upstream boundary
     channel_side_slope: 1.0, // average rise/run of channel side slipes

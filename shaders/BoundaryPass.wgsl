@@ -40,6 +40,7 @@ struct Globals {
     stage_100: f32,
     stage_200: f32,
     stage_500: f32,
+    river_inflow_angle: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -392,18 +393,19 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         Q_c = globals.Q_500;
     }
     
+    Q_c = Q_c / cos(globals.river_inflow_angle);
     let stage_elevation = globals.mean_upstream_channel_elevation + stage_c;
     let stage_speed = Q_c / stage_c / (globals.channel_bottom_width + stage_c / globals.channel_side_slope) ;
 
-
     if (globals.west_boundary_type == 4) {
         var left_bottom_start = globals.channel_bank_start_upstream;
-        if (idx.x <= 1 && f32(idx.y) * globals.dy > left_bottom_start && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream ) {  //LARIVER MOD
+        let loc_c = f32(idx.y) * globals.dy;
+        if (idx.x <= 1 && loc_c > left_bottom_start && loc_c < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let flow_depth = max(stage_elevation - B_here, 0.0);
             let hu = flow_depth * stage_speed;
             let hv = 0.0;
             var conc = 0.0;
-            if (f32(idx.y) * globals.dy > globals.channel_bank_start_upstream && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
+            if (loc_c > globals.channel_bank_start_upstream && loc_c < globals.channel_bank_end_upstream && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
             BCState = vec4<f32>(stage_elevation, hu, hv, conc);
             BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -414,8 +416,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (idx.x >= globals.width - 2 && f32(idx.y) * globals.dy > globals.channel_bank_start_upstream && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let elev_downstream = stage_elevation - 5.0; 
             let flow_depth = max(elev_downstream - B_here, 0.0);
-            let hu = flow_depth * stage_speed;
-            let hv = 0.0;
+            let hu = -flow_depth * stage_speed * cos(globals.river_inflow_angle);
+            let hv = -flow_depth * stage_speed * sin(globals.river_inflow_angle);
             BCState = vec4<f32>(elev_downstream , hu, hv, 0.0);
             BCState_Sed = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             BCState_Breaking = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -426,8 +428,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var left_bottom_start = globals.channel_bank_start_upstream;
         if (idx.y >= globals.height - 2 && f32(idx.x) * globals.dx > left_bottom_start && f32(idx.x) * globals.dx < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let flow_depth = max(stage_elevation - B_here, 0.0);
-            let hu = 0.0;
-            let hv = -flow_depth * stage_speed;
+            let hu = -flow_depth * stage_speed * sin(globals.river_inflow_angle);
+            let hv = -flow_depth * stage_speed * cos(globals.river_inflow_angle);
             var conc = 0.0;
             if (f32(idx.y) * globals.dy > 505 && f32(idx.y) * globals.dy < 570. && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
             BCState = vec4<f32>(stage_elevation, hu, hv, conc);

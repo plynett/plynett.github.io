@@ -14,7 +14,7 @@
     "Theta": 2,
     "friction": 0.029,
     "isManning": 1,
-    "min_allowable_depth": 0.005,
+    "min_allowable_depth": 0.001,
     "useBreakingModel": 0,
     "delta_breaking": 2,
     "T_star_coef": 5,
