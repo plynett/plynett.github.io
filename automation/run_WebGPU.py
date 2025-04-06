@@ -158,12 +158,12 @@ try:
             realtime_ratio = (current_time - previous_time) / pause_time  
             estimated_time_to_finish = (trigger_writeWaveHeight_time - current_time) / realtime_ratio  
 
-            print("Current simulation time", current_time, "of", trigger_writeWaveHeight_time, "seconds")
-            print("Realtime ratio:", realtime_ratio, "Estimated time to finish:", estimated_time_to_finish, "seconds")
+            print(f"Current simulation time {current_time:.2f} of {trigger_writeWaveHeight_time:.2f} seconds")
+            print(f"Realtime ratio: {realtime_ratio:.1f} Estimated time to finish: {(estimated_time_to_finish/60):.1f} minutes")
 
             # Update previous_time to the current time
             previous_time = current_time
-            
+
             # 3) Delete all the found files
             for file in file_list:
                 os.remove(file)
