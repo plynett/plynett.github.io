@@ -395,15 +395,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     
     Q_c = Q_c / cos(globals.river_inflow_angle);
     let stage_elevation = globals.mean_upstream_channel_elevation + stage_c;
-    let stage_speed = Q_c / stage_c / (globals.channel_bottom_width + stage_c / globals.channel_side_slope) ;
+    let stage_speed = Q_c / stage_c / (globals.channel_bottom_width * cos(globals.river_inflow_angle) + stage_c / globals.channel_side_slope) ;
 
     if (globals.west_boundary_type == 4) {
         var left_bottom_start = globals.channel_bank_start_upstream;
         let loc_c = f32(idx.y) * globals.dy;
         if (idx.x <= 1 && loc_c > left_bottom_start && loc_c < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let flow_depth = max(stage_elevation - B_here, 0.0);
-            let hu = flow_depth * stage_speed;
-            let hv = 0.0;
+            let hu = flow_depth * stage_speed * cos(globals.river_inflow_angle);
+            let hv = flow_depth * stage_speed * sin(globals.river_inflow_angle);
             var conc = 0.0;
             if (loc_c > globals.channel_bank_start_upstream && loc_c < globals.channel_bank_end_upstream && i32(globals.total_time / 30.0) % 2 == 0) {conc = 1.0;}
             BCState = vec4<f32>(stage_elevation, hu, hv, conc);
