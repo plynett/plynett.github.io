@@ -1875,7 +1875,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Event listener for mousedown - start of the hold
-    canvas.addEventListener('mousedown', function (event) {
+    canvas.addEventListener('pointerdown', function (event) {
         if (event.button === 0 && calc_constants.viewType == 1) { // Left mouse button, Design mode
             leftMouseIsDown = true;
             handleMouseEvent(event);  // Handle the initial click
@@ -1901,7 +1901,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Event listener for mousemove - if mouse is down, it's equivalent to multiple clicks
-    canvas.addEventListener('mousemove', function (event) {
+    canvas.addEventListener('pointermove', function (event) {
         if (leftMouseIsDown && calc_constants.viewType == 1) {
             handleMouseEvent(event);
         } else if (leftMouseIsDown && calc_constants.viewType == 2) {
@@ -1926,7 +1926,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Event listener for mouseup - end of the hold
-    canvas.addEventListener('mouseup', function (event) {
+    canvas.addEventListener('pointerup', function (event) {
         if (event.button === 0) { // Left mouse button
             leftMouseIsDown = false;
             calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
@@ -1937,7 +1937,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // To handle cases where the mouse leaves the canvas while being pressed
-    canvas.addEventListener('mouseleave', function () {
+    canvas.addEventListener('pointerleave', function () {
         leftMouseIsDown = false;  // Consider the left mouse as no longer being held down
         rightMouseIsDown = false; // Consider the right mouse as no longer being held down
     });
