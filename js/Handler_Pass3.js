@@ -198,7 +198,7 @@ export function create_Pass3_BindGroupLayout(device) {
 }
 
 
-export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction) {
+export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction) {
     return device.createBindGroup({
         layout: create_Pass3_BindGroupLayout(device),
         entries: [
@@ -254,7 +254,7 @@ export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom,
             },
             {
                 binding: 12,
-                resource: txShipPressure.createView()
+                resource: txBoundaryForcing.createView()
             },
             {
                 binding: 13,

@@ -50,7 +50,7 @@ struct Globals {
 @group(0) @binding(9) var F_G_star_oldGradients: texture_2d<f32>;
 @group(0) @binding(10) var F_G_star_oldOldGradients: texture_2d<f32>;
 @group(0) @binding(11) var txstateUVstar: texture_2d<f32>;
-@group(0) @binding(12) var txShipPressure: texture_2d<f32>;
+@group(0) @binding(12) var txBoundaryForcing: texture_2d<f32>;
 
 @group(0) @binding(13) var txNewState: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(14) var dU_by_dt: texture_storage_2d<rgba32float, write>;
@@ -166,11 +166,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let friction_here = max(globals.friction, textureLoad(txBottomFriction, idx, 0).x);
     var friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here, friction_here);
 
+    // dhdt for depth change option
+    let dhdt = textureLoad(txBoundaryForcing, idx, 0).y;
+
     // Pressure stencil calculations
-    let P_left = textureLoad(txShipPressure, leftIdx, 0).x;
-    let P_right = textureLoad(txShipPressure, rightIdx, 0).x;
-    let P_down = textureLoad(txShipPressure, downIdx, 0).x;
-    let P_up = textureLoad(txShipPressure, upIdx, 0).x;
+    let P_left = textureLoad(txBoundaryForcing, leftIdx, 0).x;
+    let P_right = textureLoad(txBoundaryForcing, rightIdx, 0).x;
+    let P_down = textureLoad(txBoundaryForcing, downIdx, 0).x;
+    let P_up = textureLoad(txBoundaryForcing, upIdx, 0).x;
 
     let press_x = -0.5 * h_here * globals.g_over_dx * (P_right - P_left);
     let press_y = -0.5 * h_here * globals.g_over_dy * (P_up - P_down);
@@ -228,7 +231,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         overflow_dry = -globals.infiltrationRate;  // hydraulic conductivity of coarse, unsaturated sand
     }
 
-    let source_term = vec4<f32>(overflow_dry, -globals.g * h_here * detadx - in_state_here.y * friction_ + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
+    let source_term = vec4<f32>(dhdt + overflow_dry, -globals.g * h_here * detadx - in_state_here.y * friction_ + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
 
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 

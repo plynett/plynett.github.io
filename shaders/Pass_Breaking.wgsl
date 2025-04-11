@@ -126,7 +126,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Smagorinsky subgrid eddy viscosity
     let Smag_cm = 0.04;
-    let nu_Smag = Smag_cm * globals.dx * globals.dy * sqrt(2. * dPdx * dPdx + 2. * dQdy * dQdy + (dPdy + dQdx) * (dPdy + dQdx)) * divide_by_h;  // temporary, needs to be corrected to strain rate, right now has extra dHdx terms
+    let nu_Smag = 0.0; //Smag_cm * globals.dx * globals.dy * sqrt(2. * dPdx * dPdx + 2. * dQdy * dQdy + (dPdy + dQdx) * (dPdy + dQdx)) * divide_by_h;  // temporary, needs to be corrected to strain rate, right now has extra dHdx terms
 
     // sum eddy viscosities and calc fluxes
     let nu_total = nu_breaking + nu_Smag;

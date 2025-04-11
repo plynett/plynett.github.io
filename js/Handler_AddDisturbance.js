@@ -27,8 +27,37 @@ export function create_AddDisturbance_BindGroupLayout(device) {
                 }
             },
             {
-                // 3rd binding: A storage texture. The compute shader will write results into this texture.
+                // 2nd binding: A texture that the fragment shader will sample from.
                 binding: 3,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 4th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 4,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 5th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 5,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 6,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -40,7 +69,7 @@ export function create_AddDisturbance_BindGroupLayout(device) {
     });
 }
 
-export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom, txState, txtemp_AddDisturbance) {
+export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom, txState, txBottomInitial, txtemp_AddDisturbance, txBoundaryForcing, txtemp_bottom) {
     return device.createBindGroup({
         layout: create_AddDisturbance_BindGroupLayout(device),
         entries: [
@@ -60,7 +89,19 @@ export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom,
             },
             {
                 binding: 3,
+                resource: txBottomInitial.createView()
+            },
+            {
+                binding: 4,
                 resource: txtemp_AddDisturbance.createView()
+            },
+            {
+                binding: 5,
+                resource: txBoundaryForcing.createView()
+            },
+            {
+                binding: 6,
+                resource: txtemp_bottom.createView()
             },
         ]
     });

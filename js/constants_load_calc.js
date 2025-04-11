@@ -112,6 +112,15 @@ var calc_constants = {
     disturbanceLength: 0.0,
     disturbanceDip: 0.0,
     disturbanceRake: 0.0,
+    disturbance_change_timescale: 0.0,  // these are for the depth change landslide option
+    disturbance_time_shift: 0.0,
+    disturbance_max_distance: 0.0,
+    disturbance_initial_traj: 0.0,
+    disturbance_traj_timefactor: 0.0,
+    disturbance_final_traj: 0.0,
+    disturbance_expo: 0.0,
+    disturbance_vol_data: 0.0,
+    disturbance_gamma_val: 0.0,
 
     // define which "Example" to run
     run_example: 0, // index corresponding to examples below

@@ -162,6 +162,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     console.log("Creating 2D textures...");
     const txBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores information about the bathy/topo
+    const txBottomInitial = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores information about the initial bathy/topo
     const txState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the current (n) "state", or eta, P, Q, and c
     const txNewState = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the next (n+1) "state"
     const txState_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // the values of the current (n) "state", or eta, P, Q, and c
@@ -217,7 +218,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // PCR reduced tridiagonal coefficients for y-dir (bous only) 
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
-    const txShipPressure = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
+    const txBoundaryForcing = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
     const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
     const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores current wave height surface
@@ -438,7 +439,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
-    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txShipPressure, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
+    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
     const Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass3_view = new DataView(Pass3_uniforms);
     Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
@@ -623,9 +624,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
 
 
-    // AddDisturbance -  Bindings & Uniforms Config
+    // AddDisturbance -  Bindings & Uniforms Config 
     const AddDisturbance_BindGroupLayout = create_AddDisturbance_BindGroupLayout(device);
-    const AddDisturbance_BindGroup = create_AddDisturbance_BindGroup(device, AddDisturbance_uniformBuffer, txBottom, txstateUVstar, txtemp_AddDisturbance);
+    const AddDisturbance_BindGroup = create_AddDisturbance_BindGroup(device, AddDisturbance_uniformBuffer, txBottom, txstateUVstar, txBottomInitial, txtemp_AddDisturbance, txBoundaryForcing, txtemp_bottom);
     const AddDisturbance_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let AddDisturbance_view = new DataView(AddDisturbance_uniforms);
     AddDisturbance_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -643,6 +644,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     AddDisturbance_view.setFloat32(48, calc_constants.disturbanceRake, true);             // f32  
     AddDisturbance_view.setFloat32(52, calc_constants.base_depth, true);             // f32  
     AddDisturbance_view.setFloat32(56, calc_constants.g, true);             // f32  
+    AddDisturbance_view.setFloat32(60, calc_constants.dt, true);             // f32  
+    AddDisturbance_view.setFloat32(64, 0.0,true);             // f32  will be time
+    AddDisturbance_view.setFloat32(68, calc_constants.disturbance_change_timescale,true);             // f32  
+    AddDisturbance_view.setFloat32(72, calc_constants.disturbance_time_shift,true);             // f32  
+    AddDisturbance_view.setFloat32(76, calc_constants.disturbance_max_distance,true);             // f32  
+    AddDisturbance_view.setFloat32(80, calc_constants.disturbance_initial_traj,true);             // f32  
+    AddDisturbance_view.setFloat32(84, calc_constants.disturbance_traj_timefactor,true);             // f32  
+    AddDisturbance_view.setFloat32(88, calc_constants.disturbance_final_traj,true);             // f32  
+    AddDisturbance_view.setFloat32(92, calc_constants.disturbance_expo,true);             // f32  
+    AddDisturbance_view.setFloat32(96, calc_constants.disturbance_vol_data,true);             // f32  
+    AddDisturbance_view.setFloat32(100, calc_constants.disturbance_gamma_val,true);             // f32  
 
     // MouseClickChange -  Bindings & Uniforms Config
     const MouseClickChange_BindGroupLayout = create_MouseClickChange_BindGroupLayout(device);
@@ -963,7 +975,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             }
 
         }
-
+        // copy the initial bathy into a seperate texture
+        if (frame_count == 0) {
+            runCopyTextures(device, commandEncoder, calc_constants, txBottom, txBottomInitial)
+        }
+        
         // store baseline wave height map
         if (calc_constants.save_baseline == 1) {
             runCopyTextures(device, commandEncoder, calc_constants, txWaveHeight, txBaseline_WaveHeight)
@@ -1277,6 +1293,23 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // Shift back FG textures - only have to do this for Bous, and only after predictor step
                 runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
                 runCopyTextures(device, commandEncoder, calc_constants, predictedF_G_star, F_G_star_oldGradients)
+
+
+                // add prescriptive depth change
+                if(calc_constants.disturbanceType == 5) {
+                    AddDisturbance_view.setFloat32(64, total_time ,true);             // f32   - stores time
+
+                    runComputeShader(device, commandEncoder, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom) 
+                    runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update neardry
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
+                    runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        
+                    // copy the initial bathy into a seperate texture
+                    if (frame_count == 0) {
+                        runCopyTextures(device, commandEncoder, calc_constants, txBottom, txBottomInitial)
+                    }
+                }
 
                 if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
                 {
