@@ -1909,6 +1909,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Event listener for mousedown - start of the hold
     canvas.addEventListener('pointerdown', function (event) {
+        // edit for touch screens
+        // 1) disable default handling immediately
+        event.preventDefault();
+
+        // 2) capture this pointer until it's released
+        canvas.setPointerCapture(event.pointerId);
+
+        // 3) existing logic:
+
         if (event.button === 0 && calc_constants.viewType == 1) { // Left mouse button, Design mode
             leftMouseIsDown = true;
             handleMouseEvent(event);  // Handle the initial click
@@ -1960,6 +1969,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Event listener for mouseup - end of the hold
     canvas.addEventListener('pointerup', function (event) {
+        // release capture so the pointer is freed, edit for touch screens
+        canvas.releasePointerCapture(event.pointerId);
+
         if (event.button === 0) { // Left mouse button
             leftMouseIsDown = false;
             calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
@@ -1973,6 +1985,13 @@ document.addEventListener('DOMContentLoaded', function () {
     canvas.addEventListener('pointerleave', function () {
         leftMouseIsDown = false;  // Consider the left mouse as no longer being held down
         rightMouseIsDown = false; // Consider the right mouse as no longer being held down
+    });
+
+    // also handle pointercancel just in case the browser forcibly cancels:
+    canvas.addEventListener('pointercancel', function(event) {
+        canvas.releasePointerCapture(event.pointerId);
+        leftMouseIsDown = rightMouseIsDown = false;
+        calc_constants.click_update = 0;
     });
 
     // Prevent the context menu from appearing on right-click
