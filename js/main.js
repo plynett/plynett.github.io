@@ -1465,9 +1465,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
         else if (calc_constants.viewType == 2)
         {  
-            const window_width = canvas.width;
-            const window_height = canvas.height;
+            var window_width = canvas.width;
+            var window_height = canvas.height;
 
+            if (calc_constants.full_screen == 1) { // if in fullscreen mode  
+                window_width = window.innerWidth;
+                window_height = window.innerHeight;
+            }
+            
             if (grid_ratio <= 1.0) {
                 if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT/grid_ratio) ){
                     calc_constants.canvas_width_ratio = 1.0;
@@ -1479,16 +1484,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             }
             else {
                 if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT*grid_ratio) ){
-                    calc_constants.canvas_width_ratio = 1.0;
-                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width); 
-                } else {
-                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width; 
+                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width;
                     calc_constants.canvas_height_ratio = 1.0; 
+                } else {
+                    calc_constants.canvas_width_ratio = 1.0
+                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
                 } 
-            }
-
-            calc_constants.html_update = 1;  // update the html page with the new values
-            
+            }                
+            // update the canvas ratio in the uniform buffer
+            Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
+            Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
+          
             // Render Vertex grid
             RenderPass.setVertexBuffer(0, gridVertexBuffer);
             // Issue draw command to draw
@@ -2326,25 +2332,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const window_width = window.innerWidth;
             const window_height = window.innerHeight;
 
-            if (grid_ratio <= 1.0) {
-                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT/grid_ratio) ){
-                    calc_constants.canvas_width_ratio = 1.0;
-                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
-                } else {
-                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width; 
-                    calc_constants.canvas_height_ratio = 1.0; 
-                } 
-            }
-            else {
-                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT*grid_ratio) ){
-                    calc_constants.canvas_width_ratio = 1.0;
-                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width); 
-                } else {
-                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT/grid_ratio*window_height/window_width; 
-                    calc_constants.canvas_height_ratio = 1.0; 
-                } 
-            }
-
+            // canvas_width_ratio and height will be updated at render time
+            
             canvas.width = window_width;
             canvas.height = window_height;
         } else {
