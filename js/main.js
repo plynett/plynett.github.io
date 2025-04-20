@@ -27,6 +27,7 @@ import { createComputePipeline, createRenderPipeline, createRenderPipeline_verte
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, displaySlideVolume, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
+import { mat4, vec3 } from 'https://cdn.jsdelivr.net/npm/gl-matrix/esm/index.js';
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
@@ -1490,7 +1491,22 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     calc_constants.canvas_width_ratio = 1.0
                     calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
                 } 
-            }                
+            }     
+            
+            // camera parameters you expose to the UI:
+            let cameraPos   = vec3.fromValues( 0, 0, 50 );       // ↑ Z height
+            let cameraTarget= vec3.fromValues( 0, 0,  0 );       // look‑at
+            let up          = vec3.fromValues( 0, 1,  0 );
+            let fovY        = Math.PI/4;
+            let aspect      = canvas.width/canvas.height;
+            let near        = 0.1;
+            let far         = 500.0;
+
+            // each frame, build view & proj:
+            let viewMat = mat4.lookAt(mat4.create(), cameraPos, cameraTarget, up);
+            let projMat = mat4.perspective(mat4.create(), fovY, aspect, near, far);
+            let viewProj = mat4.multiply(mat4.create(), projMat, viewMat);
+                        
             // update the canvas ratio in the uniform buffer
             Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
             Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
