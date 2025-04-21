@@ -52,9 +52,9 @@ export function create_1D_Texture(device, width, allTextures) {
     return texture;
 }
 
-export function createUniformBuffer(device) {
+export function createUniformBuffer(device, bufferSize = 256) {
     return device.createBuffer({
-        size: 256,  // smallest multiple of 256
+        size: bufferSize,  // use provided size or default to 256
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
     });
 }

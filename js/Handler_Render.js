@@ -120,7 +120,7 @@ export function createRenderBindGroupLayout(device) {
             {
                 // 14th binding: A sampler describing how the texture will be sampled.
                 binding: 13,
-                visibility: GPUShaderStage.FRAGMENT,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                 sampler: {
                     type: 'non-filtering'  // Nearest-neighbor sampling (no interpolation)
                 }

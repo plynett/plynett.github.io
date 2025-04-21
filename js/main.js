@@ -148,7 +148,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const AddDisturbance_uniformBuffer = createUniformBuffer(device);
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const ExtractTimeSeries_uniformBuffer = createUniformBuffer(device);
-    const Render_uniformBuffer = createUniformBuffer(device);
+    let Render_bufferSize = 272; // 272 bytes for render pipeline, 256 for compute pipeline
+    const Render_uniformBuffer = createUniformBuffer(device,Render_bufferSize);
 
     // Create a sampler for texture sampling. This defines how the texture will be sampled (e.g., nearest-neighbor sampling).  Used only for render pipeline
     const textureSampler = device.createSampler({
@@ -352,6 +353,20 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 8)
 
+    // initial camera layout
+    // camera parameters you expose to the UI:
+    var cameraPos   = vec3.fromValues( 0, 0, 50 );       // ↑ Z height
+    var cameraTarget= vec3.fromValues( 0, 0,  0 );       // look‑at
+    var up          = vec3.fromValues( 0, 1,  0 );
+    var fovY        = Math.PI/4;
+    var aspect      = canvas.width/canvas.height;
+    var near        = 0.1;
+    var far         = 500.0;
+
+    // each frame, build view & proj:
+    var viewMat = mat4.lookAt(mat4.create(), cameraPos, cameraTarget, up);
+    var projMat = mat4.perspective(mat4.create(), fovY, aspect, near, far);
+    var viewProj = mat4.multiply(mat4.create(), projMat, viewMat);
 
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
     // Pass0 Bindings & Uniforms Config
@@ -696,7 +711,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
     var RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
-    const Render_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    const Render_uniforms = new ArrayBuffer(Render_bufferSize);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
     Render_view.setFloat32(4, calc_constants.colorVal_min, true);          // f32
@@ -743,6 +758,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
     Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32 
     Render_view.setFloat32(176, calc_constants.bathy_cmap_zero, true);          // f32 
+    Render_view.setFloat32(180, 0.0, true);          // f32        // f32 
+    Render_view.setFloat32(184, 0.0, true);          // f32        // f32 
+    Render_view.setFloat32(188, 0.0, true);          // f32 
+    // add new viewProj mat4 for drone view
+    for (let i = 0; i < 16; ++i) {
+        // offset = 192 + 4 bytes per float × i
+        Render_view.setFloat32(192 + i * 4, viewProj[i], /* littleEndian */ true);
+    }
+
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
@@ -1464,58 +1488,224 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // Issue draw command to draw
             RenderPass.draw(4);  // Draw the quad 
         }
-        else if (calc_constants.viewType == 2)
+        else if (calc_constants.viewType == 22)
         {  
-            var window_width = canvas.width;
-            var window_height = canvas.height;
+            // ──────────────────────────────────────────────────────────────────────────────
+            // FULL “Perspective + Model” setup (drop in place of your old ortho block)
+            // ──────────────────────────────────────────────────────────────────────────────
 
-            if (calc_constants.full_screen == 1) { // if in fullscreen mode  
-                window_width = window.innerWidth;
-                window_height = window.innerHeight;
-            }
-            
-            if (grid_ratio <= 1.0) {
-                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT/grid_ratio) ){
-                    calc_constants.canvas_width_ratio = 1.0;
-                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
-                } else {
-                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width; 
-                    calc_constants.canvas_height_ratio = 1.0; 
-                } 
-            }
-            else {
-                if(calc_constants.WIDTH >= Math.round(calc_constants.HEIGHT*grid_ratio) ){
-                    calc_constants.canvas_width_ratio = calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width;
-                    calc_constants.canvas_height_ratio = 1.0; 
-                } else {
-                    calc_constants.canvas_width_ratio = 1.0
-                    calc_constants.canvas_height_ratio = 1.0 / (calc_constants.WIDTH/calc_constants.HEIGHT*grid_ratio*window_height/window_width); 
-                } 
-            }     
-            
-            // camera parameters you expose to the UI:
-            let cameraPos   = vec3.fromValues( 0, 0, 50 );       // ↑ Z height
-            let cameraTarget= vec3.fromValues( 0, 0,  0 );       // look‑at
-            let up          = vec3.fromValues( 0, 1,  0 );
-            let fovY        = Math.PI/4;
-            let aspect      = canvas.width/canvas.height;
-            let near        = 0.1;
-            let far         = 500.0;
+            // 1) Canvas dimensions (fullscreen if requested)
+            const window_width  = calc_constants.full_screen ? window.innerWidth  : canvas.width;
+            const window_height = calc_constants.full_screen ? window.innerHeight : canvas.height;
 
-            // each frame, build view & proj:
-            let viewMat = mat4.lookAt(mat4.create(), cameraPos, cameraTarget, up);
-            let projMat = mat4.perspective(mat4.create(), fovY, aspect, near, far);
-            let viewProj = mat4.multiply(mat4.create(), projMat, viewMat);
-                        
-            // update the canvas ratio in the uniform buffer
-            Render_view.setFloat32(72, calc_constants.canvas_width_ratio, true);          // f32 
-            Render_view.setFloat32(76, calc_constants.canvas_height_ratio, true);          // f32 
-          
+            // 2) Physical simulation size
+            const simWidth  = calc_constants.WIDTH  * calc_constants.dx;
+            const simHeight = calc_constants.HEIGHT * calc_constants.dy;
+
+            // 3) Build Perspective projection (P)
+            const fovY   = 45 * Math.PI/180;                   // 45° vertical FOV
+            const aspect = window_width / window_height;       // canvas aspect ratio
+            const nearZ  = 0.1, farZ = 5000.0;                 // clip planes
+            const P      = mat4.perspective(mat4.create(), fovY, aspect, nearZ, farZ);
+
+            // 4) Build View matrix (V): camera straight above center, looking down
+            const eye    = [ simWidth / 2., simHeight / 2.,  simWidth + simHeight];      // x=0,y=0,z=100
+            const center = [ simWidth / 2., simHeight / 2., 0   ];    // look at (upper‑right, z=0)
+            const up     = [ 0,        1,        0   ];      // world‑up = +Z
+            const V      = mat4.lookAt(mat4.create(), eye, center, up);
+
+            // 5) Build Model matrix = T_reskew · T_shift·T_center·S·R·T_negCenter · T_unskew
+
+            // 5a) Un‑skew (physical→logical)
+            const T_unskew = mat4.fromScaling(mat4.create(), [
+            1.0 / calc_constants.dx,
+            1.0 / calc_constants.dy,
+            1
+            ]);
+
+            // 5b) Logical pan/zoom/rotate about grid center
+            const W = calc_constants.WIDTH,  H = calc_constants.HEIGHT;
+            const cx = W/2, cy = H/2;
+
+            // translate to origin
+            const T_negCenter = mat4.fromTranslation(mat4.create(), [-cx, -cy, 0]);
+
+            // anisotropic rotation in logical coords:
+            {
+            const θ  = calc_constants.rotationAngle_xy * Math.PI/180.0;
+            const c  = Math.cos(θ), s = Math.sin(θ);
+            const dx = calc_constants.dx, dy = calc_constants.dy;
+            // column-major:
+            var R = mat4.fromValues(
+                /*m00*/  c,        /*m01*/  s*(dx/dy), /*m02*/ 0, /*m03*/ 0,
+                /*m10*/ -s*(dy/dx),/*m11*/  c,          /*m12*/ 0, /*m13*/ 0,
+                /*m20*/  0,        /*m21*/  0,          /*m22*/ 1, /*m23*/ 0,
+                /*m30*/  0,        /*m31*/  0,          /*m32*/ 0, /*m33*/ 1
+            );
+            }
+
+            // translate back to center
+            const T_center = mat4.fromTranslation(mat4.create(), [cx, cy, 0]);
+
+            // zoom (logical units → screen pixels per cell)
+            const scaleX = calc_constants.forward * (window_width  / W);
+            const scaleY = calc_constants.forward * (window_height / H);
+            const S      = mat4.fromScaling(mat4.create(), [scaleX, scaleY, 1]);
+
+            // pan (in logical units)
+            const shiftX = calc_constants.shift_x * W;
+            const shiftY = calc_constants.shift_y * H;
+            const T_shift = mat4.fromTranslation(mat4.create(), [shiftX, shiftY, 0]);
+
+            // compose logical
+            let tmp = mat4.create();
+            mat4.multiply(tmp, R,         T_negCenter);  // R * T_negCenter
+            mat4.multiply(tmp, S,         tmp);         // S * (R * T_negCenter)
+            mat4.multiply(tmp, T_center,  tmp);         // T_center * S * R * T_negCenter
+            const transformLogical = mat4.multiply(
+            mat4.create(),
+            T_shift,
+            tmp
+            );
+
+            // 5c) Re‑skew (logical→physical)
+            const T_reskew = mat4.fromScaling(mat4.create(), [
+            calc_constants.dx,
+            calc_constants.dy,
+            1
+            ]);
+
+            // final model = T_reskew · transformLogical · T_unskew
+            let model = mat4.create();
+            mat4.multiply(model, T_reskew,          transformLogical);
+            mat4.multiply(model, model,            T_unskew);
+
+            // 6) Combine into MVP
+            //    viewProj = P · V · model
+            let viewProj = mat4.create();
+            mat4.multiply(viewProj, P,              V);
+            mat4.multiply(viewProj, viewProj,       model);
+
+            // 7) Upload `viewProj` to your WGSL uniform;
+            //    in VS: out.clip_position = globals.viewProj * vec4(worldX, worldY, worldZ, 1);
+
+            
+            // write it into your existing UBO (at offset 192…208…)
+            for (let i = 0; i < 16; ++i) {
+                Render_view.setFloat32(192 + 4*i, viewProj[i], true);
+            }
             // Render Vertex grid
             RenderPass.setVertexBuffer(0, gridVertexBuffer);
             // Issue draw command to draw
-            RenderPass.draw(numVertices);  // Draw the vertex grid
+            RenderPass.draw(numVertices);  // Draw the vertex grid  
+        }
+        else if (calc_constants.viewType == 2)  // 2D plan view working
+        {  
+            // Get canvas dimensions in full screen if needed:
+            var window_width = canvas.width;
+            var window_height = canvas.height;
+            if (calc_constants.full_screen == 1) {
+                window_width = window.innerWidth;
+                window_height = window.innerHeight;
+            }
+
+            // simulation domain in physical units:
+            let simWidth = calc_constants.WIDTH * calc_constants.dx;
+            let simHeight = calc_constants.HEIGHT * calc_constants.dy;
+            let canvasAspect = window_width / window_height;
+
+            // (Keep your ortho projection using simWidth and simHeight)
+            let left, right, bottom, top;
+            let simAspect = simWidth / simHeight;
+            if (canvasAspect > simAspect) {
+                let desiredWidth = simHeight * canvasAspect;
+                let margin = (desiredWidth - simWidth) / 2;
+                left  = -margin;
+                right = simWidth + margin;
+                bottom = 0;
+                top = simHeight;
+            } else {
+                let desiredHeight = simWidth / canvasAspect;
+                let margin = (desiredHeight - simHeight) / 2;
+                left = 0;
+                right = simWidth;
+                bottom = -margin;
+                top = simHeight + margin;
+            }
+
+            const near = -1;
+            const far  = +1;
+            viewProj = mat4.ortho(mat4.create(), left, right, bottom, top, near, far);
+
+            // --- Build the user transformation ---
+            // First, define the simulation center in physical units:
+            let centerX = simWidth / 2.0;
+            let centerY = simHeight / 2.0;
+
+            // Build the pan, zoom and rotation transforms (all to be applied in logical space)
+            // Create a matrix to "unskew" physical coordinates to logical (i.e. remove dx,dy scaling)
+            let T_unskew = mat4.fromScaling(mat4.create(), [1.0 / calc_constants.dx, 1.0 / calc_constants.dy, 1]);
+
+            // And a matrix to reapply the scaling back (reskew)
+            let T_reskew = mat4.fromScaling(mat4.create(), [calc_constants.dx, calc_constants.dy, 1]);
+
+            // Now compute the center in logical space:
+            let logicalWidth = calc_constants.WIDTH;
+            let logicalHeight = calc_constants.HEIGHT;
+            let logicalCenterX = logicalWidth / 2.0;
+            let logicalCenterY = logicalHeight / 2.0;
+
+            // Build the transforms in logical space:
+            // ——— anisotropic “physical” rotation in logical coordinates ———
+            let θ     = calc_constants.rotationAngle_xy * Math.PI/180.0;
+            let c     = Math.cos(θ);
+            let s     = Math.sin(θ);
+            let dx    = calc_constants.dx;
+            let dy    = calc_constants.dy;
+            let R     = mat4.fromValues(
+            // column‐major layout for gl‑matrix:
+            /* m00 */   c,              /* m01 */ s*(dx/dy), /* m02 */ 0, /* m03 */ 0,
+            /* m10 */ -s*(dy/dx),      /* m11 */   c,          /* m12 */ 0, /* m13 */ 0,
+            /* m20 */   0,              /* m21 */   0,          /* m22 */ 1, /* m23 */ 0,
+            /* m30 */   0,              /* m31 */   0,          /* m32 */ 0, /* m33 */ 1
+            );
+            let T_negCenter = mat4.fromTranslation(mat4.create(), [-logicalCenterX, -logicalCenterY, 0]);
+            let T_center = mat4.fromTranslation(mat4.create(), [logicalCenterX, logicalCenterY, 0]);
+
+            // Pan: here, assume the shift values are relative to the simulation size in logical space:
+            let shiftX_logical = calc_constants.shift_x * logicalWidth;
+            let shiftY_logical = calc_constants.shift_y * logicalHeight;
+            let T_shift = mat4.fromTranslation(mat4.create(), [shiftX_logical, shiftY_logical, 0]);
+
+            // Zoom (forward): use the canvas ratio multipliers as before (they act on logical coordinates)
+            let scaleX = calc_constants.forward * 1.0;
+            let scaleY = calc_constants.forward * 1.0;
+            let S = mat4.fromScaling(mat4.create(), [scaleX, scaleY, 1]);
+
+            // Compose the transformation in logical space:
+            let transformLogical = mat4.create();
+            let tempMatrix = mat4.multiply(mat4.create(), R, T_negCenter);  // R * (-center)
+            mat4.multiply(tempMatrix, S, tempMatrix);                        // S * R * (-center)
+            mat4.multiply(tempMatrix, T_center, tempMatrix);                 // center * S * R * (-center)
+            mat4.multiply(transformLogical, T_shift, tempMatrix);            // T_shift * (center * S * R * (-center))
+
+            // Now, bring the user transform from logical space into physical space:
+            // First unskew physical coordinates to logical, apply transform, then re-skew.
+            let transformMatrix = mat4.create();
+            mat4.multiply(transformMatrix,T_reskew,mat4.multiply(mat4.create(), transformLogical, T_unskew));
+
+            // Finally post-multiply the ortho projection with the combined transformation:
+            mat4.multiply(viewProj, viewProj, transformMatrix);
+
             
+            // write it into your existing UBO (at offset 192…208…)
+            for (let i = 0; i < 16; ++i) {
+                Render_view.setFloat32(192 + 4*i, viewProj[i], true);
+            }
+            // Render Vertex grid
+            RenderPass.setVertexBuffer(0, gridVertexBuffer);
+            // Issue draw command to draw
+            RenderPass.draw(numVertices);  // Draw the vertex grid  
         }
 
         // End the render pass after recording all its commands.
