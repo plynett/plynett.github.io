@@ -761,7 +761,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
     Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32 
     Render_view.setFloat32(176, calc_constants.bathy_cmap_zero, true);          // f32 
-    Render_view.setFloat32(180, calc_constants.zRenderScale, true);          // f32        // f32 
+    Render_view.setFloat32(180, calc_constants.renderZScale, true);          // f32        // f32 
     Render_view.setFloat32(184, 0.0, true);          // f32        // f32 
     Render_view.setFloat32(188, 0.0, true);          // f32 
     // add new viewProj mat4 for drone view
@@ -1514,7 +1514,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // Issue draw command to draw
             RenderPass.draw(4);  // Draw the quad 
         }
-        else if (calc_constants.viewType == 2)
+        else if (calc_constants.viewType == 2)  // 3D / drone / walk-through perspective !
         {  
           // ──────────────────────────────────────────────────────────────────────────────
             // ──────────────────────────────────────────────────────────────────────────────
@@ -1546,7 +1546,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     pitch: 0,
                     forward: 1.0,
                     panX: 0,
-                    panY: 0
+                    panY: 0,
                 };
             }
 
@@ -1566,6 +1566,35 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             camState.panX = calc_constants.shift_x;
             camState.panY = calc_constants.shift_y;
             camState.forward = calc_constants.forward;
+
+            // bathy interp - find ground elevation at current position
+            const x = camState.position[0] / calc_constants.dx;
+            const y = camState.position[1] / calc_constants.dy;
+            const i0 = Math.max(0, Math.floor(x));
+            const j0 = Math.max(0, Math.floor(y));
+            const i1 = Math.min(i0+1, bathy2D.length-1);
+            const j1 = Math.min(j0+1, bathy2D[0].length-1);
+            const tx = x - i0,      ty = y - j0;
+              
+            const z00 = bathy2D[i0][j0];
+            const z10 = bathy2D[i1][j0];
+            const z01 = bathy2D[i0][j1];
+            const z11 = bathy2D[i1][j1];
+            const zmax = Math.max(z00, Math.max(z10, Math.max(z01,z11)));
+              
+            // interpolate in x
+            const z0 = z00*(1-tx) + z10*tx;
+            const z1 = z01*(1-tx) + z11*tx;
+            // then in y
+            const groundZ = z0*(1-ty) + z1*ty;
+            
+            const groundEyePosZ =  Math.max(0.0, groundZ) + Math.max(zmax - groundZ, calc_constants.renderEyeHeight);
+            if (calc_constants.renderLocktoGround == 1) {  // if locked to ground
+                camState.position[2] = groundEyePosZ;
+            }
+            else {
+                camState.position[2] = Math.max(camState.position[2], groundEyePosZ); // do not let camera go underground
+            }
 
             // Get initial direction from baseEye to baseTarget
             const initialDir = vec3.create();
@@ -1595,7 +1624,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             vec3.cross(up, right, forward);
             vec3.normalize(up, up);
 
-            // FIXED: Apply delta movements correctly
+            // Apply delta movements correctly to camera state
             // 1) PanX  → strafe left/right along the camera’s right vector
             if (deltaPanX !== 0) {
                 vec3.scaleAndAdd(
@@ -1612,16 +1641,25 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 const horFwd = vec3.fromValues(forward[0], forward[1], 0);
                 vec3.normalize(horFwd, horFwd);
             
-                vec3.scaleAndAdd(
-                camState.position,
-                camState.position,
-                forward,
-                deltaPanY * calc_constants.HEIGHT
-                );
+                if (calc_constants.renderLocktoGround == 1) {
+                    vec3.scaleAndAdd(
+                    camState.position,
+                    camState.position,
+                    horFwd,  // if locked to the ground, only forward in horizontal - jump if using forward here
+                    deltaPanY * calc_constants.HEIGHT
+                    );
+                } else {
+                    vec3.scaleAndAdd(
+                    camState.position,
+                    camState.position,
+                    forward,
+                    deltaPanY * calc_constants.HEIGHT
+                    );   
+                }
             }
             
             // 3) forward control → move along the full camera direction (including pitch)
-            if (deltaForward !== 0) {
+            if (deltaForward !== 0 && calc_constants.renderLocktoGround == 0) {
                 vec3.scaleAndAdd(
                 camState.position,
                 camState.position,

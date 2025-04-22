@@ -53,7 +53,7 @@ struct Globals {
     designcomponent_Fric_Berm: f32,
     designcomponent_Fric_Seawall: f32,
     bathy_cmap_zero: f32,
-    zRenderScale: f32,
+    renderZScale: f32,
     temp1: f32,
     temp2: f32,
     viewProj: mat4x4<f32>, // bytes 192–255: your camera matrix
@@ -76,7 +76,7 @@ fn vs_main(v : VertexIn) -> VertexOut {
 
     let worldX = out.uv.x * f32(globals.WIDTH)  * globals.dx;
     let worldY = out.uv.y * f32(globals.HEIGHT) * globals.dy;
-    let worldZ = elev * globals.zRenderScale;
+    let worldZ = elev * globals.renderZScale;
 
     out.clip_position = globals.viewProj * vec4<f32>(worldX, worldY, worldZ, 1.0);
     return out;
