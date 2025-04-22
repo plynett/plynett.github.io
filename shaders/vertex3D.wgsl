@@ -76,7 +76,7 @@ fn vs_main(v : VertexIn) -> VertexOut {
 
     let worldX = out.uv.x * f32(globals.WIDTH)  * globals.dx;
     let worldY = out.uv.y * f32(globals.HEIGHT) * globals.dy;
-    let worldZ = elev * 1.;
+    let worldZ = elev * 3.;
 
     out.clip_position = globals.viewProj * vec4<f32>(worldX, worldY, worldZ, 1.0);
     return out;

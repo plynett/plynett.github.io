@@ -355,19 +355,21 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 8)
 
     // initial camera layout
-    // camera parameters you expose to the UI:
-    var cameraPos   = vec3.fromValues( 0, 0, 50 );       // ↑ Z height
-    var cameraTarget= vec3.fromValues( 0, 0,  0 );       // look‑at
-    var up          = vec3.fromValues( 0, 1,  0 );
-    var fovY        = Math.PI/4;
-    var aspect      = canvas.width/canvas.height;
-    var near        = 0.1;
-    var far         = 500.0;
-
-    // each frame, build view & proj:
-    var viewMat = mat4.lookAt(mat4.create(), cameraPos, cameraTarget, up);
-    var projMat = mat4.perspective(mat4.create(), fovY, aspect, near, far);
-    var viewProj = mat4.multiply(mat4.create(), projMat, viewMat);
+    const simWidth   = calc_constants.WIDTH  * calc_constants.dx;
+    const simHeight  = calc_constants.HEIGHT * calc_constants.dy;
+    
+    // base eye & forward vector
+    const baseEye    = vec3.fromValues(
+      0.0 * simWidth,
+      0.5 * simHeight,
+      10.0 * calc_constants.base_depth
+    );
+    const baseTarget = vec3.fromValues(
+      0.5 * simWidth,
+      0.5 * simHeight,
+       0
+    );
+    var viewProj = mat4.create;
 
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
     // Pass0 Bindings & Uniforms Config
@@ -1450,11 +1452,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         Render_view.setFloat32(116, total_time, true);             // f32  
         if (calc_constants.viewType == 1)
         {
+            // turn back on colorbar
+            calc_constants.CB_show = 1;
+            Render_view.setInt32(84, calc_constants.CB_show, true);          // i32  
+            
             // Render QUAD
             RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
         }
         else if (calc_constants.viewType == 2)
         {
+            // turn off colorbar
+            calc_constants.CB_show = 0;
+            Render_view.setInt32(84, calc_constants.CB_show, true);          // i32  
+
             // Render Vertex grid
             RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
         }
@@ -1506,106 +1516,159 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
         else if (calc_constants.viewType == 2)
         {  
+          // ──────────────────────────────────────────────────────────────────────────────
             // ──────────────────────────────────────────────────────────────────────────────
-            // FULL “Perspective + Model” setup (drop in place of your old ortho block)
+            // FULL "Perspective + Model" setup
             // ──────────────────────────────────────────────────────────────────────────────
 
-            // 1) Canvas dimensions (fullscreen if requested)
+            // ─────────────────────────────────────────────────────────────
+            // 1. Canvas dimensions
             const window_width  = calc_constants.full_screen ? window.innerWidth  : canvas.width;
             const window_height = calc_constants.full_screen ? window.innerHeight : canvas.height;
 
-            // 2) Physical simulation size
-            const simWidth  = calc_constants.WIDTH  * calc_constants.dx;
-            const simHeight = calc_constants.HEIGHT * calc_constants.dy;
-
-            // 3) Build Perspective projection (P)
-            const fovY   = 45 * Math.PI/180;                   // 45° vertical FOV
-            const aspect = window_width / window_height;       // canvas aspect ratio
-            const nearZ  = calc_constants.dx/10., farZ = simWidth + simWidth;                 // clip planes
+            // ─────────────────────────────────────────────────────────────
+            // 2. Perspective projection
+            const fovY   = 45 * Math.PI / 180;
+            const aspect = window_width / window_height;
+            const nearZ  = Math.min(calc_constants.dx, calc_constants.dy) / 10;
+            const farZ   = 10 * (simWidth + simHeight);
             const P      = mat4.perspective(mat4.create(), fovY, aspect, nearZ, farZ);
 
-            // 4) Build View matrix (V): camera straight above center, looking down
-            const eye    = [ 0,        0,        10.*calc_constants.base_depth ];      // x=0,y=0,z=100
-            const center = [ simWidth, simHeight, 0   ];    // look at (upper‑right, z=0)
-            const up     = [ 0,        0,        1   ];      // world‑up = +Z
-            const V      = mat4.lookAt(mat4.create(), eye, center, up);
+            // ─────────────────────────────────────────────────────────────
+            // 3. Camera transformation 
 
-            // 5) Build Model matrix = T_reskew · T_shift·T_center·S·R·T_negCenter · T_unskew
-
-            // 5a) Un‑skew (physical→logical)
-            const T_unskew = mat4.fromScaling(mat4.create(), [
-            1.0 / calc_constants.dx,
-            1.0 / calc_constants.dy,
-            1
-            ]);
-
-            // 5b) Logical pan/zoom/rotate about grid center
-            const W = calc_constants.WIDTH,  H = calc_constants.HEIGHT;
-            const cx = W/2, cy = H/2;
-
-            // translate to origin
-            const T_negCenter = mat4.fromTranslation(mat4.create(), [-cx, -cy, 0]);
-
-            // anisotropic rotation in logical coords:
-            {
-            const θ  = calc_constants.rotationAngle_xy * Math.PI/180.0;
-            const c  = Math.cos(θ), s = Math.sin(θ);
-            const dx = calc_constants.dx, dy = calc_constants.dy;
-            // column-major:
-            var R = mat4.fromValues(
-                /*m00*/  c,        /*m01*/  s*(dx/dy), /*m02*/ 0, /*m03*/ 0,
-                /*m10*/ -s*(dy/dx),/*m11*/  c,          /*m12*/ 0, /*m13*/ 0,
-                /*m20*/  0,        /*m21*/  0,          /*m22*/ 1, /*m23*/ 0,
-                /*m30*/  0,        /*m31*/  0,          /*m32*/ 0, /*m33*/ 1
-            );
+            // --- Use a persistent camera state ---
+            // This should be initialized once outside the render loop
+            if (!window.cameraState) {
+                window.cameraState = {
+                    position: vec3.clone(baseEye),
+                    yaw: 0,
+                    pitch: 0,
+                    forward: 1.0,
+                    panX: 0,
+                    panY: 0
+                };
             }
 
-            // translate back to center
-            const T_center = mat4.fromTranslation(mat4.create(), [cx, cy, 0]);
+            // Get current state
+            const camState = window.cameraState;
 
-            // zoom (logical units → screen pixels per cell)
-            const scaleX = calc_constants.forward * (window_width  / W);
-            const scaleY = calc_constants.forward * (window_height / H);
-            const S      = mat4.fromScaling(mat4.create(), [scaleX, scaleY, 1]);
+            // Calculate delta from previous frame
+            const deltaYaw = calc_constants.rotationAngle_xy * Math.PI / 180 - camState.yaw;
+            const deltaPitch = calc_constants.rotationAngle_xz * Math.PI / 180 - camState.pitch;
+            const deltaPanX = calc_constants.shift_x - camState.panX;
+            const deltaPanY = calc_constants.shift_y - camState.panY;
+            const deltaForward = calc_constants.forward - camState.forward;
 
-            // pan (in logical units)
-            const shiftX = calc_constants.shift_x * W;
-            const shiftY = calc_constants.shift_y * H;
-            const T_shift = mat4.fromTranslation(mat4.create(), [shiftX, shiftY, 0]);
+            // Update current values
+            camState.yaw = calc_constants.rotationAngle_xy * Math.PI / 180;
+            camState.pitch = calc_constants.rotationAngle_xz * Math.PI / 180;
+            camState.panX = calc_constants.shift_x;
+            camState.panY = calc_constants.shift_y;
+            camState.forward = calc_constants.forward;
 
-            // compose logical
-            let tmp = mat4.create();
-            mat4.multiply(tmp, R,         T_negCenter);  // R * T_negCenter
-            mat4.multiply(tmp, S,         tmp);         // S * (R * T_negCenter)
-            mat4.multiply(tmp, T_center,  tmp);         // T_center * S * R * T_negCenter
-            const transformLogical = mat4.multiply(
-            mat4.create(),
-            T_shift,
-            tmp
+            // Get initial direction from baseEye to baseTarget
+            const initialDir = vec3.create();
+            vec3.subtract(initialDir, baseTarget, baseEye);
+            const initialDist = vec3.length(initialDir);
+            vec3.normalize(initialDir, initialDir);
+
+            // Calculate current orientation vectors
+            const cY = Math.cos(camState.yaw), sY = Math.sin(camState.yaw);
+            const cP = Math.cos(camState.pitch), sP = Math.sin(camState.pitch);
+
+            // Forward vector (direction camera is looking)
+            const forward = vec3.fromValues(
+                cY * cP,  // x
+                sY * cP,  // y
+                sP        // z
             );
 
-            // 5c) Re‑skew (logical→physical)
-            const T_reskew = mat4.fromScaling(mat4.create(), [
-            calc_constants.dx,
-            calc_constants.dy,
-            1
+            // Right vector (perpendicular to forward and world up)
+            const worldUp = vec3.fromValues(0, 0, 1);
+            const right = vec3.create();
+            vec3.cross(right, forward, worldUp);
+            vec3.normalize(right, right);
+
+            // Up vector (perpendicular to forward and right)
+            const up = vec3.create();
+            vec3.cross(up, right, forward);
+            vec3.normalize(up, up);
+
+            // FIXED: Apply delta movements correctly
+            // 1) PanX  → strafe left/right along the camera’s right vector
+            if (deltaPanX !== 0) {
+                vec3.scaleAndAdd(
+                camState.position,
+                camState.position,
+                right,
+                deltaPanX * calc_constants.WIDTH
+                );
+            }
+            
+            // 2) PanY  → move forward/back in the horizontal (XY) plane
+            if (deltaPanY !== 0) {
+                // project the pitched forward vector onto the XY plane
+                const horFwd = vec3.fromValues(forward[0], forward[1], 0);
+                vec3.normalize(horFwd, horFwd);
+            
+                vec3.scaleAndAdd(
+                camState.position,
+                camState.position,
+                horFwd,
+                deltaPanY * calc_constants.HEIGHT
+                );
+            }
+            
+            // 3) forward control → move along the full camera direction (including pitch)
+            if (deltaForward !== 0) {
+                vec3.scaleAndAdd(
+                camState.position,
+                camState.position,
+                forward,
+                -deltaForward * initialDist
+                );
+            }
+  
+  
+
+            // Final camera position is our tracked position
+            const eye = vec3.clone(camState.position);
+
+            // Calculate target point (always in front of camera)
+            const target = vec3.create();
+            vec3.scaleAndAdd(target, eye, forward, initialDist);
+
+            // Create view matrix
+            const V = mat4.lookAt(mat4.create(), eye, target, up);
+
+            // ─────────────────────────────────────────────────────────────
+            // 4. Model matrix (identity - we're handling movement in camera space)
+            const model = mat4.create();
+
+            // If you need your grid transformations:
+            const T_unskew = mat4.fromScaling(mat4.create(), [
+                1 / calc_constants.dx,
+                1 / calc_constants.dy,
+                1
             ]);
 
-            // final model = T_reskew · transformLogical · T_unskew
-            let model = mat4.create();
-            mat4.multiply(model, T_reskew,          transformLogical);
-            mat4.multiply(model, model,            T_unskew);
+            const T_reskew = mat4.fromScaling(mat4.create(), [
+                calc_constants.dx,
+                calc_constants.dy,
+                1
+            ]);
 
-            // 6) Combine into MVP
-            //    viewProj = P · V · model
-            let viewProj = mat4.create();
-            mat4.multiply(viewProj, P,              V);
-            mat4.multiply(viewProj, viewProj,       model);
+            mat4.multiply(model, T_reskew, T_unskew);
 
-            // 7) Upload `viewProj` to your WGSL uniform;
-            //    in VS: out.clip_position = globals.viewProj * vec4(worldX, worldY, worldZ, 1);
+            // ─────────────────────────────────────────────────────────────
+            // 5. Final view-projection matrix
+            const viewProj = mat4.mul(mat4.create(), P, mat4.mul(mat4.create(), V, model));
 
-            
+            // ─────────────────────────────────────────────────────────────
+            // 6. Upload viewProj to your uniform buffer before drawing
+            //    (VS: out.clip_position = viewProj * worldPos4)
+
             // write it into your existing UBO (at offset 192…208…)
             for (let i = 0; i < 16; ++i) {
                 Render_view.setFloat32(192 + 4*i, viewProj[i], true);
@@ -2177,7 +2240,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (leftMouseIsDown && calc_constants.viewType == 2) {
             const deltaX = event.clientX - lastMouseX_left;
             const deltaY = event.clientY - lastMouseY_left;
-            const motion_inc = 0.001 / calc_constants.forward;
+            const motion_inc = 0.001 * calc_constants.forward;
 
             calc_constants.shift_x  += deltaX * motion_inc; // Adjust the sensitivity as needed
             calc_constants.shift_y  -= deltaY * motion_inc * calc_constants.WIDTH / calc_constants.HEIGHT; // Adjust the sensitivity as needed
@@ -2188,6 +2251,9 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (rightMouseIsDown) {
             const deltaX = event.clientX - lastMouseX_right;
             calc_constants.rotationAngle_xy -= deltaX * 0.1; // Adjust the sensitivity as needed
+
+            const deltaY = event.clientY - lastMouseY_right
+            calc_constants.rotationAngle_xz -= deltaY * 0.1; // Adjust the sensitivity as needed
 
             lastMouseX_right = event.clientX;
             lastMouseY_right = event.clientY;
@@ -2231,31 +2297,35 @@ document.addEventListener('DOMContentLoaded', function () {
     // keyboard interactions
     // Event listener for keydown - to handle arrow keys for shifting
     document.addEventListener('keydown', function (event) {
-        const shiftAmount = 0.1; // Change this value to shift by more or less  
+        const shiftAmount = 0.01; // Change this value to shift by more or less  
         calc_constants.click_update = 2;
         switch (event.key) {
             case 'a': // 'A' key for left
             case 'A':
+            case 'ArrowLeft': // Left arrow key
                 calc_constants.shift_x -= shiftAmount;
                 break;
             case 'd': // 'D' key for right
             case 'D':
+            case 'ArrowRight': // Right arrow key
                 calc_constants.shift_x += shiftAmount;
                 break;
             case 'w': // 'W' key for up
             case 'W':
-                calc_constants.shift_y -= shiftAmount;
+            case 'ArrowUp': // Up arrow key
+                calc_constants.shift_y += shiftAmount;
                 break;
             case 's': // 'S' key for down
             case 'S':
-                calc_constants.shift_y += shiftAmount;
+            case 'ArrowDown': // Down arrow key
+                calc_constants.shift_y -= shiftAmount;
                 break;
         }
     });
     // end keyboard interaction
 
     // mouse scroll wheel interaction
-    const zoomSensitivity = 0.1;  // Adjust this value to make zoom faster or slower
+    const zoomSensitivity = 0.02;  // Adjust this value to make zoom faster or slower
 
     function handleZoom(event) {
         if (calc_constants.viewType !== 2) {
@@ -2272,14 +2342,14 @@ document.addEventListener('DOMContentLoaded', function () {
         // Adjust the zoom level based on the wheel delta
         if (event.deltaY < 0) {
             // Scrolling up, zoom in
-            calc_constants.forward *= (1 + zoomSensitivity);
+            calc_constants.forward *= (1 - zoomSensitivity);
         } else if (event.deltaY > 0) {
             // Scrolling down, zoom out
-            calc_constants.forward *= (1 - zoomSensitivity);
+            calc_constants.forward *= (1 + zoomSensitivity);
         }
     
         // Clamp the zoom level to a minimum and maximum value
-        calc_constants.forward = Math.max(0.1, Math.min(100, calc_constants.forward));
+        calc_constants.forward = Math.max(0.001, Math.min(100, calc_constants.forward));
     }
 
     function updateZoomListener() {
