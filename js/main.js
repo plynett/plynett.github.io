@@ -761,7 +761,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
     Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32 
     Render_view.setFloat32(176, calc_constants.bathy_cmap_zero, true);          // f32 
-    Render_view.setFloat32(180, 0.0, true);          // f32        // f32 
+    Render_view.setFloat32(180, calc_constants.zRenderScale, true);          // f32        // f32 
     Render_view.setFloat32(184, 0.0, true);          // f32        // f32 
     Render_view.setFloat32(188, 0.0, true);          // f32 
     // add new viewProj mat4 for drone view
@@ -1615,7 +1615,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 vec3.scaleAndAdd(
                 camState.position,
                 camState.position,
-                horFwd,
+                forward,
                 deltaPanY * calc_constants.HEIGHT
                 );
             }
@@ -1625,7 +1625,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 vec3.scaleAndAdd(
                 camState.position,
                 camState.position,
-                forward,
+                up,
                 -deltaForward * initialDist
                 );
             }

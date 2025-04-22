@@ -242,6 +242,7 @@ var calc_constants = {
     viewType: 1, // 1 = plan-view design mode, 2 = 3D explorer mode
     rotationAngle_xy: 0.0, // rotation angle of 2D x-y plane
     rotationAngle_xz: 0.0, // rotation angle of 2D x-z plane
+    zRenderScale: 1.0, // vertical exaggeration for drone fly through render
     shift_x: 0.0, // x shift of 2D plane
     shift_y: 0.0, // y shift of 2D plane
     forward: 1.0, // zoom in/out of 2D plane
