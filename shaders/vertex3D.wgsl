@@ -1,4 +1,8 @@
-struct VertexOutput {
+struct VertexIn {
+    @location(0) pos : vec2<f32>,   // the vec2 from the buffer
+};
+
+struct VertexOut {
     @builtin(position) clip_position: vec4<f32>,
     @location(1) uv: vec2<f32>,
 };
@@ -62,23 +66,18 @@ struct Globals {
 @group(0) @binding(13) var textureSampler: sampler;
 
 @vertex
-fn vs_main(@builtin(vertex_index) in_idx: u32) -> VertexOutput {
-    var out: VertexOutput;
+fn vs_main(v : VertexIn) -> VertexOut {
+    var out: VertexOut;
 
-    let positions = array<vec2<f32>,4>(
-        vec2<f32>(-1.0, -1.0),  vec2<f32>(-1.0, 1.0),
-        vec2<f32>( 1.0, -1.0),  vec2<f32>( 1.0, 1.0)
-    );
-    let pos2d = positions[in_idx];
-    out.uv = pos2d * 0.5 + 0.5;
+    // uv directly from position
+    out.uv = v.pos * 0.5 + 0.5;
 
     let elev = textureSampleLevel(etaTexture, textureSampler, out.uv, 0.0).r;
 
-    let worldX = (pos2d.x + 1.0) * 0.5 * f32(globals.WIDTH) * globals.dx;
-    let worldY = (pos2d.y + 1.0) * 0.5 * f32(globals.HEIGHT) * globals.dy;
-    let worldZ = elev * 0.0 ; // elevation scale factor
+    let worldX = out.uv.x * f32(globals.WIDTH)  * globals.dx;
+    let worldY = out.uv.y * f32(globals.HEIGHT) * globals.dy;
+    let worldZ = elev * 1.;
 
-    let worldPos4 = vec4<f32>(worldX, worldY, worldZ, 1.0);
-    out.clip_position = globals.viewProj * worldPos4;
+    out.clip_position = globals.viewProj * vec4<f32>(worldX, worldY, worldZ, 1.0);
     return out;
 }

@@ -3,7 +3,7 @@ import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from 
 import { loadDepthSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
-import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer } from './Create_Textures.js';  // create texture function
+import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
@@ -232,6 +232,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     txOverlayMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     const txSamplePNGs = create_3D_Image_Texture(device, 1024, 1024, 10, allTextures); // will store all textures to be sampled for photo-realism
+    let depthTexture = create_Depth_Texture(device, canvas.width, canvas.height, allTextures); // initial depth texture for Explorer mode
     
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
@@ -1450,22 +1451,37 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         if (calc_constants.viewType == 1)
         {
             // Render QUAD
-            RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+            RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
         }
         else if (calc_constants.viewType == 2)
         {
             // Render Vertex grid
-            RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+            RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
         }
+
+        // make sure depthTexture matches the current canvas / window size
+        const colorTexture = context.getCurrentTexture();
+        // (Re)create depth texture if size changed
+        if (!depthTexture || depthTexture.width  !== colorTexture.width || depthTexture.height !== colorTexture.height) {
+            depthTexture?.destroy?.();          // if you want to free the old one
+            depthTexture = create_Depth_Texture(device, colorTexture.width, colorTexture.height, allTextures); // initial depth texture for Explorer mode
+        }
+        const depthView = depthTexture.createView();
 
         // The render target is the current swap chain texture.
         const RenderPassDescriptor = {
             colorAttachments: [{
-                view: context.getCurrentTexture().createView(),
+                view: colorTexture.createView(),
                 loadOp: 'clear',
                 storeOp: 'store',
                 clearColor: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-            }]
+            }],
+            depthStencilAttachment: {
+              view: depthView,
+              depthLoadOp : 'clear',
+              depthStoreOp: 'store',
+              depthClearValue: 1.0,
+            }
         };
 
         commandEncoder = device.createCommandEncoder();
@@ -1488,7 +1504,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // Issue draw command to draw
             RenderPass.draw(4);  // Draw the quad 
         }
-        else if (calc_constants.viewType == 22)
+        else if (calc_constants.viewType == 2)
         {  
             // ──────────────────────────────────────────────────────────────────────────────
             // FULL “Perspective + Model” setup (drop in place of your old ortho block)
@@ -1505,13 +1521,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // 3) Build Perspective projection (P)
             const fovY   = 45 * Math.PI/180;                   // 45° vertical FOV
             const aspect = window_width / window_height;       // canvas aspect ratio
-            const nearZ  = 0.1, farZ = 5000.0;                 // clip planes
+            const nearZ  = calc_constants.dx/10., farZ = simWidth + simWidth;                 // clip planes
             const P      = mat4.perspective(mat4.create(), fovY, aspect, nearZ, farZ);
 
             // 4) Build View matrix (V): camera straight above center, looking down
-            const eye    = [ simWidth / 2., simHeight / 2.,  simWidth + simHeight];      // x=0,y=0,z=100
-            const center = [ simWidth / 2., simHeight / 2., 0   ];    // look at (upper‑right, z=0)
-            const up     = [ 0,        1,        0   ];      // world‑up = +Z
+            const eye    = [ 0,        0,        10.*calc_constants.base_depth ];      // x=0,y=0,z=100
+            const center = [ simWidth, simHeight, 0   ];    // look at (upper‑right, z=0)
+            const up     = [ 0,        0,        1   ];      // world‑up = +Z
             const V      = mat4.lookAt(mat4.create(), eye, center, up);
 
             // 5) Build Model matrix = T_reskew · T_shift·T_center·S·R·T_negCenter · T_unskew
@@ -1599,7 +1615,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // Issue draw command to draw
             RenderPass.draw(numVertices);  // Draw the vertex grid  
         }
-        else if (calc_constants.viewType == 2)  // 2D plan view working
+        else if (calc_constants.viewType == 22)  // 2D plan view working
         {  
             // Get canvas dimensions in full screen if needed:
             var window_width = canvas.width;

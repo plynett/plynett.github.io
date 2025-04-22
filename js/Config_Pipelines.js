@@ -19,7 +19,7 @@ export function createComputePipeline(device, computeShaderCode, computeBindGrou
 }
 
 
-export function createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, renderBindGroupLayout) {
+export function createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, renderBindGroupLayout, depthFormat = 'depth24plus') {
     return device.createRenderPipeline({
         layout: device.createPipelineLayout({ bindGroupLayouts: [renderBindGroupLayout] }),
 
@@ -47,38 +47,63 @@ export function createRenderPipeline(device, vertexShaderCode, fragmentShaderCod
         primitive: {
             topology: 'triangle-strip',
             cullMode: 'none',
+        },
+
+        // ────────── Depth (optional but recommended) ──────────
+        depthStencil: depthFormat && {
+            format: depthFormat,
+            depthWriteEnabled: true,
+            depthCompare: 'less',
         },
     });
 }
 
-export function createRenderPipeline_vertexgrid(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, renderBindGroupLayout) {
+export function createRenderPipeline_vertexgrid(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, renderBindGroupLayout, depthFormat = 'depth24plus') {
     return device.createRenderPipeline({
-        layout: device.createPipelineLayout({ bindGroupLayouts: [renderBindGroupLayout] }),
+        layout: device.createPipelineLayout({
+            bindGroupLayouts: [renderBindGroupLayout],
+        }),
 
+        // ────────── Vertex stage ──────────
         vertex: {
             module: device.createShaderModule({ code: vertexShaderCode }),
             entryPoint: 'vs_main',
-            buffers: [{
-                arrayStride: 8,
-                attributes: [{
-                    shaderLocation: 0,
-                    offset: 0,
-                    format: 'float32x2'
-                }]
-            }]
+            buffers: [
+                /* slot 0 : vec2<f32> position */
+                {
+                    arrayStride: 8,            // 2 × 4‑byte floats
+                    stepMode:  'vertex',
+                    attributes: [
+                        {
+                            shaderLocation: 0, // @location(0) in the shader
+                            offset: 0,
+                            format: 'float32x2',
+                        },
+                    ],
+                },
+            ],
         },
 
+        // ────────── Fragment stage ──────────
         fragment: {
             module: device.createShaderModule({ code: fragmentShaderCode }),
             entryPoint: 'fs_main',
-            targets: [{
-                format: swapChainFormat
-            }]
+            targets: [
+                { format: swapChainFormat },
+            ],
         },
 
+        // ────────── Rasterisation ──────────
         primitive: {
-            topology: 'triangle-strip',
+            topology: 'triangle-strip',   // works with your degenerate‑vertex grid
             cullMode: 'none',
+        },
+
+        // ────────── Depth (optional but recommended) ──────────
+        depthStencil: depthFormat && {
+            format: depthFormat,
+            depthWriteEnabled: true,
+            depthCompare: 'less',
         },
     });
 }

@@ -59,3 +59,16 @@ export function createUniformBuffer(device, bufferSize = 256) {
     });
 }
 
+export function create_Depth_Texture(device, width, height, allTextures) {
+    const texture = device.createTexture({
+      size   : [width, height, 1],
+      format : 'depth24plus',
+      usage  : GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    
+    // Add the created texture to the tracking set
+    allTextures.add(texture);
+
+    return texture;
+  }
+
