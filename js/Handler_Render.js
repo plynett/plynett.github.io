@@ -148,9 +148,26 @@ export function createRenderBindGroupLayout(device) {
                 binding: 16,
                 visibility: GPUShaderStage.FRAGMENT,
                 texture: {
-                    sampleType: 'unfilterable-float',
+                    sampleType: 'float',
                     format: 'bgra8unorm',  // imagedata for the google maps image
                     viewDimension: '2d-array'
+                }
+            },
+            {
+                // 17th binding: A linear sampler describing how the texture will be sampled.
+                binding: 17,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                sampler: {
+                    type: 'filtering'  // Nearest-neighbor sampling (no interpolation)
+                }
+            },
+            {
+                // 18th binding: A texture that the fragment shader will filtered sample from.
+                binding: 18,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: 'float',
+                    format: 'rgba16float',  // f16 data format
                 }
             },
         ]
@@ -158,7 +175,7 @@ export function createRenderBindGroupLayout(device) {
 }
 
 
-export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs) {
+export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs, textureSampler_linear, txRenderVarsf16) {
     return device.createBindGroup({
         layout: createRenderBindGroupLayout(device),
         entries: [
@@ -231,6 +248,14 @@ export function createRenderBindGroup(device, uniformBuffer, txState, txBottom, 
             {
                 binding: 16,
                 resource: txSamplePNGs.createView()
+            },
+            {
+                binding: 17,
+                resource: textureSampler_linear
+            },
+            {
+                binding: 18,
+                resource: txRenderVarsf16.createView()
             },
         ]
     });

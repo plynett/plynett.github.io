@@ -3,7 +3,7 @@ import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from 
 import { loadDepthSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
-import { create_2D_Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
+import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
@@ -23,6 +23,7 @@ import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup 
 import { create_AddDisturbance_BindGroupLayout, create_AddDisturbance_BindGroup } from './Handler_AddDisturbance.js';  // group bindings for adding a landslide or tsunami impulsive source
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
 import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_BindGroup } from './Handler_ExtractTimeSeries.js';  // group bindings for storing single pixel / time series values
+import { create_Copytxf32_txf16_BindGroupLayout, create_Copytxf32_txf16_BindGroup } from './Handler_Copytxf32_txf16.js';  // group bindings for f32 to f16 copy shader
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid } from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
@@ -150,11 +151,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const ExtractTimeSeries_uniformBuffer = createUniformBuffer(device);
     let Render_bufferSize = 272; // 272 bytes for render pipeline, 256 for compute pipeline
     const Render_uniformBuffer = createUniformBuffer(device,Render_bufferSize);
+    const Copytxf32_txf16_uniformBuffer = createUniformBuffer(device);
 
     // Create a sampler for texture sampling. This defines how the texture will be sampled (e.g., nearest-neighbor sampling).  Used only for render pipeline
     const textureSampler = device.createSampler({
         magFilter: 'nearest',
         minFilter: 'nearest',
+        addressModeU: 'mirror-repeat',
+        addressModeV: 'mirror-repeat'
+    });
+    const textureSampler_linear = device.createSampler({
+        magFilter: 'linear',
+        minFilter: 'linear',
         addressModeU: 'mirror-repeat',
         addressModeV: 'mirror-repeat'
     });
@@ -233,7 +241,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     txOverlayMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     const txSamplePNGs = create_3D_Image_Texture(device, 1024, 1024, 10, allTextures); // will store all textures to be sampled for photo-realism
     let depthTexture = create_Depth_Texture(device, canvas.width, canvas.height, allTextures); // initial depth texture for Explorer mode
-    
+    const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // used to store the f16 render variables for the render pipeline
+
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
     const txTimeSeries_Data = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
@@ -357,6 +366,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // initial camera layout
     const simWidth   = calc_constants.WIDTH  * calc_constants.dx;
     const simHeight  = calc_constants.HEIGHT * calc_constants.dy;
+    const simDim = Math.sqrt(simWidth*simWidth + simHeight*simHeight);
     
     // base eye & forward vector
     const baseEye    = vec3.fromValues(
@@ -713,7 +723,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Render Bindings
     const RenderBindGroupLayout = createRenderBindGroupLayout(device);
-    var RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+    var RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs, textureSampler_linear, txRenderVarsf16);
     const Render_uniforms = new ArrayBuffer(Render_bufferSize);  // smallest multiple of 256
     let Render_view = new DataView(Render_uniforms);
     Render_view.setFloat32(0, calc_constants.colorVal_max, true);          // f32
@@ -770,6 +780,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         Render_view.setFloat32(192 + i * 4, viewProj[i], /* littleEndian */ true);
     }
 
+    // Copy f32 data to f16 texture compute shader
+    const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);
+    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txRenderVarsf16);
+    const Copytxf32_txf16_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let Copytxf32_txf16_view = new DataView(Copytxf32_txf16_uniforms);
+    Copytxf32_txf16_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    Copytxf32_txf16_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
+
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
@@ -795,6 +813,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
     const vertex3DShaderCode = await fetchShader('/shaders/vertex3D.wgsl');
     const fragmentShaderCode = await fetchShader('/shaders/fragment.wgsl');
+
+    const Copytxf32_txf16_ShaderCode = await fetchShader('/shaders/Copytxf32_txf16.wgsl');
     console.log("Shaders loaded.");
 
     // Configure the pipelines, one for each shader.
@@ -819,6 +839,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const ExtractTimeSeries_Pipeline = createComputePipeline(device, ExtractTimeSeries_ShaderCode, ExtractTimeSeries_BindGroupLayout, allComputePipelines);
 
     var RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+    const Copytxf32_txf16_Pipeline = createComputePipeline(device, Copytxf32_txf16_ShaderCode, Copytxf32_txf16_BindGroupLayout, allComputePipelines);
+
     console.log("Pipelines set up.");
 
     // The render pipeline will render a full-screen quad. This section of code sets up the vertices for that quad.
@@ -1448,6 +1470,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             }
         }
 
+        // copy eta and bottom data to the f16 texture for filtered rendering
+        runComputeShader(device, commandEncoder, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+             
         // Define the settings for the render pass.
         Render_view.setFloat32(116, total_time, true);             // f32  
         if (calc_constants.viewType == 1)
@@ -1460,7 +1485,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
         }
         else if (calc_constants.viewType == 2)
-        {
+        {  
             // turn off colorbar
             calc_constants.CB_show = 0;
             Render_view.setInt32(84, calc_constants.CB_show, true);          // i32  
@@ -1530,7 +1555,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // 2. Perspective projection
             const fovY   = 45 * Math.PI / 180;
             const aspect = window_width / window_height;
-            const nearZ  = Math.min(calc_constants.dx, calc_constants.dy) / 10;
+            const nearZ  = Math.min(0.1, Math.min(calc_constants.dx, calc_constants.dy) / 10);
             const farZ   = 10 * (simWidth + simHeight);
             const P      = mat4.perspective(mat4.create(), fovY, aspect, nearZ, farZ);
 
@@ -1581,6 +1606,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             const z01 = bathy2D[i0][j1];
             const z11 = bathy2D[i1][j1];
             const zmax = Math.max(z00, Math.max(z10, Math.max(z01,z11)));
+            const zmin = Math.min(z00, Math.min(z10, Math.min(z01,z11)));
               
             // interpolate in x
             const z0 = z00*(1-tx) + z10*tx;
@@ -1588,7 +1614,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // then in y
             const groundZ = z0*(1-ty) + z1*ty;
             
-            const groundEyePosZ =  Math.max(0.0, groundZ) + Math.max(zmax - groundZ, calc_constants.renderEyeHeight);
+            const groundEyePosZ =  Math.max(0.0, groundZ) + calc_constants.renderZScale * (zmax - zmin + calc_constants.renderEyeHeight);
             if (calc_constants.renderLocktoGround == 1) {  // if locked to ground
                 camState.position[2] = groundEyePosZ;
             }
@@ -1631,7 +1657,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 camState.position,
                 camState.position,
                 right,
-                deltaPanX * calc_constants.WIDTH
+                deltaPanX * simDim
                 );
             }
             
@@ -1646,14 +1672,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     camState.position,
                     camState.position,
                     horFwd,  // if locked to the ground, only forward in horizontal - jump if using forward here
-                    deltaPanY * calc_constants.HEIGHT
+                    deltaPanY * simDim
                     );
                 } else {
                     vec3.scaleAndAdd(
                     camState.position,
                     camState.position,
                     forward,
-                    deltaPanY * calc_constants.HEIGHT
+                    deltaPanY * simDim
                     );   
                 }
             }
@@ -1667,8 +1693,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 -deltaForward * initialDist
                 );
             }
-  
-  
 
             // Final camera position is our tracked position
             const eye = vec3.clone(camState.position);
@@ -1707,114 +1731,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // 6. Upload viewProj to your uniform buffer before drawing
             //    (VS: out.clip_position = viewProj * worldPos4)
 
-            // write it into your existing UBO (at offset 192…208…)
-            for (let i = 0; i < 16; ++i) {
-                Render_view.setFloat32(192 + 4*i, viewProj[i], true);
-            }
-            // Render Vertex grid
-            RenderPass.setVertexBuffer(0, gridVertexBuffer);
-            // Issue draw command to draw
-            RenderPass.draw(numVertices);  // Draw the vertex grid  
-        }
-        else if (calc_constants.viewType == 22)  // 2D plan view working
-        {  
-            // Get canvas dimensions in full screen if needed:
-            var window_width = canvas.width;
-            var window_height = canvas.height;
-            if (calc_constants.full_screen == 1) {
-                window_width = window.innerWidth;
-                window_height = window.innerHeight;
-            }
-
-            // simulation domain in physical units:
-            let simWidth = calc_constants.WIDTH * calc_constants.dx;
-            let simHeight = calc_constants.HEIGHT * calc_constants.dy;
-            let canvasAspect = window_width / window_height;
-
-            // (Keep your ortho projection using simWidth and simHeight)
-            let left, right, bottom, top;
-            let simAspect = simWidth / simHeight;
-            if (canvasAspect > simAspect) {
-                let desiredWidth = simHeight * canvasAspect;
-                let margin = (desiredWidth - simWidth) / 2;
-                left  = -margin;
-                right = simWidth + margin;
-                bottom = 0;
-                top = simHeight;
-            } else {
-                let desiredHeight = simWidth / canvasAspect;
-                let margin = (desiredHeight - simHeight) / 2;
-                left = 0;
-                right = simWidth;
-                bottom = -margin;
-                top = simHeight + margin;
-            }
-
-            const near = -1;
-            const far  = +1;
-            viewProj = mat4.ortho(mat4.create(), left, right, bottom, top, near, far);
-
-            // --- Build the user transformation ---
-            // First, define the simulation center in physical units:
-            let centerX = simWidth / 2.0;
-            let centerY = simHeight / 2.0;
-
-            // Build the pan, zoom and rotation transforms (all to be applied in logical space)
-            // Create a matrix to "unskew" physical coordinates to logical (i.e. remove dx,dy scaling)
-            let T_unskew = mat4.fromScaling(mat4.create(), [1.0 / calc_constants.dx, 1.0 / calc_constants.dy, 1]);
-
-            // And a matrix to reapply the scaling back (reskew)
-            let T_reskew = mat4.fromScaling(mat4.create(), [calc_constants.dx, calc_constants.dy, 1]);
-
-            // Now compute the center in logical space:
-            let logicalWidth = calc_constants.WIDTH;
-            let logicalHeight = calc_constants.HEIGHT;
-            let logicalCenterX = logicalWidth / 2.0;
-            let logicalCenterY = logicalHeight / 2.0;
-
-            // Build the transforms in logical space:
-            // ——— anisotropic “physical” rotation in logical coordinates ———
-            let θ     = calc_constants.rotationAngle_xy * Math.PI/180.0;
-            let c     = Math.cos(θ);
-            let s     = Math.sin(θ);
-            let dx    = calc_constants.dx;
-            let dy    = calc_constants.dy;
-            let R     = mat4.fromValues(
-            // column‐major layout for gl‑matrix:
-            /* m00 */   c,              /* m01 */ s*(dx/dy), /* m02 */ 0, /* m03 */ 0,
-            /* m10 */ -s*(dy/dx),      /* m11 */   c,          /* m12 */ 0, /* m13 */ 0,
-            /* m20 */   0,              /* m21 */   0,          /* m22 */ 1, /* m23 */ 0,
-            /* m30 */   0,              /* m31 */   0,          /* m32 */ 0, /* m33 */ 1
-            );
-            let T_negCenter = mat4.fromTranslation(mat4.create(), [-logicalCenterX, -logicalCenterY, 0]);
-            let T_center = mat4.fromTranslation(mat4.create(), [logicalCenterX, logicalCenterY, 0]);
-
-            // Pan: here, assume the shift values are relative to the simulation size in logical space:
-            let shiftX_logical = calc_constants.shift_x * logicalWidth;
-            let shiftY_logical = calc_constants.shift_y * logicalHeight;
-            let T_shift = mat4.fromTranslation(mat4.create(), [shiftX_logical, shiftY_logical, 0]);
-
-            // Zoom (forward): use the canvas ratio multipliers as before (they act on logical coordinates)
-            let scaleX = calc_constants.forward * 1.0;
-            let scaleY = calc_constants.forward * 1.0;
-            let S = mat4.fromScaling(mat4.create(), [scaleX, scaleY, 1]);
-
-            // Compose the transformation in logical space:
-            let transformLogical = mat4.create();
-            let tempMatrix = mat4.multiply(mat4.create(), R, T_negCenter);  // R * (-center)
-            mat4.multiply(tempMatrix, S, tempMatrix);                        // S * R * (-center)
-            mat4.multiply(tempMatrix, T_center, tempMatrix);                 // center * S * R * (-center)
-            mat4.multiply(transformLogical, T_shift, tempMatrix);            // T_shift * (center * S * R * (-center))
-
-            // Now, bring the user transform from logical space into physical space:
-            // First unskew physical coordinates to logical, apply transform, then re-skew.
-            let transformMatrix = mat4.create();
-            mat4.multiply(transformMatrix,T_reskew,mat4.multiply(mat4.create(), transformLogical, T_unskew));
-
-            // Finally post-multiply the ortho projection with the combined transformation:
-            mat4.multiply(viewProj, viewProj, transformMatrix);
-
-            
             // write it into your existing UBO (at offset 192…208…)
             for (let i = 0; i < 16; ++i) {
                 Render_view.setFloat32(192 + 4*i, viewProj[i], true);
@@ -2278,7 +2194,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (leftMouseIsDown && calc_constants.viewType == 2) {
             const deltaX = event.clientX - lastMouseX_left;
             const deltaY = event.clientY - lastMouseY_left;
-            const motion_inc = 0.001 * calc_constants.forward;
+            const motion_inc = 0.0001 * calc_constants.forward;
 
             calc_constants.shift_x  += deltaX * motion_inc; // Adjust the sensitivity as needed
             calc_constants.shift_y  -= deltaY * motion_inc * calc_constants.WIDTH / calc_constants.HEIGHT; // Adjust the sensitivity as needed
@@ -2335,7 +2251,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // keyboard interactions
     // Event listener for keydown - to handle arrow keys for shifting
     document.addEventListener('keydown', function (event) {
-        const shiftAmount = 0.01; // Change this value to shift by more or less  
+        const shiftAmount = 0.001; // Change this value to shift by more or less  
         calc_constants.click_update = 2;
         switch (event.key) {
             case 'a': // 'A' key for left

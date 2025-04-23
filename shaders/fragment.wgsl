@@ -68,6 +68,8 @@ struct Globals {
 @group(0) @binding(14) var txTimeSeries_Locations: texture_2d<f32>;
 @group(0) @binding(15) var txBreaking: texture_2d<f32>;  
 @group(0) @binding(16) var txSamplePNGs: texture_2d_array<f32>;
+@group(0) @binding(17) var textureSampler_linear: sampler;
+@group(0) @binding(18) var txRenderVarsf16: texture_2d<f32>;
 
 
 fn calculateChangeEta(x_global: f32, y_global: f32, dx: f32, amplitude: f32, thetap: f32) -> f32 {
@@ -259,8 +261,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     let surfaceToPlot = globals.surfaceToPlot;
     var photorealistic = i32(0);  // globals.photorealistic
     
-    let bottom = textureSample(bottomTexture, textureSampler, uv).b;
-    var waves = textureSample(etaTexture, textureSampler, uv).r;  // free surface elevation
+    let bottom = textureSample(txRenderVarsf16, textureSampler_linear, uv).b;
+    var waves = textureSample(txRenderVarsf16, textureSampler_linear, uv).r;  // free surface elevation
     let friction = textureSample(txBottomFriction, textureSampler, uv).r;  // friction
     let GoogleMap = textureSample(txOverlayMap, textureSampler, uv_mod).rgb;
     let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
@@ -509,15 +511,15 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
         // turbulence
         let layer = 0; // first layer is turbulence
-        let breaking_texture_colors = textureSample(txSamplePNGs, textureSampler, uv_turb, i32(layer)).xyz;
+        let breaking_texture_colors = textureSample(txSamplePNGs, textureSampler_linear, uv_turb, i32(layer)).xyz;
         breaking_texture = (breaking_texture_colors.x + breaking_texture_colors.y + breaking_texture_colors.z)/3.0;
 
         // vorticity / sediment plumes
         vorticiy_magn = vorticiy_magn * breaking_texture;  // add turbulence noise texture to vort / sed as well
 
         // design components
-        component_colors = textureSample(txSamplePNGs, textureSampler, uv_turb_scaled, component_index).xyz;
-        component_colors_abovewater =  textureSample(txSamplePNGs, textureSampler, uv_scale, component_index).xyz;
+        component_colors = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_scaled, component_index).xyz;
+        component_colors_abovewater =  textureSample(txSamplePNGs, textureSampler_linear, uv_scale, component_index).xyz;
     } 
 
 
@@ -682,10 +684,10 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     
     if (globals.showBreaking ==1 ) {
-        let breaking =  breaking_texture * textureSample(etaTexture, textureSampler, uv).a;
+        let breaking =  breaking_texture * textureSample(txRenderVarsf16, textureSampler_linear, uv).a;
         color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
     } else if (globals.showBreaking == 2 ) {
-        let tracer = textureSample(etaTexture, textureSampler, uv).a;
+        let tracer = textureSample(txRenderVarsf16, textureSampler_linear, uv).a;
         color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
     }
 
@@ -759,22 +761,6 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         }
     }
 
-    // deprecated - data now stored in seperate texture - below can be deleted
-    // tooltip hover - encode values to a corner pixel.  This is a bit of a hack, but I think it is still faster than
-    // creating a new compute shader, since this value-extract is dependent on the current state of the rendered texture
-    // which can change in explorer mode (and thus would require re-doing all the calcs in the vertex shader transformation)
-    // let uv_mouse = vec2<f32>(globals.mouse_current_canvas_positionX, globals.mouse_current_canvas_positionY);
-    // let bottom_hover = (globals.base_depth + textureSample(bottomTexture, textureSampler, uv_mouse).b) / (2.0 * globals.base_depth);  // Bottom elevation, need to scale by some value that will keep value between [0 1]
-    // let waves_hover = (0.1*globals.base_depth + textureSample(etaTexture, textureSampler, uv_mouse).r) / (0.2 * globals.base_depth);  // Free surface elevation
-    // let hsig_hover = textureSample(txWaveHeight, textureSampler, uv_mouse).b / (0.2 * globals.base_depth);   // Significant wave height
-    // let friction_hover = textureSample(txBottomFriction, textureSampler, uv_mouse).r * 20.;   // friction factor, always between [0 and 1], no normalization needed
-    // Determine if this fragment is close to the bottom-left corner
-    // if (uv.x < 1.0 / f32(globals.WIDTH) && uv.y > 1.0 - 1.0 / f32(globals.HEIGHT)) {
-        // Encode data into this pixel's color channels
-    //     out.color = vec4<f32>(bottom_hover, waves_hover, hsig_hover, friction_hover);
-    // } else {
-    //     out.color = vec4<f32>(color_rgb, 1.0); // Normal shader output
-    // }
 
     out.color = vec4<f32>(color_rgb, 1.0); // Normal shader output
     

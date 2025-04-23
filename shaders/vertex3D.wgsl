@@ -64,6 +64,8 @@ struct Globals {
 @group(0) @binding(1) var etaTexture: texture_2d<f32>;
 @group(0) @binding(2) var bottomTexture: texture_2d<f32>;
 @group(0) @binding(13) var textureSampler: sampler;
+@group(0) @binding(17) var textureSampler_linear: sampler;
+@group(0) @binding(18) var txRenderVarsf16: texture_2d<f32>;
 
 @vertex
 fn vs_main(v : VertexIn) -> VertexOut {
@@ -72,7 +74,7 @@ fn vs_main(v : VertexIn) -> VertexOut {
     // uv directly from position
     out.uv = v.pos * 0.5 + 0.5;
 
-    let elev = textureSampleLevel(etaTexture, textureSampler, out.uv, 0.0).r;
+    let elev = textureSampleLevel(txRenderVarsf16, textureSampler_linear, out.uv, 0.0).r;
 
     let worldX = out.uv.x * f32(globals.WIDTH)  * globals.dx;
     let worldY = out.uv.y * f32(globals.HEIGHT) * globals.dy;

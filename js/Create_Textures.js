@@ -12,6 +12,19 @@ export function create_2D_Texture(device, width, height, allTextures) {
     return texture;
 }
 
+export function create_2D_F16Texture(device, width, height, allTextures) {
+    const texture = device.createTexture({
+        size: [width, height, 1],
+        format: 'rgba16float',
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    });
+    
+    // Add the created texture to the tracking set
+    allTextures.add(texture);
+
+    return texture;
+}
+
 export function create_2D_Image_Texture(device, width, height, allTextures) {
     const texture = device.createTexture({
         size: [width, height, 1],
