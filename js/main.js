@@ -231,6 +231,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txBoundaryForcing = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
     const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
     const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
+    const txMeans_Speed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
+    const txtemp_Means_Speed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
+    const txMeans_Momflux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
+    const txtemp_Means_Momflux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txWaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores current wave height surface
     const txtemp_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txBaseline_WaveHeight = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores "baseline" wave height surface
@@ -665,10 +669,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
-    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txNewState, txtemp_Means);
+    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txNewState, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux);
     const CalcMeans_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let CalcMeans_view = new DataView(CalcMeans_uniforms);
     CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
+    CalcMeans_view.setFloat32(4, calc_constants.delta, true);           // f32
 
     // CalcWaveHeight -  Bindings & Uniforms Config
     const CalcWaveHeight_BindGroupLayout = create_CalcWaveHeight_BindGroupLayout(device);
@@ -676,7 +681,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const CalcWaveHeight_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let CalcWaveHeight_view = new DataView(CalcWaveHeight_uniforms);
     CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
-
 
     // AddDisturbance -  Bindings & Uniforms Config 
     const AddDisturbance_BindGroupLayout = create_AddDisturbance_BindGroupLayout(device);
@@ -1472,6 +1476,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
                 runComputeShader(device, commandEncoder, CalcMeans_uniformBuffer, CalcMeans_uniforms, CalcMeans_Pipeline, CalcMeans_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means, txMeans)
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Speed, txMeans_Speed)
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Momflux, txMeans_Momflux)
 
                 calc_constants.n_time_steps_waveheight += 1;
                 CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
@@ -1971,6 +1977,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             filename = 'current_FSmax.bin';
             downloadTextureData(device, txMeans, 4, filename); 
+
+            filename = 'current_Speedmax.bin';
+            downloadTextureData(device, txMeans_Speed, 3, filename); 
+            
+            filename = 'current_Momfluxmax.bin';
+            downloadTextureData(device, txMeans_Momflux, 3, filename); 
 
             filename = 'current_FSmean.bin';
             downloadTextureData(device, txMeans, 1, filename);  

@@ -27,8 +27,55 @@ export function create_CalcMeans_BindGroupLayout(device) {
                 }
             },
             {
-                // 3rd binding: A storage texture. The compute shader will write results into this texture.
+                // 3rd binding: A texture that the fragment shader will sample from.
                 binding: 3,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 4th binding: A texture that the fragment shader will sample from.
+                binding: 4,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 5th binding: A texture that the fragment shader will sample from.
+                binding: 5,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 6,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 7th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 8th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 8,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -40,7 +87,7 @@ export function create_CalcMeans_BindGroupLayout(device) {
     });
 }
 
-export function create_CalcMeans_BindGroup(device, uniformBuffer, txMeans, txNewState, txtemp_Means) {
+export function create_CalcMeans_BindGroup(device, uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txNewState, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux) {
     return device.createBindGroup({
         layout: create_CalcMeans_BindGroupLayout(device),
         entries: [
@@ -56,11 +103,31 @@ export function create_CalcMeans_BindGroup(device, uniformBuffer, txMeans, txNew
             },
             {
                 binding: 2,
-                resource: txNewState.createView()
+                resource: txMeans_Speed.createView()
             },
             {
                 binding: 3,
+                resource: txMeans_Momflux.createView()
+            },
+            {
+                binding: 4,
+                resource: txNewState.createView() 
+            },
+            {
+                binding: 5,
+                resource: txBottom.createView()
+            },
+            {
+                binding: 6,
                 resource: txtemp_Means.createView()
+            },
+            {
+                binding: 7,
+                resource: txtemp_Means_Speed.createView()
+            },
+            {
+                binding: 8,
+                resource: txtemp_Means_Momflux.createView()
             },
         ]
     });
