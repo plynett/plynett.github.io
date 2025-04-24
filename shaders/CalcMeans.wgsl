@@ -28,12 +28,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let bottom = textureLoad(txBottom, idx, 0).z;
     let eta = state_here.x; 
     
-    let h = eta - bottom;
+    let h = max(1.0, eta - bottom);
     let h_scaled = h / globals.base_depth;
     let h2 = h_scaled * h_scaled;
     let h4 = h2 * h2;
     let divide_by_h2 = 2.0 * h2 / (h4 + max(h4, 1.e-5)) / globals.base_depth / globals.base_depth;
-    let divide_by_h = sqrt(divide_by_h2); 
+    let divide_by_h = 1 / h;
 
     let update_frac = 1. / f32(globals.n_time_steps_means);
     let old_frac = 1.0 - update_frac;
