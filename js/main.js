@@ -674,6 +674,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let CalcMeans_view = new DataView(CalcMeans_uniforms);
     CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
     CalcMeans_view.setFloat32(4, calc_constants.delta, true);           // f32
+    CalcMeans_view.setFloat32(8, calc_constants.base_depth, true);           // f32
 
     // CalcWaveHeight -  Bindings & Uniforms Config
     const CalcWaveHeight_BindGroupLayout = create_CalcWaveHeight_BindGroupLayout(device);

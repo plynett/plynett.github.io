@@ -1,6 +1,7 @@
 struct Globals {
     n_time_steps_means: i32,
-    delta: f32
+    delta: f32,
+    base_depth: f32
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -26,7 +27,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let state_here = textureLoad(txNewState, idx, 0);
     let bottom = textureLoad(txBottom, idx, 0).z;
     let eta = state_here.x; 
-    let H = max(globals.delta, eta - bottom);
+    
+    let h = eta - bottom;
+    let h_scaled = h / globals.base_depth;
+    let h2 = h_scaled * h_scaled;
+    let h4 = h2 * h2;
+    let divide_by_h2 = 2.0 * h2 / (h4 + max(h4, 1.e-6)) / globals.base_depth / globals.base_depth;
+    let divide_by_h = sqrt(divide_by_h2); 
 
     let update_frac = 1. / f32(globals.n_time_steps_means);
     let old_frac = 1.0 - update_frac;
@@ -35,12 +42,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let P = state_here.y; 
     let Q = state_here.z; 
-    let u = abs(P/H);
-    let v = abs(Q/H);
-    let speed = sqrt(u*u + v*v);
-    let hu2 = abs(P*P/H);
-    let hv2 = abs(Q*Q/H);
-    let momflux = sqrt(hu2*hu2 + hv2*hv2);
+    let u = abs(P)*divide_by_h;
+    let v = abd(Q)*divide_by_h;
+    let speed = sqrt(P*P + Q*Q)*divide_by_h;
+    let hu2 = P*P*divide_by_h;
+    let hv2 = Q*Q*divide_by_h;
+    let momflux = sqrt(P*P*P*P + Q*Q*Q*Q)*divide_by_h;
 
     var eta_max_new = 0.;
     var u_max_new = 0.;
