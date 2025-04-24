@@ -368,18 +368,43 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const simHeight  = calc_constants.HEIGHT * calc_constants.dy;
     const simDim = Math.sqrt(simWidth*simWidth + simHeight*simHeight);
     
+    // reset view (in case its stored in json already)
+    calc_constants.shift_x = 0.;
+    calc_constants.shift_y = 0.;
+    calc_constants.forward = 1.0;
     // base eye & forward vector
     const baseEye    = vec3.fromValues(
-      0.0 * simWidth,
-      0.5 * simHeight,
+      0.1 * simWidth,
+      0.1 * simHeight,
       10.0 * calc_constants.base_depth
     );
     const baseTarget = vec3.fromValues(
       0.5 * simWidth,
       0.5 * simHeight,
-       0
+       0.0
     );
-    var viewProj = mat4.create;
+
+    const baseDir = vec3.create();
+    vec3.subtract(baseDir, baseTarget, baseEye);
+    vec3.normalize(baseDir, baseDir);
+    const initPitch = Math.asin(baseDir[2]);
+    calc_constants.rotationAngle_xz = initPitch * 180. / Math.PI;
+    
+    const initYaw = Math.atan2(baseDir[1], baseDir[0]);
+    calc_constants.rotationAngle_xy = initYaw * 180. / Math.PI;
+
+
+    
+    window.cameraState = {
+        position: vec3.clone(baseEye),
+        yaw: initYaw,
+        pitch: initPitch,
+        forward: calc_constants.forward,
+        panX: calc_constants.shift_x,
+        panY: calc_constants.shift_y,
+    };
+
+    var viewProj = mat4.create();
 
     // layouts describe the resources (buffers, textures, samplers) that the shaders will use.
     // Pass0 Bindings & Uniforms Config
@@ -1563,18 +1588,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // 3. Camera transformation 
 
             // --- Use a persistent camera state ---
-            // This should be initialized once outside the render loop
-            if (!window.cameraState) {
-                window.cameraState = {
-                    position: vec3.clone(baseEye),
-                    yaw: 0,
-                    pitch: 0,
-                    forward: 1.0,
-                    panX: 0,
-                    panY: 0,
-                };
-            }
-
             // Get current state
             const camState = window.cameraState;
 
@@ -1595,10 +1608,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // bathy interp - find ground elevation at current position
             const x = camState.position[0] / calc_constants.dx;
             const y = camState.position[1] / calc_constants.dy;
-            const i0 = Math.max(0, Math.floor(x));
-            const j0 = Math.max(0, Math.floor(y));
-            const i1 = Math.min(i0+1, bathy2D.length-1);
-            const j1 = Math.min(j0+1, bathy2D[0].length-1);
+            // clamp to [0 ... N-1]
+            const Nx = bathy2D.length;
+            const Ny = bathy2D[0].length;
+            const i0 = Math.min( Nx - 1, Math.max(0, Math.floor(x)) );
+            const j0 = Math.min( Ny - 1, Math.max(0, Math.floor(y)) );
+            // for interpolation, clamp the “+1” corner as well
+            const i1 = Math.min(i0 + 1, Nx - 1);
+            const j1 = Math.min(j0 + 1, Ny - 1);
             const tx = x - i0,      ty = y - j0;
               
             const z00 = bathy2D[i0][j0];
