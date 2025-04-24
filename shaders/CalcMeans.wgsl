@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let P = state_here.y; 
     let Q = state_here.z; 
     let u = abs(P)*divide_by_h;
-    let v = abd(Q)*divide_by_h;
+    let v = abs(Q)*divide_by_h;
     let speed = sqrt(P*P + Q*Q)*divide_by_h;
     let hu2 = P*P*divide_by_h;
     let hv2 = Q*Q*divide_by_h;
