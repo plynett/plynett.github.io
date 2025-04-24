@@ -32,7 +32,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let h_scaled = h / globals.base_depth;
     let h2 = h_scaled * h_scaled;
     let h4 = h2 * h2;
-    let divide_by_h2 = 2.0 * h2 / (h4 + max(h4, 1.e-6)) / globals.base_depth / globals.base_depth;
+    let divide_by_h2 = 2.0 * h2 / (h4 + max(h4, 1.e-5)) / globals.base_depth / globals.base_depth;
     let divide_by_h = sqrt(divide_by_h2); 
 
     let update_frac = 1. / f32(globals.n_time_steps_means);
