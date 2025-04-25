@@ -669,12 +669,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
-    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txNewState, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux);
+    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux);
     const CalcMeans_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let CalcMeans_view = new DataView(CalcMeans_uniforms);
     CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
     CalcMeans_view.setFloat32(4, calc_constants.delta, true);           // f32
     CalcMeans_view.setFloat32(8, calc_constants.base_depth, true);           // f32
+    CalcMeans_view.setInt32(12, calc_constants.WIDTH, true);          // i32
+    CalcMeans_view.setInt32(16, calc_constants.HEIGHT, true);          // i32  
 
     // CalcWaveHeight -  Bindings & Uniforms Config
     const CalcWaveHeight_BindGroupLayout = create_CalcWaveHeight_BindGroupLayout(device);

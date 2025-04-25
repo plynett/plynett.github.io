@@ -1,7 +1,9 @@
 struct Globals {
     n_time_steps_means: i32,
     delta: f32,
-    base_depth: f32
+    base_depth: f32,
+    width: i32,
+    height: i32
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -9,11 +11,13 @@ struct Globals {
 @group(0) @binding(1) var txMeans: texture_2d<f32>;
 @group(0) @binding(2) var txMeans_Speed: texture_2d<f32>;
 @group(0) @binding(3) var txMeans_Momflux: texture_2d<f32>;
-@group(0) @binding(4) var txNewState: texture_2d<f32>;
-@group(0) @binding(5) var txBottom: texture_2d<f32>;
-@group(0) @binding(6) var txtemp_Means: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(7) var txtemp_Means_Speed: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(8) var txtemp_Means_Momflux: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(4) var txH: texture_2d<f32>;
+@group(0) @binding(5) var txU: texture_2d<f32>;
+@group(0) @binding(6) var txV: texture_2d<f32>;
+@group(0) @binding(7) var txBottom: texture_2d<f32>;
+@group(0) @binding(8) var txtemp_Means: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(9) var txtemp_Means_Speed: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(10) var txtemp_Means_Momflux: texture_storage_2d<rgba32float, write>;
 
 
 @compute @workgroup_size(16, 16)
@@ -24,40 +28,29 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let speed_means_here = textureLoad(txMeans_Speed, idx, 0);
     let momflux_means_here = textureLoad(txMeans_Momflux, idx, 0);
 
-    let state_here = textureLoad(txNewState, idx, 0);
+    let h4 = textureLoad(txH, idx, 0);
+    let u4 = textureLoad(txU, idx, 0);
+    let v4 = textureLoad(txV, idx, 0);
+
     let bottom = textureLoad(txBottom, idx, 0).z;
-    let eta = state_here.x; 
     
-    let h = eta - bottom;
-    let h_scaled = h / globals.base_depth;
-    let h2 = h_scaled * h_scaled;
-    let h4 = h2 * h2;
-    let divide_by_h2 = 2.0 * h2 / (h4 + max(h4, 1.e-6)) / globals.base_depth / globals.base_depth;
-    let divide_by_h = sqrt(divide_by_h2);
+    let h = (h4.x + h4.y + h4.z + h4.w) / 4.0;
+    let u = (u4.x + u4.y + u4.z + u4.w) / 4.0;
+    let v = (v4.x + v4.y + v4.z + v4.w) / 4.0;
+    let eta = h + bottom;
+    let P = h*u;
+    let Q = h*v;
+    let state_here = vec4<f32>(eta, P, Q, 0.0);
+    let speed = sqrt(u*u + v*v);
+    let hu2 = h*u*u;
+    let hv2 = h*v*v;
+    let momflux = sqrt(hu2*hu2 + hv2*hv2);
 
     let update_frac = 1. / f32(globals.n_time_steps_means);
     let old_frac = 1.0 - update_frac;
 
     let means_new = means_here.xyz*old_frac + state_here.xyz*update_frac;
 
-    let P = state_here.y; 
-    let Q = state_here.z; 
-    let u = abs(P)*divide_by_h;
-    let v = abs(Q)*divide_by_h;
-    let speed = sqrt(P*P + Q*Q)*divide_by_h;
-    let hu2 = P*P*divide_by_h;
-    let hv2 = Q*Q*divide_by_h;
-    let momflux = sqrt(P*P*P*P + Q*Q*Q*Q)*divide_by_h;
-
-    if (h < 1.0) {
-        u = 0.0;
-        v = 0.0;
-        speed = 0.0;
-
-        hu2 = 0.0;
-        hv2 = 0.0;
-        momflux = 0.0;
-    }
 
     var eta_max_new = 0.;
     var u_max_new = 0.;
