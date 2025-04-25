@@ -1969,7 +1969,20 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // write individual surfaces to file
         if(calc_constants.trigger_writeWaveHeight == 3 && total_time >= calc_constants.trigger_writeWaveHeight_time){
             console.log('Trigger write - Writing wave height and other surfaces to file')
-            var filename = 'current_bathytopo.bin';
+            
+            var filename = `dx.txt`;
+            saveSingleValueToFile(calc_constants.dx,filename);
+    
+            filename = `dy.txt`;
+            saveSingleValueToFile(calc_constants.dy,filename);
+    
+            filename = `nx.txt`;
+            saveSingleValueToFile(calc_constants.WIDTH,filename);
+    
+            filename = `ny.txt`;
+            saveSingleValueToFile(calc_constants.HEIGHT,filename);
+            
+            filename = 'current_bathytopo.bin';
             downloadTextureData(device, txBottom, 3, filename);  
 
             filename = 'current_Hrms.bin';
@@ -2018,7 +2031,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
         // when in trigger mode, write current time to file
-        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % 10 == 0) { 
+        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % 100 == 0) { 
             const text_current_time = String(total_time); // Convert the float to a string
             const blob_current_time = new Blob([text_current_time], { type: "text/plain" });
             
