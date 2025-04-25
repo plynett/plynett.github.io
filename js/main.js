@@ -1971,43 +1971,43 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             console.log('Trigger write - Writing wave height and other surfaces to file')
             
             var filename = `dx.txt`;
-            saveSingleValueToFile(calc_constants.dx,filename);
+            await saveSingleValueToFile(calc_constants.dx,filename);
     
             filename = `dy.txt`;
-            saveSingleValueToFile(calc_constants.dy,filename);
+            await saveSingleValueToFile(calc_constants.dy,filename);
     
             filename = `nx.txt`;
-            saveSingleValueToFile(calc_constants.WIDTH,filename);
+            await saveSingleValueToFile(calc_constants.WIDTH,filename);
     
             filename = `ny.txt`;
-            saveSingleValueToFile(calc_constants.HEIGHT,filename);
+            await saveSingleValueToFile(calc_constants.HEIGHT,filename);
             
             filename = 'current_bathytopo.bin';
-            downloadTextureData(device, txBottom, 3, filename);  
+            await downloadTextureData(device, txBottom, 3, filename);  
 
             filename = 'current_Hrms.bin';
-            downloadTextureData(device, txWaveHeight, 4, filename);  
+            await downloadTextureData(device, txWaveHeight, 4, filename);  
 
             filename = 'current_Hs.bin';
-            downloadTextureData(device, txWaveHeight, 3, filename);  
+            await downloadTextureData(device, txWaveHeight, 3, filename);  
 
             filename = 'current_FSmax.bin';
-            downloadTextureData(device, txMeans, 4, filename); 
+            await downloadTextureData(device, txMeans, 4, filename); 
 
             filename = 'current_Speedmax.bin';
-            downloadTextureData(device, txMeans_Speed, 3, filename); 
+            await downloadTextureData(device, txMeans_Speed, 3, filename); 
             
             filename = 'current_Momfluxmax.bin';
-            downloadTextureData(device, txMeans_Momflux, 3, filename); 
+            await downloadTextureData(device, txMeans_Momflux, 3, filename); 
 
             filename = 'current_FSmean.bin';
-            downloadTextureData(device, txMeans, 1, filename);  
+            await downloadTextureData(device, txMeans, 1, filename);  
 
             filename = 'current_HUmean.bin';
-            downloadTextureData(device, txMeans, 2, filename);  
+            await downloadTextureData(device, txMeans, 2, filename);  
 
             filename = 'current_HVmean.bin';
-            downloadTextureData(device, txMeans, 3, filename);    
+            await downloadTextureData(device, txMeans, 3, filename);    
 
             calc_constants.trigger_writeWaveHeight = 0;  // reset
 
