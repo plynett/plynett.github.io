@@ -1,7 +1,7 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
 import { loadDepthSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage} from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData} from './File_Writer.js';  // load depth surface and wave data file
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
@@ -1982,32 +1982,23 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             filename = `ny.txt`;
             await saveSingleValueToFile(calc_constants.HEIGHT,filename);
             
-            filename = 'current_bathytopo.bin';
-            await downloadTextureData(device, txBottom, 3, filename);  
-
-            filename = 'current_Hrms.bin';
-            await downloadTextureData(device, txWaveHeight, 4, filename);  
-
-            filename = 'current_Hs.bin';
-            await downloadTextureData(device, txWaveHeight, 3, filename);  
-
-            filename = 'current_FSmax.bin';
-            await downloadTextureData(device, txMeans, 4, filename); 
-
-            filename = 'current_Speedmax.bin';
-            await downloadTextureData(device, txMeans_Speed, 3, filename); 
+            const files = [
+                { tx: txBottom,       ch: 3, filename: 'current_bathytopo.bin' },
+                { tx: txWaveHeight,   ch: 4, filename: 'current_Hrms.bin'  },
+                { tx: txWaveHeight,   ch: 3, filename: 'current_Hs.bin'    },
+                { tx: txMeans,        ch: 4, filename: 'current_FSmax.bin'},
+                { tx: txMeans_Speed,  ch: 3, filename: 'current_Speedmax.bin'},
+                { tx: txMeans_Momflux,ch: 3, filename: 'current_Momfluxmax.bin'},
+                { tx: txMeans,        ch: 1, filename: 'current_FSmean.bin'},
+                { tx: txMeans,        ch: 2, filename: 'current_HUmean.bin'},
+                { tx: txMeans,        ch: 3, filename: 'current_HVmean.bin'},
+            ];
             
-            filename = 'current_Momfluxmax.bin';
-            await downloadTextureData(device, txMeans_Momflux, 3, filename); 
-
-            filename = 'current_FSmean.bin';
-            await downloadTextureData(device, txMeans, 1, filename);  
-
-            filename = 'current_HUmean.bin';
-            await downloadTextureData(device, txMeans, 2, filename);  
-
-            filename = 'current_HVmean.bin';
-            await downloadTextureData(device, txMeans, 3, filename);    
+            for (const {tx, ch, filename} of files) {
+                await downloadTextureData(device, tx, ch, filename);
+                // give the browser a breather before the next one
+                await sleep(calc_constants.fileWritePause);
+            }
 
             calc_constants.trigger_writeWaveHeight = 0;  // reset
 

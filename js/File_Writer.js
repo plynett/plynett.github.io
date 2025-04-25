@@ -575,21 +575,25 @@ export async function writeSurfaceData(total_time,frame_count_output,device,txBo
     if(calc_constants.write_eta == 1){  // free surface elevation
         let filename = `elev_${frame_count_output}.bin`;
         await downloadTextureData(device, txState, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_P == 1){  // x-dir flux Hu
         let filename = `xflux_${frame_count_output}.bin`;
         await downloadTextureData(device, txState, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_Q == 1){  // y-dir flux Hv
         let filename = `yflux_${frame_count_output}.bin`;
         await downloadTextureData(device, txState, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_turb == 1){  // breaking eddy viscosity
         let filename = `turb_${frame_count_output}.bin`;
         await downloadTextureData(device, txBreaking, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     return
@@ -613,24 +617,29 @@ export async function downloadTextureData(device, texture, channel, filename) {
 function blobCreationAndDownload(blob, filename) {
     return new Promise((resolve, reject) => {
         if (blob.size === 0) {
-            console.error('Failed to create a valid blob for:', filename);
-            reject('Blob creation failed');
-            return;
-        }
-
-        const url = URL.createObjectURL(blob);
+            return reject('Blob creation failed for ' + filename);
+          }
+      
+        const url  = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
+        link.href        = url;
+        link.download    = filename;
         document.body.appendChild(link);
+      
         link.click();
-        document.body.removeChild(link);
-
+      
+          // wait long enough for the download to start…
         setTimeout(() => {
+            document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            resolve(); // Resolve the promise after the cleanup
-        }, calc_constants.fileWritePause); // Delayed revocation to give the browser more time to handle the download
-     });
+            resolve();
+        }, calc_constants.fileWritePause);
+    });
+  }
+
+export function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
+  
 
 
