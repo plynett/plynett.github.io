@@ -385,3 +385,22 @@ export async function loadUserImage(fileObject) {
 
     return image;
 }
+
+// function to load cubemap face images
+export async function loadCubeBitmaps() {
+    const urls = {
+        px: '/skybox/px.jpg', nx: '/skybox/nx.jpg',
+        py: '/skybox/py.jpg', ny: '/skybox/ny.jpg',
+        pz: '/skybox/pz.jpg', nz: '/skybox/nz.jpg'
+      };
+      
+    const entries = Object.entries(urls);
+    const bitmaps = await Promise.all(entries.map(async ([key, url]) => {
+      const img = new Image();
+      img.src = url;
+      await img.decode();                // wait until it’s fully downloaded
+      return [key, await createImageBitmap(img)];
+    }));
+    return Object.fromEntries(bitmaps);
+}
+  

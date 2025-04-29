@@ -50,7 +50,6 @@ export function create_3D_Image_Texture(device, width, height, depth, allTexture
 
     return texture;
 };
-   
 
 export function create_1D_Texture(device, width, allTextures) {
     const texture = device.createTexture({
