@@ -101,6 +101,7 @@
     "lon_LL": -158.07470651,
     "lat_UR": 21.65715879,
     "lon_UR": -158.06154956,
+    "models_file_url": "./examples/Waimea_Bay/models.json",
     "render_step": 2,
     "setRenderStep": 0,
     "simPause": -1,

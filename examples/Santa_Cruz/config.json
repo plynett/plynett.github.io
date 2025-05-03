@@ -103,6 +103,7 @@
     "lon_LL": -122.00916379,
     "lat_UR": 36.97539221,
     "lon_UR": -121.99329959,
+    "models_file_url": "./examples/Santa_Cruz/models.json",
     "render_step": 3,
     "setRenderStep": 0,
     "simPause": -1,

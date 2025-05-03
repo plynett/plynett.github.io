@@ -110,6 +110,7 @@
     "lon_LL": -122.49897839,
     "lat_UR": 37.63918827,
     "lon_UR": -122.49336111,
+    "models_file_url": "./examples/Pacifica_CA/models.json",
     "render_step": 4,
     "setRenderStep": 0,
     "simPause": -1,

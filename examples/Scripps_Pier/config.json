@@ -98,6 +98,7 @@
     "lon_LL": -117.25767635,
     "lat_UR": 32.87258422,
     "lon_UR": -117.25230255,
+    "models_file_url": "./examples/Scripps_Pier/models.json",
     "render_step": 4,
     "setRenderStep": 0,
     "simPause": -1,

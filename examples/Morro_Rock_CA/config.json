@@ -110,6 +110,7 @@
     "lon_LL": -120.87845455,
     "lat_UR": 35.38109695,
     "lon_UR": -120.86090185,
+    "models_file_url": "./examples/Morro_Rock_CA/models.json",
     "render_step": 3,
     "setRenderStep": 0,
     "simPause": -1,

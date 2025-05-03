@@ -101,6 +101,7 @@
     "lon_LL": -117.8930775,
     "lat_UR": 33.5980455,
     "lon_UR": -117.8734775,
+    "models_file_url": "./examples/Newport_Jetties_CA/models.json",
     "render_step": 3,
     "setRenderStep": 0,
     "simPause": -1,

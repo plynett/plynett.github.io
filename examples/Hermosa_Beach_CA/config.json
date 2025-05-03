@@ -119,6 +119,7 @@
     "lon_LL": 0,
     "lat_UR": 0,
     "lon_UR": 0,
+    "models_file_url": "./examples/Hermosa_Beach_CA/models.json",
     "render_step": 4,
     "setRenderStep": 0,
     "simPause": -1,

@@ -93,6 +93,7 @@
     "lon_LL": -119.28314818, 
     "lat_UR": 34.26962962, 
     "lon_UR": -119.25675929, 
+    "models_file_url": "./examples/Ventura/models.json",
     "render_step": 1,
     "simPause": -1,
     "html_update": -1,

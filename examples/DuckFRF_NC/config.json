@@ -101,6 +101,7 @@
     "lon_LL": -75.75269636,
     "lat_UR": 36.18825828,
     "lon_UR": -75.7434091,
+    "models_file_url": "./examples/DuckFRF_NC/models.json",
     "render_step": 3,
     "setRenderStep": 0,
     "simPause": -1,

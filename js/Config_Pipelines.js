@@ -108,8 +108,6 @@ export function createRenderPipeline_vertexgrid(device, vertexShaderCode, fragme
     });
 }
 
-// Handler_Skybox.js  (add this alongside your other handlers)
-
 export function createSkyboxPipeline(
     device,
     vertexShaderCode,    // skybox.vert.wgsl
@@ -154,4 +152,58 @@ export function createSkyboxPipeline(
       },
     });
   }
+
+
+  export function createModelPipeline(
+    device,
+    vertexShaderCode,     // WGSL string with vs_main(@location(0) position)
+    fragmentShaderCode,   // WGSL string with fs_main()
+    swapChainFormat,
+    modelBindGroupLayout,
+    depthFormat = 'depth24plus'
+  ) {
+    return device.createRenderPipeline({
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [modelBindGroupLayout]
+      }),
   
+      // ────────── Vertex stage ──────────
+      vertex: {
+        module: device.createShaderModule({ code: vertexShaderCode }),
+        entryPoint: 'vs_main',
+        buffers: [
+          {
+            arrayStride: 3 * 4,      // vec3<f32>
+            stepMode:    'vertex',
+            attributes: [
+              {
+                shaderLocation: 0,  // matches @location(0)
+                offset:         0,
+                format:         'float32x3'
+              }
+            ]
+          }
+        ]
+      },
+  
+      // ────────── Fragment stage ──────────
+      fragment: {
+        module:    device.createShaderModule({ code: fragmentShaderCode }),
+        entryPoint:'fs_main',
+        targets:   [{ format: swapChainFormat }]
+      },
+  
+      // ────────── Rasterisation ──────────
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'none'
+      },
+  
+      // ────────── Depth ──────────
+      depthStencil: depthFormat && {
+        format:            depthFormat,
+        depthWriteEnabled: true,
+        depthCompare:      'less-equal'
+      }
+    });
+  }

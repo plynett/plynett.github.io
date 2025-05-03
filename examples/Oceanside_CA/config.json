@@ -114,6 +114,7 @@
     "lon_LL": 0,
     "lat_UR": 0,
     "lon_UR": 0,
+    "models_file_url": "./examples/Oceanside_CA/models.json",
     "render_step": 1,
     "setRenderStep": 0,
     "simPause": -1,

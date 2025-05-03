@@ -191,6 +191,7 @@ var calc_constants = {
     lon_LL: 0, // longitude at lower left corner
     lat_UR: 0, // latitude at upper right corner
     lon_UR: 0, // longitude at upper right corner
+    models_file_url: "./models.json", // path and name to the model files
     render_step: 1, // number of compute steps to run for every render step, the biggest the number the choppier the viz, but also the faster it runs
     setRenderStep: 0, // flag to automatically find best render_step when = 0
     simPause: -1, // check variable, simulation is paused when this value is =1, running when = -1
