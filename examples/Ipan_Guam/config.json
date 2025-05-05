@@ -104,6 +104,7 @@
     "lon_LL": 144.76757716,
     "lat_UR": 13.37998457,
     "lon_UR": 144.78155864,
+    "models_file_url": "./examples/Ipan_Guam/models.json",
     "render_step": 2,
     "setRenderStep": 0,
     "simPause": -1,
