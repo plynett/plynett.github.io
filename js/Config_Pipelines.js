@@ -108,14 +108,7 @@ export function createRenderPipeline_vertexgrid(device, vertexShaderCode, fragme
     });
 }
 
-export function createSkyboxPipeline(
-    device,
-    vertexShaderCode,    // skybox.vert.wgsl
-    fragmentShaderCode,  // skybox.frag.wgsl
-    swapChainFormat,
-    skyboxBindGroupLayout,
-    depthFormat = 'depth24plus'
-  ) {
+export function createSkyboxPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat,skyboxBindGroupLayout,depthFormat = 'depth24plus' ){
     return device.createRenderPipeline({
       layout: device.createPipelineLayout({
         bindGroupLayouts: [ skyboxBindGroupLayout ],
@@ -151,10 +144,10 @@ export function createSkyboxPipeline(
         depthCompare:    'less-equal'
       },
     });
-  }
+}
 
 
-  export function createModelPipeline(
+export function createModelPipeline(
     device,
     vertexShaderCode,     // WGSL string with vs_main(@location(0) position)
     fragmentShaderCode,   // WGSL string with fs_main()
@@ -206,4 +199,85 @@ export function createSkyboxPipeline(
         depthCompare:      'less-equal'
       }
     });
-  }
+}
+
+
+export function createDuckPipeline(
+  device,
+  vertexShaderCode,     // WGSL string with vs_main(@location(0) pos, @location(1) normal, @location(2) uv)
+  fragmentShaderCode,   // WGSL string with fs_main()
+  swapChainFormat,
+  duckBindGroupLayout,  // Your bindGroupLayout that includes camera UBO + albedoTex + sampler
+  depthFormat = 'depth24plus'
+) {
+  return device.createRenderPipeline({
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [ duckBindGroupLayout ]
+    }),
+
+    // ────────── Vertex stage ──────────
+    vertex: {
+      module: device.createShaderModule({ code: vertexShaderCode }),
+      entryPoint: 'vs_main',
+      buffers: [
+        // positions @location(0)
+        {
+          arrayStride: 3 * 4,      // vec3<f32>
+          stepMode:    'vertex',
+          attributes: [
+            {
+              shaderLocation: 0,
+              offset:         0,
+              format:         'float32x3'
+            }
+          ]
+        },
+        // normals @location(1)
+        {
+          arrayStride: 3 * 4,      // vec3<f32>
+          stepMode:    'vertex',
+          attributes: [
+            {
+              shaderLocation: 1,
+              offset:         0,
+              format:         'float32x3'
+            }
+          ]
+        },
+        // uvs       @location(2)
+        {
+          arrayStride: 2 * 4,      // vec2<f32>
+          stepMode:    'vertex',
+          attributes: [
+            {
+              shaderLocation: 2,
+              offset:         0,
+              format:         'float32x2'
+            }
+          ]
+        }
+      ]
+    },
+
+    // ────────── Fragment stage ──────────
+    fragment: {
+      module:    device.createShaderModule({ code: fragmentShaderCode }),
+      entryPoint:'fs_main',
+      targets:   [{ format: swapChainFormat }]
+    },
+
+    // ────────── Rasterisation ──────────
+    primitive: {
+      topology: 'triangle-list',
+      cullMode: 'none'   // or 'none' if you prefer
+    },
+
+    // ────────── Depth ──────────
+    depthStencil: depthFormat && {
+      format:            depthFormat,
+      depthWriteEnabled: true,
+      depthCompare:      'less-equal'
+    }
+  });
+}
+

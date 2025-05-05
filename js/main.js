@@ -5,9 +5,10 @@ import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileS
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { createSkyboxBindGroupLayout, createSkyboxBindGroup} from './Handler_Skybox.js';  // group bindings for skybox shaders
-import { createModelBindGroupLayout, createModelBindGroup, loadSceneModels} from './Handler_Model.js';  // group bindings for Model shaders
+import { createModelBindGroupLayout, createModelBindGroup} from './Handler_Model.js';  // group bindings for Model shaders
 import { create_Pass0_BindGroupLayout, create_Pass0_BindGroup } from './Handler_Pass0.js';  // group bindings for Pass0 shaders
 import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_Pass1.js';  // group bindings for Pass1 shaders
 import { create_SedTrans_Pass1_BindGroupLayout, create_SedTrans_Pass1_BindGroup } from './Handler_SedTrans_Pass1.js';  // group bindings for SedTrans_Pass1 shaders
@@ -26,7 +27,7 @@ import { create_AddDisturbance_BindGroupLayout, create_AddDisturbance_BindGroup 
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
 import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_BindGroup } from './Handler_ExtractTimeSeries.js';  // group bindings for storing single pixel / time series values
 import { create_Copytxf32_txf16_BindGroupLayout, create_Copytxf32_txf16_BindGroup } from './Handler_Copytxf32_txf16.js';  // group bindings for f32 to f16 copy shader
-import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid, createSkyboxPipeline, createModelPipeline} from './Config_Pipelines.js';  // pipeline config for ALL shaders
+import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid, createSkyboxPipeline, createModelPipeline, createDuckPipeline} from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, displaySlideVolume, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
@@ -79,7 +80,7 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
 
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
-async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile) {
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting Celeris-WebGPU");
 
@@ -248,7 +249,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     txOverlayMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     const txSamplePNGs = create_3D_Image_Texture(device, 1024, 1024, 10, allTextures); // will store all textures to be sampled for photo-realism
-    const txModelPNGs = create_3D_Image_Texture(device, 1024, 1024, 2, allTextures); // will store all textures to be sampled for photo-realism
+    const txModelPNGs = create_2D_Image_Texture(device, 1024, 1024, allTextures); // will store all textures to be sampled for photo-realism
     let skybox_image_size = 500; // size of each face of the cube map
     const txCube_Skybox = create_3D_Image_Texture(device, skybox_image_size, skybox_image_size, 6, allTextures); // will store all textures to be sampled for photo-realism
     
@@ -377,13 +378,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Model textures
     // red_brick texture
-    imageUrl = '/textures/red_brick.jpg'; 
-    imData = await loadImageBitmap(imageUrl);    
-    copyImageBitmapToTexture(device, imData, txModelPNGs, 0)
+    //imageUrl = '/textures/red_brick.jpg'; 
+    //imData = await loadImageBitmap(imageUrl);    
+    //copyImageBitmapToTexture(device, imData, txModelPNGs, 0)
     // white_brick texture
-    imageUrl = '/textures/white_brick.jpg'; 
-    imData = await loadImageBitmap(imageUrl);    
-    copyImageBitmapToTexture(device, imData, txModelPNGs, 1)
+    //imageUrl = '/textures/white_brick.jpg'; 
+    //imData = await loadImageBitmap(imageUrl);    
+    //copyImageBitmapToTexture(device, imData, txModelPNGs, 1)
 
     // load skybox images into texture
     console.log('Downloading skybox images...')
@@ -400,8 +401,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const cubeView = txCube_Skybox.createView({dimension: 'cube'});
 
     // Parameters for 3D Models (for houses, etc. in Explorer mode)
-    const model_properties = await loadSceneModels(calc_constants.models_file_url); // load the model properties from the JSON file
-    
+    //const gltfUrl = './assets/Duck/Duck.gltf'; // URL of the GLTF model file
+    //const duck = await loadglTFModel(device, gltfUrl); // load the duck model
+
+    // box models
+    // for examples, see if there is an overlay file to load
+    var model_properties = null;
+    if(modelFile){
+        console.log('Loading Uploaded 3D Model JSON File')
+        model_properties = await loadSceneModels(modelFile); // load the model properties from the users JSON file
+    } else {
+        model_properties = await loadSceneModels(calc_constants.models_file_url); // load the model properties from the server side JSON file
+    }
+  
     // A simple cube mesh centered at origin
     const boxPositions = new Float32Array([
         -1,-1,-1,  +1,-1,-1,  +1,+1,-1,  -1,+1,-1,
@@ -820,6 +832,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let Skybox_view = new DataView(Skybox_uniforms);
 
     // 3D Model Bindings
+    // duck
+    //const DuckBindGroupLayout = createModelBindGroupLayout(device);
+    //const Duck_uniformBuffer = createUniformBuffer(device);
+    //const DuckBindGroup = createModelBindGroup(device, Duck_uniformBuffer, duck.albedoView, duck.albedoSampler);
+    //const Duck_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    //let Duck_view = new DataView(Duck_uniforms);
+
+    // buildings
     const ModelBindGroupLayout = createModelBindGroupLayout(device);
     // create a bind group layout and buffer for each 3D model in the scene
     for (const obj of model_properties) {
@@ -827,7 +847,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         const Model_uniformBuffer_obj = createUniformBuffer(device);
     
         // one unique BindGroup pointing at that buffer
-        const ModelBindGroup_obj = createModelBindGroup(device, Model_uniformBuffer_obj, txModelPNGs, textureSampler_linear);
+        const ModelBindGroup_obj = createModelBindGroup(device, Model_uniformBuffer_obj, txModelPNGs.createView(), textureSampler_linear);
     
         // host-side storage for packing uniforms
         const Model_uniforms_obj = new ArrayBuffer(256);
@@ -931,6 +951,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     const Skybox_vertexShaderCode = await fetchShader('/shaders/skybox.vertex.wgsl');
     const Skybox_fragmentShaderCode = await fetchShader('/shaders/skybox.fragment.wgsl');
+    //const Duck_vertexShaderCode = await fetchShader('/shaders/duck.vertex.wgsl');
+    //const Duck_fragmentShaderCode = await fetchShader('/shaders/duck.fragment.wgsl');
     const Model_vertexShaderCode = await fetchShader('/shaders/model.vertex.wgsl');
     const Model_fragmentShaderCode = await fetchShader('/shaders/model.fragment.wgsl');
 
@@ -963,6 +985,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const ExtractTimeSeries_Pipeline = createComputePipeline(device, ExtractTimeSeries_ShaderCode, ExtractTimeSeries_BindGroupLayout, allComputePipelines);
 
     const SkyboxPipeline = createSkyboxPipeline(device, Skybox_vertexShaderCode, Skybox_fragmentShaderCode, swapChainFormat, SkyboxBindGroupLayout);
+    //const DuckPipeline = createDuckPipeline(device, Duck_vertexShaderCode, Duck_fragmentShaderCode, swapChainFormat, DuckBindGroupLayout);
     const ModelPipeline = createModelPipeline(device, Model_vertexShaderCode, Model_fragmentShaderCode, swapChainFormat, ModelBindGroupLayout);
     var RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
     const Copytxf32_txf16_Pipeline = createComputePipeline(device, Copytxf32_txf16_ShaderCode, Copytxf32_txf16_BindGroupLayout, allComputePipelines);
@@ -1846,7 +1869,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             // ─────────────────────────────────────────────────────────────
             // 5. Final view-projection matrix
-            const viewProj = mat4.mul(mat4.create(), P, mat4.mul(mat4.create(), V, model));
+            const viewProj = mat4.mul(mat4.create(), P, mat4.mul(mat4.create(), V, model)); // view profection
 
             // skybox view matrix
             // Make a rotation‐only copy for the sky
@@ -1874,6 +1897,27 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
 
             // ── draw models ─────────────────────
+            // duck igTL
+            //const Duck_targetHeight = 10; // height of the duck in the world
+            //const DuckmodelMatrix = makeModelMatrix(500., 500., 1., Duck_targetHeight / duck.localHeight, 0.)
+            //RenderPass.setPipeline(DuckPipeline);
+            //RenderPass.setBindGroup(0, DuckBindGroup);
+            //for (let i = 0; i < 16; ++i) {
+            //    Duck_view.setFloat32(4 * i,         viewProj[i],        true);
+            //    Duck_view.setFloat32(4 * (16 + i),  DuckmodelMatrix[i], true);
+            //}
+            //Duck_view.setFloat32(128, camState.position[0], true);
+            //Duck_view.setFloat32(132, camState.position[1], true);
+            //Duck_view.setFloat32(136, camState.position[2], true);     
+            //device.queue.writeBuffer(Duck_uniformBuffer, 0, Duck_uniforms);     
+            //RenderPass.setVertexBuffer(0, duck.vertexBuffers[0]);
+            //RenderPass.setVertexBuffer(1, duck.vertexBuffers[1]);
+            //RenderPass.setVertexBuffer(2, duck.vertexBuffers[2]);
+            //RenderPass.setIndexBuffer( duck.indexBuffer, 'uint16' );
+            //RenderPass.drawIndexed( duck.indexCount );
+
+
+            // boxes
             RenderPass.setPipeline(ModelPipeline);
 
             for (const obj of model_properties) {
@@ -3012,6 +3056,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var bathymetryFile = document.getElementById('bathymetryFile').files[0];
         var waveFile = document.getElementById('waveFile').files[0];
         var OverlayFile = document.getElementById('satimageFile').files[0];
+        var modelFile = document.getElementById('modelFile').files[0];
     
         // Check if the required files are not uploaded
         if (!configFile || !bathymetryFile) {
@@ -3037,7 +3082,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetch('/no_waves.txt')
                         .then(response => response.text())
                         .then(defaultWaveContent => {
-                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile);
+                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile);
                         })
                         .catch(error => {
                             console.error("Failed to load the default wave file:", error);
@@ -3045,7 +3090,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     waveReader.onload = function (e) {
                         var waveContent = e.target.result;
-                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile);
+                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile);
                     };
                     waveReader.readAsText(waveFile);
                 }
@@ -3057,7 +3102,7 @@ document.addEventListener('DOMContentLoaded', function () {
         configReader.readAsText(configFile);
     }
     
-    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile) {
+    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile) {
         // Here you could do the actual simulation initialization
     //    console.log("Starting simulation with the following data:");
     //    console.log("Config:", configContent);
@@ -3066,7 +3111,7 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Overlay:", OverlayFile);
     
         // Initialize your WebGPU application here
-        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile).catch(error => {
+        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile).catch(error => {
              console.error("Initialization failed:", error);
         });
     }
