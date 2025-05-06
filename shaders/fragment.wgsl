@@ -525,7 +525,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
 
         pixel_velocity = 1.0*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
-        let uv_turb_fine = 10.*uv_turb;
+        let uv_turb_fine = 2.*uv_turb;
         uv_turb_dir = uv_turb_fine + vec2<f32>(0.25, pixel_velocity.y);
         breaking_texture_up = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
         uv_turb_dir = uv_turb_fine + vec2<f32>(0.75, -pixel_velocity.y);
