@@ -511,8 +511,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
         // turbulence
         let layer = 0; // first layer is turbulence
-        var pixel_velocity = 0.01*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
-        let uv_turb_coarsescale = uv_turb;
+        var pixel_velocity = 0.1*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
+        let uv_turb_coarsescale = 0.5*uv_turb;
         var uv_turb_dir = uv_turb_coarsescale + vec2<f32>(0.25, pixel_velocity.y);
         var breaking_texture_up = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
         uv_turb_dir = uv_turb_coarsescale + vec2<f32>(0.75, -pixel_velocity.y);
