@@ -2215,7 +2215,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
         // when in trigger mode, write current time to file
-        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % 100 == 0) { 
+        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % 100 * calc_constants.render_step == 0) { 
             const text_current_time = String(total_time); // Convert the float to a string
             const blob_current_time = new Blob([text_current_time], { type: "text/plain" });
             
