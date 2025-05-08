@@ -451,24 +451,37 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     calc_constants.shift_y = 0.;
     calc_constants.forward = 1.0;
     // base eye & forward vector
-    const baseEye    = vec3.fromValues(
+    var baseEye    = vec3.fromValues(
       0.1 * simWidth,
       0.1 * simHeight,
       10.0 * calc_constants.base_depth
     );
-    const baseTarget = vec3.fromValues(
+    var baseTarget = vec3.fromValues(
       0.5 * simWidth,
       0.5 * simHeight,
        0.0
     );
 
+    if (calc_constants.river_sim == 1) { // river simulation
+        baseEye = vec3.fromValues(
+            0.5 * simWidth,
+            0.5 * simHeight,
+            400.0 * calc_constants.base_depth);
+        baseTarget = vec3.fromValues(
+            0.5 * simWidth,
+            0.5 * simHeight,
+            0.0);
+    }            
+
     const baseDir = vec3.create();
     vec3.subtract(baseDir, baseTarget, baseEye);
     vec3.normalize(baseDir, baseDir);
-    const initPitch = Math.asin(baseDir[2]);
+    var initPitch = Math.asin(baseDir[2]);
+    var initYaw = Math.atan2(baseDir[1], baseDir[0]);
+    if (calc_constants.river_sim == 1) { // river simulation
+        initYaw =  Math.PI / 2.0; // river simulation yaw
+    } 
     calc_constants.rotationAngle_xz = initPitch * 180. / Math.PI;
-    
-    const initYaw = Math.atan2(baseDir[1], baseDir[0]);
     calc_constants.rotationAngle_xy = initYaw * 180. / Math.PI;
 
     window.cameraState = {
@@ -1792,6 +1805,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // Up vector (perpendicular to forward and right)
             const up = vec3.create();
             vec3.cross(up, right, forward);
+            // when pitch in degrees exceeds ±90°, flip up
+            if (Math.abs(calc_constants.rotationAngle_xz) > 90) {
+                vec3.scale(up, up, -1);
+            }      
             vec3.normalize(up, up);
 
             // Apply delta movements correctly to camera state
