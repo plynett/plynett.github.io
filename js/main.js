@@ -2276,7 +2276,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 try {
                     frame_count_output = frame_count_output + 1;
                     console.log('Writing 2D surface data to file at time (s) ', total_time, ' with increment(s) ', dt_since_last_write);
-                    await writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking);
+                    await writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking,txModelVelocities);
                     dt_since_last_write = 0.0; // reset time counter
                 } catch (error) {
                     console.error("Failed to write surface data:", error);
