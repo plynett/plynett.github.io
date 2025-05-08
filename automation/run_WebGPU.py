@@ -63,6 +63,8 @@ new_params = {
     "trigger_writesurface_start_time": trigger_writesurface_start_time,
     "trigger_writesurface_end_time": trigger_writesurface_end_time,
     "write_eta": write_eta,
+    "write_u": write_u,
+    "write_u": write_v,
     "write_P": write_P,
     "write_Q": write_Q,
     "write_turb": write_turb,
