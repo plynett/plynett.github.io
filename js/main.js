@@ -234,6 +234,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const txBoundaryForcing = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
+    const txModelVelocities = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the u,v velocities from the cell size averages - these are the proper u,v used by the flux scheme
     const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
     const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txMeans_Speed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
@@ -754,7 +755,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
-    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux);
+    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities);
     const CalcMeans_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let CalcMeans_view = new DataView(CalcMeans_uniforms);
     CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
@@ -1604,19 +1605,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     }
                 }
 
-                //  Update Statistics - means and wave height
-                calc_constants.n_time_steps_means += 1;
-                CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
-                runComputeShader(device, commandEncoder, CalcMeans_uniformBuffer, CalcMeans_uniforms, CalcMeans_Pipeline, CalcMeans_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means, txMeans)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Speed, txMeans_Speed)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Momflux, txMeans_Momflux)
-
-                calc_constants.n_time_steps_waveheight += 1;
-                CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
-                runComputeShader(device, commandEncoder, CalcWaveHeight_uniformBuffer, CalcWaveHeight_uniforms, CalcWaveHeight_Pipeline, CalcWaveHeight_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_WaveHeight, txWaveHeight)
-
                 // shift gradient textures
                 runCopyTextures(device, commandEncoder, calc_constants, oldGradients, oldOldGradients)
                 runCopyTextures(device, commandEncoder, calc_constants, predictedGradients, oldGradients)
@@ -1631,6 +1619,22 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     runCopyTextures(device, commandEncoder, calc_constants, predictedGradients_Sed, oldGradients_Sed)
                     runCopyTextures(device, commandEncoder, calc_constants, txNewState_Sed, txState_Sed)
                 }
+
+                //  Update Statistics - means and wave height
+                calc_constants.n_time_steps_means += 1;
+                // update Pass1 cell side textures as these are used for the velocities outputs - can probably remove the Pass1 call in the predictor step, but do not want to break anything right now
+                runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
+                runComputeShader(device, commandEncoder, CalcMeans_uniformBuffer, CalcMeans_uniforms, CalcMeans_Pipeline, CalcMeans_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means, txMeans)
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Speed, txMeans_Speed)
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Momflux, txMeans_Momflux)
+
+                calc_constants.n_time_steps_waveheight += 1;
+                CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
+                runComputeShader(device, commandEncoder, CalcWaveHeight_uniformBuffer, CalcWaveHeight_uniforms, CalcWaveHeight_Pipeline, CalcWaveHeight_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runCopyTextures(device, commandEncoder, calc_constants, txtemp_WaveHeight, txWaveHeight)
+
             }
         }
 

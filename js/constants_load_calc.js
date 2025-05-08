@@ -284,6 +284,8 @@ var calc_constants = {
     write_eta: 1, // flag for writing eta surface data to file, write when = 1
     write_P: 0, // flag for writing x flux surface data to file, write when = 1
     write_Q: 0, // flag for writing y flux surface data to file, write when = 1
+    write_u: 0, // flag for writing x velocity surface data to file, write when = 1
+    write_v: 0, // flag for writing y velocity surface data to file, write when = 1
     write_turb: 0, // flag for writing eddy visc surface data to file, write when = 1
     dt_writesurface: 1.0, // incrememnt to write to file 
     fileWritePause: 100, // time (ms) to pause during 2D surface write to not overload write buffer

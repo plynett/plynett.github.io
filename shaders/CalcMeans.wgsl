@@ -17,7 +17,8 @@ struct Globals {
 @group(0) @binding(7) var txBottom: texture_2d<f32>;
 @group(0) @binding(8) var txtemp_Means: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(9) var txtemp_Means_Speed: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(10) var txtemp_Means_Momflux: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(10) var txtemp_Means_Momflux: texture_storage_2d<rgba32float, write>; 
+@group(0) @binding(11) var txModelVelocities: texture_storage_2d<rgba32float, write>; 
 
 
 @compute @workgroup_size(16, 16)
@@ -74,5 +75,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(txtemp_Means, idx, vec4<f32>(means_new, eta_max_new));
     textureStore(txtemp_Means_Speed, idx, vec4<f32>(u_max_new, v_max_new, speed_max_new, 0.0));
     textureStore(txtemp_Means_Momflux, idx, vec4<f32>(hu2_max_new, hv2_max_new, momflux_max_new, 0.0));
+    textureStore(txModelVelocities, idx, vec4<f32>(u, v, eta, h));
 }
 

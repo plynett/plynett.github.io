@@ -550,7 +550,7 @@ export async function createAnimatedGifFromTexture(device, texture, textureSize)
     gif.render();
 }
 
-export async function writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking) {
+export async function writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking,txModelVelocities) {
 
     let time_filename = `time_${frame_count_output}.txt`;
     await saveSingleValueToFile(total_time,time_filename);
@@ -589,6 +589,18 @@ export async function writeSurfaceData(total_time,frame_count_output,device,txBo
         await downloadTextureData(device, txState, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
+
+    if(calc_constants.write_u == 1){  // x-dir velocity u
+        let filename = `xvelo_${frame_count_output}.bin`;
+        await downloadTextureData(device, txModelVelocities, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
+    }
+
+    if(calc_constants.write_v == 1){  // y-dir velocity v
+        let filename = `yvelo_${frame_count_output}.bin`;
+        await downloadTextureData(device, txModelVelocities, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
+    }    
 
     if(calc_constants.write_turb == 1){  // breaking eddy viscosity
         let filename = `turb_${frame_count_output}.bin`;
