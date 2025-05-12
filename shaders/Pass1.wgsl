@@ -25,6 +25,9 @@ struct Globals {
 @group(0) @binding(5) var txV: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(6) var txC: texture_storage_2d<rgba32float, write>;
 
+
+
+
 fn MinMod(a: f32, b: f32, c: f32) -> f32 {
     if (a > 0.0 && b > 0.0 && c > 0.0) {
         return min(min(a, b), c);
@@ -107,6 +110,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var w = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     var hu = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     var hv = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    var hc = vec4<f32>(0.0, 0.0, 0.0, 0.0);
 
     // modify limiters based on whether near the inundation limit
     let wetdry = min(h_here, min(h_south, min(h_north, min(h_west, h_east))));
@@ -118,23 +122,20 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     let wwy = Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
+    let huwy = Reconstruct(in_west.y, in_here.y, in_east.y, TWO_THETAc);
+    let hvwy = Reconstruct(in_west.z, in_here.z, in_east.z, TWO_THETAc);
+    let hcwy = Reconstruct(in_west.w, in_here.w, in_east.w, TWO_THETAc);
+
     let wzx = Reconstruct(in_south.x, in_here.x, in_north.x, TWO_THETAc);
+    let huzx = Reconstruct(in_south.y, in_here.y, in_north.y, TWO_THETAc);
+    let hvzx = Reconstruct(in_south.z, in_here.z, in_north.z, TWO_THETAc);
+    let hczx = Reconstruct(in_south.w, in_here.w, in_north.w, TWO_THETAc);
+
     w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);
     h = w - B;
     h = max(h, vec4<f32>(0.0, 0.0, 0.0, 0.0));
-
-    let huwy = Reconstruct(in_west.y, in_here.y, in_east.y, TWO_THETAc);
-    let huzx = Reconstruct(in_south.y, in_here.y, in_north.y, TWO_THETAc);
     hu = vec4<f32>(huzx.y, huwy.y, huzx.x, huwy.x);
-
-    let hvwy = Reconstruct(in_west.z, in_here.z, in_east.z, TWO_THETAc);
-    let hvzx = Reconstruct(in_south.z, in_here.z, in_north.z, TWO_THETAc);
     hv = vec4<f32>(hvzx.y, hvwy.y, hvzx.x, hvwy.x);
-
-    // Scalar reconstruct
-    var hc: vec4<f32>; 
-    let hcwy = Reconstruct(in_west.w, in_here.w, in_east.w, TWO_THETAc);
-    let hczx = Reconstruct(in_south.w, in_here.w, in_north.w, TWO_THETAc);
     hc = vec4<f32>(hczx.y, hcwy.y, hczx.x, hcwy.x);
 
     // CalcUVC 

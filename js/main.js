@@ -944,7 +944,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
-    const Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
+    var Pass1_ShaderCode = null;
+    if (calc_constants.Accuracy_mode == 1) {
+        Pass1_ShaderCode = await fetchShader('/shaders/Pass1_HighOrder.wgsl');
+    } else {
+        Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
+    }
     const SedTrans_Pass1_ShaderCode = await fetchShader('/shaders/SedTrans_Pass1.wgsl');
     const Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');  
     const PassBreaking_ShaderCode = await fetchShader('/shaders/Pass_Breaking.wgsl'); 
