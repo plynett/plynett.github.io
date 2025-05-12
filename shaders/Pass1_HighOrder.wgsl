@@ -181,6 +181,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     if(wetdry <= globals.epsilon) {
         dB_max = 0.5*vec4<f32>(dB_north, dB_east, dB_south, dB_west);
+    }
+
+    if(wetdry <= globals.epsilon || B_here >= 0.0) {
 
         // Use the original Reconstruct function for boundary conditions
         wwy =  Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
