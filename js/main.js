@@ -946,13 +946,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
     var Pass1_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
-        console.log("Using 5th-order reconstruction scheme for Pass1");
+        console.log("Using 4th-order WENO reconstruction scheme in Pass1");
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1_HighOrder.wgsl');
     } else {
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
     }
     const SedTrans_Pass1_ShaderCode = await fetchShader('/shaders/SedTrans_Pass1.wgsl');
-    const Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');  
+    var Pass2_ShaderCode = null;
+    if (calc_constants.Accuracy_mode == 1) {
+        console.log("Using HLLEM Flux Solver in Pass2");
+        Pass2_ShaderCode = await fetchShader('/shaders/Pass2_HighOrder.wgsl');  
+    } else {
+        Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');  
+    }
     const PassBreaking_ShaderCode = await fetchShader('/shaders/Pass_Breaking.wgsl'); 
     const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
     const Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');

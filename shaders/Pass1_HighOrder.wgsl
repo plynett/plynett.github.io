@@ -122,6 +122,58 @@ fn Reconstruct5(
     return vec2<f32>(out_west, out_east);
 }
 
+
+// 4th-order CWENO reconstruction
+// same signature as Reconstruct5
+fn ReconstructCWENO4(
+    w2:        f32,  // q_{i-2}
+    w1:        f32,  // q_{i-1}
+    w0:        f32,  // q_i
+    e1:        f32,  // q_{i+1}
+    e2:        f32,  // q_{i+2}
+    TWO_THETAc:f32   // unused in CWENO4, present for compatibility
+) -> vec2<f32> {
+    // small and linear weights for 4th-order
+    let d0 = 1.0/6.0;
+    let d1 = 4.0/6.0;
+    let d2 = 1.0/6.0;
+    let eps = 1e-6;
+
+    // 1) smoothness indicators βₖ
+    let b0 = (13.0/12.0)*((w2 - 2.0*w1 + w0)*(w2 - 2.0*w1 + w0))
+           +  0.25   *((w2 - 4.0*w1 + 3.0*w0)*(w2 - 4.0*w1 + 3.0*w0));
+    let b1 = (13.0/12.0)*((w1 - 2.0*w0 + e1)*(w1 - 2.0*w0 + e1))
+           +  0.25   *((w1 - e1)*(w1 - e1));
+    let b2 = (13.0/12.0)*((w0 - 2.0*e1 + e2)*(w0 - 2.0*e1 + e2))
+           +  0.25   *((3.0*w0 - 4.0*e1 + e2)*(3.0*w0 - 4.0*e1 + e2));
+
+    // 2) nonlinear weights αₖ ∝ dₖ/(ε+βₖ)²
+    let a0 = d0 / ((eps + b0)*(eps + b0));
+    let a1 = d1 / ((eps + b1)*(eps + b1));
+    let a2 = d2 / ((eps + b2)*(eps + b2));
+    let asum = a0 + a1 + a2;
+    let w0n = a0 / asum;
+    let w1n = a1 / asum;
+    let w2n = a2 / asum;
+
+    // 3) candidate interp at x_{i-1/2} (z=-0.5)
+    let p0_w = -0.125 * w2  + 0.75  * w1   + 0.375 * w0;
+    let p1_w =  0.375 * w1  + 0.75  * w0   - 0.125 * e1;
+    let p2_w =  1.875 * w0  - 1.25  * e1   + 0.375 * e2;
+
+    // 4) candidate interp at x_{i+1/2} (z=+0.5)
+    let p0_e =  0.375 * w2  - 1.25  * w1   + 1.875 * w0;
+    let p1_e = -0.125 * w1  + 0.75  * w0   + 0.375 * e1;
+    let p2_e =  0.375 * w0  + 0.75  * e1   - 0.125 * e2;
+
+    // 5) final CWENO4 values
+    let out_west = w0n * p0_w + w1n * p1_w + w2n * p2_w;
+    let out_east = w0n * p0_e + w1n * p1_e + w2n * p2_e;
+
+    return vec2<f32>(out_west, out_east);
+}
+
+
 @compute @workgroup_size(16, 16) //
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // Convert the 3D thread ID to a 2D grid coordinate
@@ -224,16 +276,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         hczx = Reconstruct(in_south.w, in_here.w, in_north.w, TWO_THETAc);
     } else {
         // Use the high-order Reconstruct function for interior points
-        wwy =  Reconstruct5(in_west2.x, in_west.x, in_here.x, in_east.x, in_east2.x, TWO_THETAc);
-        huwy = Reconstruct5(in_west2.y, in_west.y, in_here.y, in_east.y, in_east2.y, TWO_THETAc);
-        hvwy = Reconstruct5(in_west2.z, in_west.z, in_here.z, in_east.z, in_east2.z, TWO_THETAc);
-        hcwy = Reconstruct5(in_west2.w, in_west.w, in_here.w, in_east.w, in_east2.w, TWO_THETAc);
+        wwy =  ReconstructCWENO4(in_west2.x, in_west.x, in_here.x, in_east.x, in_east2.x, TWO_THETAc);
+        huwy = ReconstructCWENO4(in_west2.y, in_west.y, in_here.y, in_east.y, in_east2.y, TWO_THETAc);
+        hvwy = ReconstructCWENO4(in_west2.z, in_west.z, in_here.z, in_east.z, in_east2.z, TWO_THETAc);
+        hcwy = ReconstructCWENO4(in_west2.w, in_west.w, in_here.w, in_east.w, in_east2.w, TWO_THETAc);
         
         // Use the high-order Reconstruct function for interior points
-        wzx =  Reconstruct5(in_south2.x, in_south.x, in_here.x, in_north.x, in_north2.x, TWO_THETAc);
-        huzx = Reconstruct5(in_south2.y, in_south.y, in_here.y, in_north.y, in_north2.y, TWO_THETAc);
-        hvzx = Reconstruct5(in_south2.z, in_south.z, in_here.z, in_north.z, in_north2.z, TWO_THETAc);
-        hczx = Reconstruct5(in_south2.w, in_south.w, in_here.w, in_north.w, in_north2.w, TWO_THETAc);
+        wzx =  ReconstructCWENO4(in_south2.x, in_south.x, in_here.x, in_north.x, in_north2.x, TWO_THETAc);
+        huzx = ReconstructCWENO4(in_south2.y, in_south.y, in_here.y, in_north.y, in_north2.y, TWO_THETAc);
+        hvzx = ReconstructCWENO4(in_south2.z, in_south.z, in_here.z, in_north.z, in_north2.z, TWO_THETAc);
+        hczx = ReconstructCWENO4(in_south2.w, in_south.w, in_here.w, in_north.w, in_north2.w, TWO_THETAc);
     }
 
     w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);
