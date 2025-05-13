@@ -36,6 +36,25 @@ fn MinMod(a: f32, b: f32, c: f32) -> f32 {
     }
 }
 
+// Two-argument SuperBee limiter
+fn SuperBee(a: f32, b: f32) -> f32 {
+    // a = backward slope, b = forward slope (or vice-versa)
+    if (a * b <= 0.0) {
+        return 0.0;
+    }
+    let r = a / b;
+    // φ(r) = max(0, min(2r,1), min(r,2))
+    let phi = max(
+        0.0,
+        max(
+            min(2.0 * r, 1.0),
+            min(r, 2.0)
+        )
+    );
+    return phi * b;
+}
+
+
 fn Reconstruct(west: f32, here: f32, east: f32, TWO_THETAc: f32) -> vec2<f32> {
     let z1 = TWO_THETAc * (here - west);
     let z2 = (east - west);
@@ -61,14 +80,21 @@ fn Reconstruct5(
 ) -> vec2<f32> {
     // 1) form the same three candidate slopes
     //   z1: 2nd‐order backward-difference at i
-    let z1 = TWO_THETAc * ((3.0 * w0 - 4.0 * w1 + w2) * 0.5);
+    //let z1 = TWO_THETAc * ((3.0 * w0 - 4.0 * w1 + w2) * 0.5);
+    let z1 = TWO_THETAc * (w0 - w1);
     //   z2: 4th‐order central-difference at i
     let z2 = (-e2 + 8.0 * e1 - 8.0 * w1 + w2) / 6.0;
     //   z3: 2nd‐order forward-difference at i
-    let z3 = TWO_THETAc * ((-e2 + 4.0 * e1 - 3.0 * w0) * 0.5);
+    //let z3 = TWO_THETAc * ((-e2 + 4.0 * e1 - 3.0 * w0) * 0.5);
+    let z3 = TWO_THETAc * (e1 - w0);
 
     // 2) limiter + half-cell increment (exactly as you did)
-    let dx_grad_over_two = 0.25 * MinMod(z1, z2, z3);
+    //let dx_grad_over_two = 0.25 * MinMod(z1, z2, z3);
+
+    let s1 = SuperBee(z1, z2);
+    let s2 = SuperBee(z2, z3);
+
+    let dx_grad_over_two = 0.25 * MinMod(s1, s2, z2);
 
     // 3) second-derivative term (parabola)
     let d2 = w1 - 2.0 * w0 + e1;

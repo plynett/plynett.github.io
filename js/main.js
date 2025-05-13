@@ -946,6 +946,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
     var Pass1_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
+        console.log("Using 5th-order reconstruction scheme for Pass1");
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1_HighOrder.wgsl');
     } else {
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');

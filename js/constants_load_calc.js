@@ -28,7 +28,7 @@ var calc_constants = {
     // Wave model parameters
     NLSW_or_Bous: 0,  // Choose 0 for Non-linear Shallow Water (NLSW) or 1 for Boussinesq.
     Bcoef: 1.0 / 15.0,  // Dispersion parameter, 1/15 is optimum value for this set of equations.
-    Accuracy_mode: 0,  // Accuracy model choice: 0: 2nd-order, 1: 4th-order.
+    Accuracy_mode: 1,  // Accuracy model choice: 0: 2nd-order, 1: 4th-order.
 
     // Physical parameters
     g: 9.80665,  // Gravitational constant.
