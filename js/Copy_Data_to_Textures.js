@@ -313,10 +313,23 @@ function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, ba
                 // Calculate the first derivative of the depth
                 d_dx = (depth_plus - depth_minus) / (2.0 * dx);
 
-                // Calculate coefficients based on the depth and its derivative
-                a =  depth_here * d_dx / (6.0 * dx) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dx * dx);
-                b = 1.0 + 2.0 * (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dx * dx);
-                c = -depth_here * d_dx / (6.0 * dx) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dx * dx);
+                if (calc_constants.NLSW_or_Bous == 2) {
+                    // COULWAVE equations
+                    let z_loc = 0.0;
+                    let zx_loc = 0.0;
+                    let za = calc_constants.Bous_alpha * depth_here;
+                    let za2 = za * za;
+                    let zloc2 = z_loc * z_loc;
+                    a =   (za2-zloc2)/2.*calc_constants.one_over_d2x + (za-z_loc)*depth_minus*calc_constants.one_over_d2x + zx_loc*(z_loc+depth_minus)/dx/2.;
+                    b = 1-(za2-zloc2)*calc_constants.one_over_d2x  - 2*(za-z_loc)*depth_here*calc_constants.one_over_d2x;
+                    c =   (za2-zloc2)/2.*calc_constants.one_over_d2x + (za-z_loc)*depth_plus*calc_constants.one_over_d2x  - zx_loc*(z_loc+depth_plus)/dx/2.;
+                }
+                else {  // regular Boussinesq
+                    // Calculate coefficients based on the depth and its derivative
+                    a =  depth_here * d_dx / (6.0 * dx) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dx * dx);
+                    b = 1.0 + 2.0 * (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dx * dx);
+                    c = -depth_here * d_dx / (6.0 * dx) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dx * dx);
+                }
             }
 
             paddedFlatData[paddedIndex] = a;  // red
@@ -387,10 +400,23 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, ba
                 // Calculate the first derivative of the depth
                 d_dy = (depth_plus - depth_minus) / (2.0 * dy);
 
-                // Calculate coefficients based on the depth and its derivative
-                a =  depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
-                b = 1.0 + 2.0 * (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
-                c = -depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
+                if (calc_constants.NLSW_or_Bous == 2) {
+                    // COULWAVE equations
+                    let z_loc = 0.0;
+                    let zy_loc = 0.0;
+                    let za = calc_constants.Bous_alpha * depth_here;
+                    let za2 = za * za;
+                    let zloc2 = z_loc * z_loc;
+                    a =   (za2-zloc2)/2.*calc_constants.one_over_d2y + (za-z_loc)*depth_minus*calc_constants.one_over_d2y + zy_loc*(z_loc+depth_minus)/dy/2.;
+                    b = 1-(za2-zloc2)*calc_constants.one_over_d2y  - 2*(za-z_loc)*depth_here*calc_constants.one_over_d2y;
+                    c =   (za2-zloc2)/2.*calc_constants.one_over_d2y + (za-z_loc)*depth_plus*calc_constants.one_over_d2y  - zy_loc*(z_loc+depth_plus)/dy/2.;
+                }
+                else {  // regular Boussinesq                
+                    // Calculate coefficients based on the depth and its derivative
+                    a =  depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
+                    b = 1.0 + 2.0 * (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
+                    c = -depth_here * d_dy / (6.0 * dy) - (Bcoef + 1.0 / 3.0) * depth_here * depth_here / (dy * dy);
+                }
             }
 
             paddedFlatData[paddedIndex] = a;  // red

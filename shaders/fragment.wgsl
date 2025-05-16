@@ -48,6 +48,13 @@ struct Globals {
     designcomponent_Fric_Berm: f32,
     designcomponent_Fric_Seawall: f32,
     bathy_cmap_zero: f32,
+    renderZScale: f32,
+    temp1: f32,
+    temp2: f32,
+    viewProj: mat4x4<f32>, // bytes 192–255: your camera matrix
+    showArrows: i32,
+    arrow_scale: f32,
+    arrow_density: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -321,15 +328,15 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (surfaceToPlot == 7) {  // mean eta
         render_surface = textureSample(txMeans, textureSampler, uv).r;
    
-    } else if (surfaceToPlot == 8) {  // mean fluid flux
-        let P = textureSample(txMeans, textureSampler, uv).g; 
-        let Q = textureSample(txMeans, textureSampler, uv).b; 
-        render_surface = sqrt(P * P + Q * Q);
+    } else if (surfaceToPlot == 8) {  // mean fluid speed
+        let u = textureSample(txMeans, textureSampler, uv).g; 
+        let v = textureSample(txMeans, textureSampler, uv).b; 
+        render_surface = sqrt(u *u + v * v);
 
-    } else if (surfaceToPlot == 9) {  // mean x-dir flux
+    } else if (surfaceToPlot == 9) {  // mean x-dir velocity
         render_surface = textureSample(txMeans, textureSampler, uv).g; 
     
-    } else if (surfaceToPlot == 10) {  // mean y-dir flux
+    } else if (surfaceToPlot == 10) {  // mean y-dir velocity
         render_surface = textureSample(txMeans, textureSampler, uv).b; 
 
     } else if (surfaceToPlot == 11) {  // mean breaking intensity
@@ -705,6 +712,64 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
             color_rgb = light_effects * color_wave;
         }
 
+    }
+
+    // velocity arrows
+    if (globals.showArrows >= 1) {
+        
+        let arrow_grid_spacing = min(f32(globals.WIDTH),f32(globals.HEIGHT))/20./globals.arrow_density;
+        // 1. how many arrows in x/y
+        let bins = vec2<f32>(f32(globals.WIDTH) / arrow_grid_spacing, f32(globals.HEIGHT) / arrow_grid_spacing * globals.dy / globals.dx);
+
+        // 2. figure out which bin this uv falls into
+        let uv_bins = uv * bins;                  // [0..10)
+        let bin_idx = vec2<u32>(floor(uv_bins));  // integer bin coords
+
+        // 3. compute the bin‐center UV for velocity sampling
+        let uv_center = (vec2<f32>(f32(bin_idx.x), f32(bin_idx.y)) + 0.5) / bins;
+
+        // 4. sample velocity once per bin
+        let bottom_arrow = textureSample(txRenderVarsf16, textureSampler_linear, uv_center).b;
+        let waves_arrow = textureSample(txRenderVarsf16, textureSampler_linear, uv_center).r;  
+        let H_arrow = max(globals.delta, waves - bottom);   
+        var speed = 0.0;
+        var u = 0.0;
+        var v = 0.0;
+        if (globals.showArrows == 1) { 
+            let P = textureSample(etaTexture, textureSampler, uv_center).g;
+            let Q = textureSample(etaTexture, textureSampler, uv_center).b;
+            u = P / H_arrow;
+            v = Q / H_arrow;
+            speed = 10. * sqrt(u * u + v * v) / sqrt(9.81 * globals.base_depth);
+        }
+        else {
+            u = textureSample(txMeans, textureSampler, uv_center).g; 
+            v = textureSample(txMeans, textureSampler, uv_center).b; 
+            speed = 20. * sqrt(u * u + v * v) / sqrt(9.81 * globals.base_depth);
+        }
+        let speed_clamped = clamp(speed * globals.arrow_scale, 0.1, 1.0);
+
+        // 5. compute rotation
+        let angle = atan2(-v, u) - 3.14159 / 2.0; // rotate 90 degrees
+        let c = cos(angle);
+        let s = sin(angle);
+
+        // 6. compute local coords inside the bin ([0..1)×[0..1))
+        let uv_local = fract(uv_bins);
+
+        // 7. rotate around the local bin center (0.5,0.5)
+        let centered = uv_local - vec2<f32>(0.5, 0.5);
+        let rotated = vec2<f32>(centered.x * c - centered.y * s,  centered.x * s + centered.y * c) / speed_clamped + vec2<f32>(0.5, 0.5);
+
+        // 8. sample your arrow layer — sampler must use repeat wrapping
+        let layer = 9;
+        let rotated_clamped = clamp(rotated, vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0));
+        let arrow = textureSample(txSamplePNGs, textureSampler_linear, rotated_clamped, i32(layer));
+
+        if (H_arrow > globals.delta) {
+            // 9. composite (using arrow.x as mask/alpha)
+            color_rgb = mix(color_rgb, arrow.xyz, arrow.x);
+        }
     }
 
     

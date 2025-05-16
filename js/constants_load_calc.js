@@ -26,8 +26,9 @@ var calc_constants = {
     pred_or_corrector: 1,  // variable which tells render loop which stage solver is in
 
     // Wave model parameters
-    NLSW_or_Bous: 0,  // Choose 0 for Non-linear Shallow Water (NLSW) or 1 for Boussinesq.
+    NLSW_or_Bous: 0,  // Choose 0 for Non-linear Shallow Water (NLSW), 1 for Madsen Boussinesq, 2 for Fully Non-linear Boussinesq (COULWAVE equations)
     Bcoef: 1.0 / 15.0,  // Dispersion parameter, 1/15 is optimum value for this set of equations.
+    Bous_alpha: -0.531,  // extended Boussinesq parameter,
     Accuracy_mode: 0,  // Accuracy model choice: 0: 2nd-order, 1: 4th-order.
 
     // Physical parameters
@@ -177,6 +178,9 @@ var calc_constants = {
     whiteWaterDispersion: 0.1, // "turbulence" dispersion
     infiltrationRate: 0.001, // dry beach infiltration rate
     ShowLogos: 0, // show USC and ERDC logos
+    ShowArrows: 0, // =0 do not show arrows, =1 show instantaneous velocity arrows, =2 arrows show time-averaged velocity
+    arrow_scale: 1.0, // scale to shrink or enlarge arrows
+    arrow_density: 1.0, // factory to increase or decrease arrow density
     GoogleMapOverlay: 0, // load satellite image and plot over dry land, requires proper values of lat,lon at lower left and upper right corners
     IsOverlayMapLoaded: 0, // = 0 if not loaded, change to one if already loaded
     IsGMMapLoaded: 0, // = 0 if not loaded, change to one if already loaded

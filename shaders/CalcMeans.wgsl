@@ -41,7 +41,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let eta = h + bottom;
     let P = h*u;
     let Q = h*v;
-    let state_here = vec4<f32>(eta, P, Q, 0.0);
+    let state_here = vec4<f32>(eta, u, v, 0.0);
     let speed = sqrt(u*u + v*v);
     let hu2 = h*u*u;
     let hv2 = h*v*v;

@@ -3,7 +3,11 @@ struct Globals {
     height: u32,
     dx: f32,
     dy: f32,
-    Bcoef: f32
+    Bcoef: f32,
+    NLSW_or_Bous: i32,
+    Bous_alpha: f32,
+    one_over_d2x: f32,
+    one_over_d2y: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -45,13 +49,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let d_west = -textureLoad(txBottom, leftIdx, 0).z;
         let d_east = -textureLoad(txBottom, rightIdx, 0).z;
 
-         // Calculate the first derivative of the depth
-         let d_dx = (d_east - d_west) / (2.0 * globals.dx);
+        if (globals.NLSW_or_Bous == 2) {
+            // COULWAVE equations
+            let z_loc = textureLoad(current_state, idx, 0).x;
+            let zx_loc = (textureLoad(current_state, rightIdx, 0).x - textureLoad(current_state, leftIdx, 0).x) / globals.dx / 2.;
+            let za = globals.Bous_alpha * d_here;
+            let za2 = za * za;
+            let zloc2 = z_loc * z_loc;
+            a =     (za2-zloc2)/2.*globals.one_over_d2x +   (za-z_loc)*d_west*globals.one_over_d2x + zx_loc*(z_loc+d_west)/globals.dx/2.;
+            b = 1.0-(za2-zloc2)*globals.one_over_d2x  - 2.0*(za-z_loc)*d_here*globals.one_over_d2x;
+            c =     (za2-zloc2)/2.*globals.one_over_d2x +   (za-z_loc)*d_east*globals.one_over_d2x - zx_loc*(z_loc+d_east)/globals.dx/2.;
+        } else{
+            // Calculate the first derivative of the depth
+            let d_dx = (d_east - d_west) / (2.0 * globals.dx);
 
-         // Calculate coefficients based on the depth and its derivative
-         a =  d_here * d_dx / (6.0 * globals.dx) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
-         b = 1.0 + 2.0 * (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
-         c = -d_here * d_dx / (6.0 * globals.dx) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
+            // Calculate coefficients based on the depth and its derivative
+            a =  d_here * d_dx / (6.0 * globals.dx) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
+            b = 1.0 + 2.0 * (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
+            c = -d_here * d_dx / (6.0 * globals.dx) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dx * globals.dx);
+        }
     }
     coefx = vec4<f32>(a, b, c, 0.0);
 
@@ -67,13 +83,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let d_south = -textureLoad(txBottom, downIdx, 0).z;
         let d_north = -textureLoad(txBottom, upIdx, 0).z;
 
-         // Calculate the first derivative of the depth
-         let d_dy = (d_north - d_south) / (2.0 * globals.dy);
+        if (globals.NLSW_or_Bous == 2) {
+            // COULWAVE equations
+            let z_loc = textureLoad(current_state, idx, 0).x;
+            let zx_loc = (textureLoad(current_state, upIdx, 0).x - textureLoad(current_state, downIdx, 0).x) / globals.dy / 2.;
+            let za = globals.Bous_alpha * d_here;
+            let za2 = za * za;
+            let zloc2 = z_loc * z_loc;
+            a =     (za2-zloc2)/2.*globals.one_over_d2y +   (za-z_loc)*d_south*globals.one_over_d2y + zx_loc*(z_loc+d_south)/globals.dy/2.;
+            b = 1.0-(za2-zloc2)*globals.one_over_d2y  - 2.0*(za-z_loc)*d_here*globals.one_over_d2y;
+            c =     (za2-zloc2)/2.*globals.one_over_d2y +   (za-z_loc)*d_north*globals.one_over_d2y - zx_loc*(z_loc+d_north)/globals.dy/2.;
+        } else{
+            // Calculate the first derivative of the depth
+            let d_dy = (d_north - d_south) / (2.0 * globals.dy);
 
-         // Calculate coefficients based on the depth and its derivative
-         a =  d_here * d_dy / (6.0 * globals.dy) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
-         b = 1.0 + 2.0 * (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
-         c = -d_here * d_dy / (6.0 * globals.dy) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
+            // Calculate coefficients based on the depth and its derivative
+            a =  d_here * d_dy / (6.0 * globals.dy) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
+            b = 1.0 + 2.0 * (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
+            c = -d_here * d_dy / (6.0 * globals.dy) - (globals.Bcoef + 1.0 / 3.0) * d_here * d_here / (globals.dy * globals.dy);
+        }
     }
     coefy = vec4<f32>(a, b, c, 0.0);
 

@@ -168,8 +168,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const textureSampler_linear = device.createSampler({
         magFilter: 'linear',
         minFilter: 'linear',
-        addressModeU: 'mirror-repeat',
-        addressModeV: 'mirror-repeat'
+        addressModeU: 'repeat',
+        addressModeV: 'repeat'
     });
 
     // Create a texturse with the desired dimensions (WIDTH, HEIGHT) and format 'rgba32float'.
@@ -376,6 +376,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     imageUrl = '/textures/dune_veg.jpg'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 8)
+    // arrow texture
+    imageUrl = '/textures/arrow.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 9)
 
     // Model textures
     // red_brick texture
@@ -752,6 +756,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     UpdateTrid_view.setFloat32(8, calc_constants.dx, true);             // f32
     UpdateTrid_view.setFloat32(12, calc_constants.dy, true);             // f32
     UpdateTrid_view.setFloat32(16, calc_constants.Bcoef, true);             // f32
+    UpdateTrid_view.setInt32(20, calc_constants.NLSW_or_Bous, true);          // i32
+    UpdateTrid_view.setFloat32(24, calc_constants.Bous_alpha, true);             // f32
+    UpdateTrid_view.setFloat32(28, calc_constants.one_over_d2x, true);             // f32
+    UpdateTrid_view.setFloat32(32, calc_constants.one_over_d2y, true);             // f32
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
@@ -932,6 +940,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // offset = 192 + 4 bytes per float × i
         Render_view.setFloat32(192 + i * 4, viewProj[i], /* littleEndian */ true);
     }
+    Render_view.setInt32(256, calc_constants.ShowArrows, true);           // i32
+    Render_view.setFloat32(260, calc_constants.arrow_scale, true);          // f32 
+    Render_view.setFloat32(264, calc_constants.arrow_density, true);          // f32 
 
     // Copy f32 data to f16 texture compute shader
     const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);
@@ -940,7 +951,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let Copytxf32_txf16_view = new DataView(Copytxf32_txf16_uniforms);
     Copytxf32_txf16_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     Copytxf32_txf16_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
-
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
@@ -1341,7 +1351,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setFloat32(160, calc_constants.designcomponent_Fric_RubbleMound, true);          // f32 
             Render_view.setFloat32(164, calc_constants.designcomponent_Fric_Dune, true);          // f32 
             Render_view.setFloat32(168, calc_constants.designcomponent_Fric_Berm, true);          // f32 
-            Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32             
+            Render_view.setFloat32(172, calc_constants.designcomponent_Fric_Seawall, true);          // f32    
+            Render_view.setInt32(256, calc_constants.ShowArrows, true);           // i32
+            Render_view.setFloat32(260, calc_constants.arrow_scale, true);          // f32 
+            Render_view.setFloat32(264, calc_constants.arrow_density, true);          // f32          
             
             // reset canvas
             ctx.fillStyle = 'white';
@@ -1501,6 +1514,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
                 }   
 
+                if (calc_constants.NLSW_or_Bous == 2) {
+                    // COULWAVE Model - need to update nonlinear tridaig coefficents before running tridiag solver
+                    runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                }
+
                 //Tridiag Solver for Bous, or copy for NLSW
                 runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
                     TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
@@ -1588,6 +1606,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     if(calc_constants.useSedTransModel == 1){
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
                     }                    
+
+                    if (calc_constants.NLSW_or_Bous == 2) {
+                        // COULWAVE Model - need to update nonlinear tridaig coefficents before running tridiag solver
+                        runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                    }
 
                     //Tridiag Solver for Bous, or copy for NLSW
                     runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -2166,11 +2189,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 downloadTextureData(device, txMeans, 1, filename);  
 
             } else if(calc_constants.which_surface_to_write == 12){  // Mean Fluid Flux [E-W]
-                let filename = 'current_HUmean.bin';
+                let filename = 'current_Umean.bin';
                 downloadTextureData(device, txMeans, 2, filename);  
 
             } else if(calc_constants.which_surface_to_write == 13){  // Mean Fluid Flux [N-S]
-                let filename = 'current_HVmean.bin';
+                let filename = 'current_Vmean.bin';
                 downloadTextureData(device, txMeans, 3, filename);  
             }   
 
@@ -2216,8 +2239,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 { tx: txMeans_Speed,  ch: 3, filename: 'current_Speedmax.bin'},
                 { tx: txMeans_Momflux,ch: 3, filename: 'current_Momfluxmax.bin'},
                 { tx: txMeans,        ch: 1, filename: 'current_FSmean.bin'},
-                { tx: txMeans,        ch: 2, filename: 'current_HUmean.bin'},
-                { tx: txMeans,        ch: 3, filename: 'current_HVmean.bin'},
+                { tx: txMeans,        ch: 2, filename: 'current_Umean.bin'},
+                { tx: txMeans,        ch: 3, filename: 'current_Vmean.bin'},
             ];
             
             for (const {tx, ch, filename} of files) {
@@ -2718,6 +2741,8 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'friction-button', input: 'friction-input', property: 'friction' },
         { id: 'colorVal_max-button', input: 'colorVal_max-input', property: 'colorVal_max' },
         { id: 'colorVal_min-button', input: 'colorVal_min-input', property: 'colorVal_min' },
+        { id: 'arrow_scale-button', input: 'arrow_scale-input', property: 'arrow_scale' },
+        { id: 'arrow_density-button', input: 'arrow_density-input', property: 'arrow_density' },
         { id: 'whiteWaterDecayRate-button', input: 'whiteWaterDecayRate-input', property: 'whiteWaterDecayRate' },
         { id: 'changeAmplitude-button', input: 'changeAmplitude-input', property: 'changeAmplitude' },
         { id: 'changeRadius-button', input: 'changeRadius-input', property: 'changeRadius' },
@@ -2788,6 +2813,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'changethisTimeSeries-select', property: 'changethisTimeSeries' },
         { input: 'useBreakingModel-select', property: 'useBreakingModel' },
         { input: 'designcomponentToAdd-select', property: 'designcomponentToAdd' },
+        { input: 'ShowArrows-select', property: 'ShowArrows' },
         { input: 'ShowLogos-select', property: 'ShowLogos' },
         { input: 'write_eta-select', property: 'write_eta' },
         { input: 'write_P-select', property: 'write_P' },
@@ -2796,6 +2822,8 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'which_surface_to_write-select', property: 'which_surface_to_write' },
         { input: 'incident_wave_type-select', property: 'incident_wave_type' },
     ];
+
+
 
     // Call the function for setting up listeners on dropdown menus
     setupDropdownListeners(button_dropdown_Actions);
