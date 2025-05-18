@@ -38,6 +38,7 @@ var calc_constants = {
     Theta: 2.0,  // Midmod limiter parameter. 1.0 most dissipative(upwind) to 2.0 least dissipative(centered).
     friction: 0.000,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
     isManning: 0,  // A boolean friction model value, if==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
+    loadFriction: 0,  // Load friction from file when == 1
     min_allowable_depth: 0.005, // min depth allowable, too large and runup accuracy is poor, too small and precision issues lead to model blowup (1/0)
 
     // breaking model parameters

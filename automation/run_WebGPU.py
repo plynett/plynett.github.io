@@ -14,6 +14,8 @@ config_file = "config.json" # Configuration file for the simulation
 bathy_file = "bathy.txt"  # Bathymetry file for the simulation
 use_wave_file = 1  # Flag to indicate whether to use a wave file (1 = yes, 0 = no)
 wave_file = "waves.txt"  # Wave file for the simulation (optional)
+use_friction_file = 0  # Flag to indicate whether to use a 2D friction map file (1 = yes, 0 = no)
+friction_file = "friction.txt"  # Wave file for the simulation (optional)
 use_sat_image = 0  # Flag to indicate whether to use a satellite image (1 = yes, 0 = no)
 sat_image_file = "overlay.jpg"  # Satellite image file for the simulation (optional)
 output_folder = os.path.join(sim_directory, "output/") # Path to directory where the simulation will save its output files
@@ -47,6 +49,7 @@ trigger_writeWaveHeight_time = 180.0  # time to write wave height, this is also 
 config_file_path = os.path.join(sim_directory, config_file)
 bathy_file_path = os.path.join(sim_directory, bathy_file)
 wave_file_path = os.path.join(sim_directory, wave_file)
+friction_file_path = os.path.join(sim_directory, friction_file)
 sat_image_file_path = os.path.join(sim_directory, sat_image_file)
 
 # Load and add parameters to config.json
@@ -129,6 +132,11 @@ try:
     if use_wave_file == 1:
         wave_input = driver.find_element(By.ID, "waveFile")
         wave_input.send_keys(wave_file_path)
+
+    # Optionally, upload a 2D friction file (if needed)
+    if use_friction_file == 1:
+        friction_input = driver.find_element(By.ID, "frictionmapFile")
+        friction_input.send_keys(friction_file_path)
     
     # Optionally, upload a satellite image (if needed)
     if use_sat_image == 1:

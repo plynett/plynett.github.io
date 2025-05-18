@@ -82,6 +82,67 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
 }
 
 
+// load friction file
+export async function loadFrictionSurface(frictionContent, calc_constants) {
+    let response;
+    let lines;
+    let filePath;
+    // Try to parse the uploaded content, if fails, then load server side file
+    try {
+
+        lines = frictionContent.split('\n');
+
+        console.log("Friction data loaded successfully from the uploaded file.");
+
+    } catch (error) {
+        console.log("Loading server side example friction file");
+        filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'friction.txt';
+        try {
+            response = await fetch(filePath);
+        } catch (error) {
+            console.error("Could not find friction file at " + filePath);
+            return null;
+        }
+
+        if (!response.ok) {
+            console.error("Error fetching friction file:", response.statusText);
+            return null;
+        }
+
+        const fileContents = await response.text();
+
+        lines = fileContents.split('\n');
+        console.log("Server side friction data loaded successfully.");
+    }
+
+    const friction2D = Array.from({ length: calc_constants.WIDTH }, () => Array(calc_constants.HEIGHT));
+
+    // Parse the depth data.
+    for (let y = 0; y < calc_constants.HEIGHT; y++) {
+        // Split each line by spaces or tabs.
+        const frictionValues = lines[y].split(/\s+/).filter(Boolean);
+
+        if (frictionValues.length !== calc_constants.WIDTH) {
+            console.error("Friction file at " + filePath + " is not in the correct format.");
+            return null;
+        }
+
+        for (let x = 0; x < calc_constants.WIDTH; x++) {
+            const parsedValue = parseFloat(frictionValues[x]);
+            if (isNaN(parsedValue)) {
+                console.error(`Could not parse friction value at [${x}, ${y}] in friction file at ${filePath}`);
+                return null;
+            }
+            friction2D[x][y] = parsedValue;
+        }
+    }
+
+    console.log("Friction data parsed successfully.");
+
+    return friction2D;
+}
+
+
 // load wave data
 export async function loadWaveData(waveContent, calc_constants) {
     let lines;

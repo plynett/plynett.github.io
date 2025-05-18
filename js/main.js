@@ -1,6 +1,6 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadFrictionSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
@@ -80,7 +80,7 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
 
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
-async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile) {
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting Celeris-WebGPU");
 
@@ -277,7 +277,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txstateUVstar);
 
     // create initial bottom friction surface
-    copyConstantValueToTexture(calc_constants, device, txBottomFriction, calc_constants.friction, 0.0, 0.0, 0.0);
+    if(frictionFile){
+        console.log('Loading Uploaded Friction Map File')
+        calc_constants.loadFriction = 1;
+        const frictionContent = await frictionFile.text();
+        let friction2D = await loadFrictionSurface(frictionContent, calc_constants); 
+        copyInitialConditionDataToTexture(calc_constants, device, friction2D, txBottomFriction)
+    } else  {    
+        copyConstantValueToTexture(calc_constants, device, txBottomFriction, calc_constants.friction, 0.0, 0.0, 0.0);
+    }
 
     // create tridiag coef matrices
     copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec);
@@ -3116,6 +3124,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var configFile = document.getElementById('configFile').files[0];
         var bathymetryFile = document.getElementById('bathymetryFile').files[0];
         var waveFile = document.getElementById('waveFile').files[0];
+        var frictionFile = document.getElementById('frictionmapFile').files[0];
         var OverlayFile = document.getElementById('satimageFile').files[0];
         var modelFile = document.getElementById('modelFile').files[0];
     
@@ -3151,7 +3160,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     waveReader.onload = function (e) {
                         var waveContent = e.target.result;
-                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile);
+                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile);
                     };
                     waveReader.readAsText(waveFile);
                 }
@@ -3163,7 +3172,7 @@ document.addEventListener('DOMContentLoaded', function () {
         configReader.readAsText(configFile);
     }
     
-    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile) {
+    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile) {
         // Here you could do the actual simulation initialization
     //    console.log("Starting simulation with the following data:");
     //    console.log("Config:", configContent);
@@ -3172,7 +3181,7 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Overlay:", OverlayFile);
     
         // Initialize your WebGPU application here
-        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile).catch(error => {
+        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile).catch(error => {
              console.error("Initialization failed:", error);
         });
     }

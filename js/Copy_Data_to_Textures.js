@@ -196,7 +196,7 @@ function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txSt
             let sigma = 24.0;
 
             var eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
-            if (calc_constants.river_sim == 1){
+            if (calc_constants.river_sim == 1  || calc_constants.loadFriction == 1){
                 eta = bathy2D[x][y]
             }
 
