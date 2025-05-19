@@ -36,25 +36,6 @@ fn MinMod(a: f32, b: f32, c: f32) -> f32 {
     }
 }
 
-// Two-argument SuperBee limiter
-fn SuperBee(a: f32, b: f32) -> f32 {
-    // a = backward slope, b = forward slope (or vice-versa)
-    if (a * b <= 0.0) {
-        return 0.0;
-    }
-    let r = a / b;
-    // φ(r) = max(0, min(2r,1), min(r,2))
-    let phi = max(
-        0.0,
-        max(
-            min(2.0 * r, 1.0),
-            min(r, 2.0)
-        )
-    );
-    return phi * b;
-}
-
-
 fn Reconstruct(west: f32, here: f32, east: f32, TWO_THETAc: f32) -> vec2<f32> {
     let z1 = TWO_THETAc * (here - west);
     let z2 = (east - west);
@@ -68,109 +49,98 @@ fn Reconstruct(west: f32, here: f32, east: f32, TWO_THETAc: f32) -> vec2<f32> {
     return vec2(out_west, out_east);
 }
 
+// 4th-order MUSCL-TVD optimized reconstruction
+// Helper to compute limited slopes and third differences
+fn calcSlopes(dh0: f32, dh1: f32, dh2: f32, dh3: f32, dh4: f32) -> vec3<f32> {
+    // Precompute constants
+    let b0 = 2.0;
+    let b1 = 2.0;
 
-// 5th-order PPM+MinMod Reconstruct
-fn Reconstruct5(
-    w2: f32,
-    w1: f32,
-    w0: f32,
-    e1: f32,
-    e2: f32,
-    TWO_THETAc: f32
-) -> vec2<f32> {
-    // 1) form the same three candidate slopes
-    //   z1: 2nd‐order backward-difference at i
-    //let z1 = TWO_THETAc * ((3.0 * w0 - 4.0 * w1 + w2) * 0.5);
-    let z1 = TWO_THETAc * (w0 - w1);
-    //   z2: 4th‐order central-difference at i
-    let z2 = (-e2 + 8.0 * e1 - 8.0 * w1 + w2) / 6.0;
-    //   z3: 2nd‐order forward-difference at i
-    //let z3 = TWO_THETAc * ((-e2 + 4.0 * e1 - 3.0 * w0) * 0.5);
-    let z3 = TWO_THETAc * (e1 - w0);
-
-    // 2) limiter + half-cell increment (exactly as you did)
-    //let dx_grad_over_two = 0.25 * MinMod(z1, z2, z3);
-
-    let s1 = SuperBee(z1, z2);
-    let s2 = SuperBee(z2, z3);
-
-    let dx_grad_over_two = 0.25 * MinMod(s1, s2, z2);
-
-    // 3) second-derivative term (parabola)
-    let d2 = w1 - 2.0 * w0 + e1;
-
-    // 4) fourth-derivative term (quartic correction)
-    //    approximates p'''' inside the cell so you get 5th-order at the faces
-    let d4 = w2 
-           - 4.0 * w1 
-           + 6.0 * w0 
-           - 4.0 * e1 
-           + 1.0 * e2;
-
-    // 5) assemble 5th-order face values
-    //    note the ±d4/120 term on top of the usual parabola ±d2/6
-    let out_west = w0 
-                 - dx_grad_over_two 
-                 + (d2 / 6.0) 
-                 - (d4 / 120.0);
-
-    let out_east = w0 
-                 + dx_grad_over_two 
-                 - (d2 / 6.0) 
-                 + (d4 / 120.0);
-
-    return vec2<f32>(out_west, out_east);
+    // Precompute signs and absolutes
+    let s0 = sign(dh0); let a0 = abs(dh0);
+    let s1 = sign(dh1); let a1 = abs(dh1);
+    let s2 = sign(dh2); let a2 = abs(dh2);
+    let s3 = sign(dh3); let a3 = abs(dh3);
+    let s4 = sign(dh4); let a4 = abs(dh4);
+    // First three limited derivatives
+    let dbh0 = s0 * max(0.0, min(a0, min(b1*s0*dh1, b1*s0*dh2)));
+    let dbh1a = s1 * max(0.0, min(a1, min(b1*s1*dh2, b1*s1*dh0)));
+    let dbh2a = s2 * max(0.0, min(a2, min(b1*s2*dh0, b1*s2*dh1)));
+    let d3a = dbh2a - 2.0*dbh1a + dbh0;
+    let sh1 = dh1 - d3a / 6.0;
+    // Next three
+    let dbh1b = s1 * max(0.0, min(a1, min(b1*s1*dh2, b1*s1*dh3)));
+    let dbh2b = s2 * max(0.0, min(a2, min(b1*s2*dh3, b1*s2*dh1)));
+    let dbh3b = s3 * max(0.0, min(a3, min(b1*s3*dh1, b1*s3*dh2)));
+    let d3b = dbh3b - 2.0*dbh2b + dbh1b;
+    let sh2 = dh2 - d3b / 6.0;
+    // Final three
+    let dbh2c = s2 * max(0.0, min(a2, min(b1*s2*dh3, b1*s2*dh4)));
+    let dbh3c = s3 * max(0.0, min(a3, min(b1*s3*dh4, b1*s3*dh2)));
+    let dbh4c = s4 * max(0.0, min(a4, min(b1*s4*dh2, b1*s4*dh3)));
+    let d3c = dbh4c - 2.0*dbh3c + dbh2c;
+    let sh3 = dh3 - d3c / 6.0;
+    return vec3<f32>(sh1, sh2, sh3);
 }
+// Reconstruct function for 4th-order MUSCL-TVD
+fn ReconstructMUSCL4(z_m3: f32, z_m2: f32, z_m1: f32, z0:   f32, z1:   f32, z2:   f32, z3:   f32) -> vec2<f32> {
+    // Precompute constants
+    let b0 = 2.0; 
+    let b1 = 2.0;
+    let ilim_c = 0; // 1 = TVD limiter, 0 = no limiter
 
+    // Compute right-side slopes
+    let dhR0 = z_m1 - z_m2;
+    let dhR1 = z0   - z_m1;
+    let dhR2 = z1   - z0;
+    let dhR3 = z2   - z1;
+    let dhR4 = z3   - z2;
+    let shR = calcSlopes(dhR0, dhR1, dhR2, dhR3, dhR4);
 
-// 4th-order CWENO reconstruction
-// same signature as Reconstruct5
-fn ReconstructCWENO4(
-    w2:        f32,  // q_{i-2}
-    w1:        f32,  // q_{i-1}
-    w0:        f32,  // q_i
-    e1:        f32,  // q_{i+1}
-    e2:        f32,  // q_{i+2}
-    TWO_THETAc:f32   // unused in CWENO4, present for compatibility
-) -> vec2<f32> {
-    // small and linear weights for 4th-order
-    let d0 = 1.0/6.0;
-    let d1 = 4.0/6.0;
-    let d2 = 1.0/6.0;
-    let eps = 1e-6;
+    // Compute left-side slopes (shift indices)
+    let dhL0 = z_m2 - z_m3;
+    let dhL1 = z_m1 - z_m2;
+    let dhL2 = z0   - z_m1;
+    let dhL3 = z1   - z0;
+    let dhL4 = z2   - z1;
+    let shL = calcSlopes(dhL0, dhL1, dhL2, dhL3, dhL4);
 
-    // 1) smoothness indicators βₖ
-    let b0 = (13.0/12.0)*((w2 - 2.0*w1 + w0)*(w2 - 2.0*w1 + w0))
-           +  0.25   *((w2 - 4.0*w1 + 3.0*w0)*(w2 - 4.0*w1 + 3.0*w0));
-    let b1 = (13.0/12.0)*((w1 - 2.0*w0 + e1)*(w1 - 2.0*w0 + e1))
-           +  0.25   *((w1 - e1)*(w1 - e1));
-    let b2 = (13.0/12.0)*((w0 - 2.0*e1 + e2)*(w0 - 2.0*e1 + e2))
-           +  0.25   *((3.0*w0 - 4.0*e1 + e2)*(3.0*w0 - 4.0*e1 + e2));
+    var bR1 = 0.0;
+    var bR2 = 0.0;
+    var bL3 = 0.0;
+    var bL4 = 0.0;
 
-    // 2) nonlinear weights αₖ ∝ dₖ/(ε+βₖ)²
-    let a0 = d0 / ((eps + b0)*(eps + b0));
-    let a1 = d1 / ((eps + b1)*(eps + b1));
-    let a2 = d2 / ((eps + b2)*(eps + b2));
-    let asum = a0 + a1 + a2;
-    let w0n = a0 / asum;
-    let w1n = a1 / asum;
-    let w2n = a2 / asum;
+    if (ilim_c == 1) {
+        // TVD limiter on shR
+        let sR1 = sign(shR.x); let aR1 = abs(shR.x);
+        let sR2 = sign(shR.y); let aR2 = abs(shR.y);
+        let sR3 = sign(shR.z); let aR3 = abs(shR.z);
+        bR1 = sR1 * max(0.0, min(aR1, b0 * shR.y * sR1));
+        bR2 = sR2 * max(0.0, min(aR2, b0 * shR.x * sR2));
+        let bR3 = sR2 * max(0.0, min(aR2, b0 * shR.z * sR2));
+        let bR4 = sR3 * max(0.0, min(aR3, b0 * shR.y * sR3));
 
-    // 3) candidate interp at x_{i-1/2} (z=-0.5)
-    let p0_w = -0.125 * w2  + 0.75  * w1   + 0.375 * w0;
-    let p1_w =  0.375 * w1  + 0.75  * w0   - 0.125 * e1;
-    let p2_w =  1.875 * w0  - 1.25  * e1   + 0.375 * e2;
+        // TVD limiter on shL
+        let sL1 = sign(shL.x); let aL1 = abs(shL.x);
+        let sL2 = sign(shL.y); let aL2 = abs(shL.y);
+        let sL3 = sign(shL.z); let aL3 = abs(shL.z);
+        let bL1 = sL1 * max(0.0, min(aL1, b0 * shL.y * sL1));
+        let bL2 = sL2 * max(0.0, min(aL2, b0 * shL.x * sL2));
+        bL3 = sL2 * max(0.0, min(aL2, b0 * shL.z * sL2));
+        bL4 = sL3 * max(0.0, min(aL3, b0 * shL.y * sL3));
+    }
+    else {
+        // No limiter
+        bR1 = shR.x;
+        bR2 = shR.y;
+        bL3 = shL.y;
+        bL4 = shL.z;
+    }
+    
+    let H_right = z0 + (bR1 + 2.0*bR2) / 6.0;
+    let H_left  = z0 - (2.0*bL3 + bL4) / 6.0;
 
-    // 4) candidate interp at x_{i+1/2} (z=+0.5)
-    let p0_e =  0.375 * w2  - 1.25  * w1   + 1.875 * w0;
-    let p1_e = -0.125 * w1  + 0.75  * w0   + 0.375 * e1;
-    let p2_e =  0.375 * w0  + 0.75  * e1   - 0.125 * e2;
-
-    // 5) final CWENO4 values
-    let out_west = w0n * p0_w + w1n * p1_w + w2n * p2_w;
-    let out_east = w0n * p0_e + w1n * p1_e + w2n * p2_e;
-
-    return vec2<f32>(out_west, out_east);
+    return vec2<f32>(H_left, H_right);
 }
 
 
@@ -184,10 +154,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let upIdx = min(idx + vec2<i32>(0, 1), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
     let leftIdx = max(idx + vec2<i32>(-1, 0), vec2<i32>(0, 0));
     let downIdx = max(idx + vec2<i32>(0, -1), vec2<i32>(0, 0));
+   
     let right2Idx = min(idx + vec2<i32>(2, 0), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
     let up2Idx = min(idx + vec2<i32>(0, 2), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
     let left2Idx = max(idx + vec2<i32>(-2, 0), vec2<i32>(0, 0));
     let down2Idx = max(idx + vec2<i32>(0, -2), vec2<i32>(0, 0));
+   
+    let right3Idx = min(idx + vec2<i32>(3, 0), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
+    let up3Idx = min(idx + vec2<i32>(0, 3), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
+    let left3Idx = max(idx + vec2<i32>(-3, 0), vec2<i32>(0, 0));
+    let down3Idx = max(idx + vec2<i32>(0, -3), vec2<i32>(0, 0));
 
     // Read in the state of the water at this pixel and its neighbors
     let in_here = textureLoad(txState, idx, 0);
@@ -195,10 +171,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let in_north = textureLoad(txState, upIdx, 0);
     let in_west = textureLoad(txState, leftIdx, 0);
     let in_east = textureLoad(txState, rightIdx, 0);
+
     let in_south2 = textureLoad(txState, down2Idx, 0);
     let in_north2 = textureLoad(txState, up2Idx, 0);
     let in_west2 = textureLoad(txState, left2Idx, 0);
     let in_east2 = textureLoad(txState, right2Idx, 0);
+
+    let in_south3 = textureLoad(txState, down3Idx, 0);
+    let in_north3 = textureLoad(txState, up3Idx, 0);
+    let in_west3 = textureLoad(txState, left3Idx, 0);
+    let in_east3 = textureLoad(txState, right3Idx, 0);
 
     let B_here = textureLoad(txBottom, idx, 0).z;
     let B_south = textureLoad(txBottom, downIdx, 0).z;
@@ -263,29 +245,30 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     if(wetdry <= globals.epsilon || B_here >= 0.0) {
 
-        // Use the original Reconstruct function for boundary conditions
+        // left / right: Use the original Reconstruct function for boundary conditions
         wwy =  Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
         huwy = Reconstruct(in_west.y, in_here.y, in_east.y, TWO_THETAc);
         hvwy = Reconstruct(in_west.z, in_here.z, in_east.z, TWO_THETAc);
         hcwy = Reconstruct(in_west.w, in_here.w, in_east.w, TWO_THETAc);
 
-        // Use the original Reconstruct function for boundary conditions
+        // south / north: Use the original Reconstruct function for boundary conditions
         wzx =  Reconstruct(in_south.x, in_here.x, in_north.x, TWO_THETAc);
         huzx = Reconstruct(in_south.y, in_here.y, in_north.y, TWO_THETAc);
         hvzx = Reconstruct(in_south.z, in_here.z, in_north.z, TWO_THETAc);
         hczx = Reconstruct(in_south.w, in_here.w, in_north.w, TWO_THETAc);
     } else {
-        // Use the high-order Reconstruct function for interior points
-        wwy =  ReconstructCWENO4(in_west2.x, in_west.x, in_here.x, in_east.x, in_east2.x, TWO_THETAc);
-        huwy = ReconstructCWENO4(in_west2.y, in_west.y, in_here.y, in_east.y, in_east2.y, TWO_THETAc);
-        hvwy = ReconstructCWENO4(in_west2.z, in_west.z, in_here.z, in_east.z, in_east2.z, TWO_THETAc);
-        hcwy = ReconstructCWENO4(in_west2.w, in_west.w, in_here.w, in_east.w, in_east2.w, TWO_THETAc);
-        
-        // Use the high-order Reconstruct function for interior points
-        wzx =  ReconstructCWENO4(in_south2.x, in_south.x, in_here.x, in_north.x, in_north2.x, TWO_THETAc);
-        huzx = ReconstructCWENO4(in_south2.y, in_south.y, in_here.y, in_north.y, in_north2.y, TWO_THETAc);
-        hvzx = ReconstructCWENO4(in_south2.z, in_south.z, in_here.z, in_north.z, in_north2.z, TWO_THETAc);
-        hczx = ReconstructCWENO4(in_south2.w, in_south.w, in_here.w, in_north.w, in_north2.w, TWO_THETAc);
+
+        // left / right: Use the high-order Reconstruct function for interior points
+        wwy =  ReconstructMUSCL4(in_west3.x, in_west2.x, in_west.x, in_here.x, in_east.x, in_east2.x, in_east3.x);
+        huwy = ReconstructMUSCL4(in_west3.y, in_west2.y, in_west.y, in_here.y, in_east.y, in_east2.y, in_east3.y);
+        hvwy = ReconstructMUSCL4(in_west3.z, in_west2.z, in_west.z, in_here.z, in_east.z, in_east2.z, in_east3.z);
+        hcwy = ReconstructMUSCL4(in_west3.w, in_west2.w, in_west.w, in_here.w, in_east.w, in_east2.w, in_east3.w);
+
+        // south / north: Use the high-order Reconstruct function for interior points
+        wzx =  ReconstructMUSCL4(in_south3.x, in_south2.x, in_south.x, in_here.x, in_north.x, in_north2.x, in_north3.x);
+        huzx = ReconstructMUSCL4(in_south3.y, in_south2.y, in_south.y, in_here.y, in_north.y, in_north2.y, in_north3.y);
+        hvzx = ReconstructMUSCL4(in_south3.z, in_south2.z, in_south.z, in_here.z, in_north.z, in_north2.z, in_north3.z);
+        hczx = ReconstructMUSCL4(in_south3.w, in_south2.w, in_south.w, in_here.w, in_north.w, in_north2.w, in_north3.w);
     }
 
     w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);

@@ -516,39 +516,40 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         uv_scale.x = uv.x * texture_scale_x;
         uv_scale.y = uv.y * texture_scale_y;
 
-        // turbulence
-        let layer = 0; // first layer is turbulence
-        var pixel_velocity = 0.1*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
-        let uv_turb_coarsescale = 0.5*uv_turb;
-        var uv_turb_dir = uv_turb_coarsescale + vec2<f32>(0.25, pixel_velocity.y);
-        var breaking_texture_up = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        uv_turb_dir = uv_turb_coarsescale + vec2<f32>(0.75, -pixel_velocity.y);
-        var breaking_texture_down = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        uv_turb_dir = uv_turb_coarsescale + vec2<f32>(pixel_velocity.x, 0.25);
-        var breaking_texture_right = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        uv_turb_dir = uv_turb_coarsescale + vec2<f32>(-pixel_velocity.x, 0.75);
-        var breaking_texture_left = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        let breaking_texture_coarse = 0.25 * (breaking_texture_up + breaking_texture_down + breaking_texture_right + breaking_texture_left);
+        if (globals.surfaceToPlot != 11) { // cant see mean turbulence if also plotting foam
+            // turbulence
+            let layer = 0; // first layer is turbulence
+            var pixel_velocity = 0.1*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
+            let uv_turb_coarsescale = 0.5*uv_turb;
+            var uv_turb_dir = uv_turb_coarsescale + vec2<f32>(0.25, pixel_velocity.y);
+            var breaking_texture_up = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            uv_turb_dir = uv_turb_coarsescale + vec2<f32>(0.75, -pixel_velocity.y);
+            var breaking_texture_down = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            uv_turb_dir = uv_turb_coarsescale + vec2<f32>(pixel_velocity.x, 0.25);
+            var breaking_texture_right = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            uv_turb_dir = uv_turb_coarsescale + vec2<f32>(-pixel_velocity.x, 0.75);
+            var breaking_texture_left = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            let breaking_texture_coarse = 0.25 * (breaking_texture_up + breaking_texture_down + breaking_texture_right + breaking_texture_left);
 
 
-        pixel_velocity = 1.0*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
-        let uv_turb_fine = 2.*uv_turb;
-        uv_turb_dir = uv_turb_fine + vec2<f32>(0.25, pixel_velocity.y);
-        breaking_texture_up = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        uv_turb_dir = uv_turb_fine + vec2<f32>(0.75, -pixel_velocity.y);
-        breaking_texture_down = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        uv_turb_dir = uv_turb_fine + vec2<f32>(pixel_velocity.x, 0.25);
-        breaking_texture_right = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        uv_turb_dir = uv_turb_fine + vec2<f32>(-pixel_velocity.x, 0.75);
-        breaking_texture_left = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
-        let breaking_texture_fine = 0.25 * (breaking_texture_up + breaking_texture_down + breaking_texture_right + breaking_texture_left);
+            pixel_velocity = 1.0*vec2<f32>( 1.0, 1.0) * globals.time / (width + length) * sqrt(9.81*globals.base_depth);
+            let uv_turb_fine = 2.*uv_turb;
+            uv_turb_dir = uv_turb_fine + vec2<f32>(0.25, pixel_velocity.y);
+            breaking_texture_up = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            uv_turb_dir = uv_turb_fine + vec2<f32>(0.75, -pixel_velocity.y);
+            breaking_texture_down = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            uv_turb_dir = uv_turb_fine + vec2<f32>(pixel_velocity.x, 0.25);
+            breaking_texture_right = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            uv_turb_dir = uv_turb_fine + vec2<f32>(-pixel_velocity.x, 0.75);
+            breaking_texture_left = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_dir, i32(layer)).xyz;
+            let breaking_texture_fine = 0.25 * (breaking_texture_up + breaking_texture_down + breaking_texture_right + breaking_texture_left);
 
-        let breaking_texture_colors = 0.5 * breaking_texture_coarse + 0.5 * breaking_texture_fine;
-        breaking_texture = (breaking_texture_colors.x + breaking_texture_colors.y + breaking_texture_colors.z)/3.0;
+            let breaking_texture_colors = 0.5 * breaking_texture_coarse + 0.5 * breaking_texture_fine;
+            breaking_texture = (breaking_texture_colors.x + breaking_texture_colors.y + breaking_texture_colors.z)/3.0;
 
-        // vorticity / sediment plumes
-        vorticiy_magn = vorticiy_magn * breaking_texture;  // add turbulence noise texture to vort / sed as well
-
+            // vorticity / sediment plumes
+            vorticiy_magn = vorticiy_magn * breaking_texture;  // add turbulence noise texture to vort / sed as well
+        }
         // design components
         component_colors = textureSample(txSamplePNGs, textureSampler_linear, uv_turb_scaled, component_index).xyz;
         component_colors_abovewater =  textureSample(txSamplePNGs, textureSampler_linear, uv_scale, component_index).xyz;
@@ -773,10 +774,10 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     }
 
     
-    if (globals.showBreaking ==1 ) {
+    if (globals.showBreaking ==1 && globals.surfaceToPlot != 11) {  // cannot see mean breaking if also plotting mean breaking
         let breaking =  breaking_texture * textureSample(txRenderVarsf16, textureSampler_linear, uv).a;
         color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
-    } else if (globals.showBreaking == 2 ) {
+    } else if (globals.showBreaking == 2 && globals.surfaceToPlot != 11) {
         let tracer = textureSample(txRenderVarsf16, textureSampler_linear, uv).a;
         color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
     }

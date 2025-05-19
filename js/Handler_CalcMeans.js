@@ -110,12 +110,21 @@ export function create_CalcMeans_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
-            }
+            },
+            {
+                // 12th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 12,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
-export function create_CalcMeans_BindGroup(device, uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities) {
+export function create_CalcMeans_BindGroup(device, uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities, txC) {
     return device.createBindGroup({
         layout: create_CalcMeans_BindGroupLayout(device),
         entries: [
@@ -168,6 +177,10 @@ export function create_CalcMeans_BindGroup(device, uniformBuffer, txMeans, txMea
             {
                 binding: 11,
                 resource: txModelVelocities.createView()
+            },
+            {
+                binding: 12,
+                resource: txC.createView()
             },
         ]
     });

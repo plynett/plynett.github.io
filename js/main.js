@@ -3,7 +3,7 @@ import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from 
 import { loadDepthSurface, loadFrictionSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
-import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
+import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
@@ -771,7 +771,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
-    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities);
+    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities, txC);
     const CalcMeans_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let CalcMeans_view = new DataView(CalcMeans_uniforms);
     CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
@@ -964,7 +964,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
     var Pass1_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
-        console.log("Using 4th-order WENO reconstruction scheme in Pass1");
+        console.log("Using 4th-order MUSCL-TVD reconstruction scheme in Pass1");
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1_HighOrder.wgsl');
     } else {
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
@@ -2190,7 +2190,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             } else if(calc_constants.which_surface_to_write == 10){  // Max Free Surface Elev 
                 let filename = 'current_FSmax.bin';
-                downloadTextureData(device, txMeans, 4, filename); 
+                downloadTextureData(device, txMeans_Speed, 4, filename); 
 
             } else if(calc_constants.which_surface_to_write == 11){  // Mean Free Surface Elev 
                 let filename = 'current_FSmean.bin';
@@ -2243,12 +2243,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 { tx: txBottom,       ch: 3, filename: 'current_bathytopo.bin' },
                 { tx: txWaveHeight,   ch: 4, filename: 'current_Hrms.bin'  },
                 { tx: txWaveHeight,   ch: 3, filename: 'current_Hs.bin'    },
-                { tx: txMeans,        ch: 4, filename: 'current_FSmax.bin'},
+                { tx: txMeans_Speed,  ch: 4, filename: 'current_FSmax.bin'},
                 { tx: txMeans_Speed,  ch: 3, filename: 'current_Speedmax.bin'},
                 { tx: txMeans_Momflux,ch: 3, filename: 'current_Momfluxmax.bin'},
                 { tx: txMeans,        ch: 1, filename: 'current_FSmean.bin'},
                 { tx: txMeans,        ch: 2, filename: 'current_Umean.bin'},
                 { tx: txMeans,        ch: 3, filename: 'current_Vmean.bin'},
+                { tx: txMeans,        ch: 4, filename: 'current_Foammean.bin'},
             ];
             
             for (const {tx, ch, filename} of files) {

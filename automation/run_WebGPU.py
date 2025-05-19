@@ -45,6 +45,10 @@ trigger_writeWaveHeight_time = 180.0  # time to write wave height, this is also 
 # Note: The simulation will never close if trigger_writeWaveHeight~=1
 # End Inputs - should not need to edit below this
 
+render_step = 1  # render step for the simulation, default is 1
+if run_headless == 1:
+    render_step = 100  # since we dont care about the rendering in headless mode, set it to large value to max GPU
+
 # Define file paths relative to the script directory
 config_file_path = os.path.join(sim_directory, config_file)
 bathy_file_path = os.path.join(sim_directory, bathy_file)
@@ -75,7 +79,8 @@ new_params = {
     "trigger_writeWaveHeight": trigger_writeWaveHeight,
     "trigger_resetMeans_time": trigger_resetMeans_time,
     "trigger_resetWaveHeight_time": trigger_resetWaveHeight_time,
-    "trigger_writeWaveHeight_time": trigger_writeWaveHeight_time
+    "trigger_writeWaveHeight_time": trigger_writeWaveHeight_time,
+    "render_step": render_step
 }
 
 # Add new parameters only if they are not already present in the config
