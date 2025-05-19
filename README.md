@@ -74,7 +74,7 @@ See `CONTRIBUTING.md` for full guidelines, including issue templates and code st
 
 ## Support and Community
 
-- **Usage Questions:** [Lynett Wave Research Forum](https://www.sqrtgh.com)  
+- **Usage Questions:** [Lynett Wave Research Forum](https://www.sqrtgh.com/forum)  
 - **Bugs & Features:** Open an issue on GitHub.
 
 ## License
