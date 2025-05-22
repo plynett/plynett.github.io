@@ -54,8 +54,9 @@ export function create_3D_Image_Texture(device, width, height, depth, allTexture
 export function create_3D_Data_Texture(device, width, height, depth, allTextures) {
     const texture = device.createTexture({
         size: [width, height, depth],
+        dimension:  '3d',   
         format: 'rgba32float',
-        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     });
     
     // Add the created texture to the tracking set

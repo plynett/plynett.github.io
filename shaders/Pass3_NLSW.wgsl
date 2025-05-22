@@ -41,7 +41,7 @@ struct Globals {
 
 @group(0) @binding(1) var txState: texture_2d<f32>;
 @group(0) @binding(2) var txBottom: texture_2d<f32>;
-@group(0) @binding(3) var txH: texture_2d<f32>;
+@group(0) @binding(3) var txCW_groupings: texture_3d<f32>;
 @group(0) @binding(4) var txXFlux: texture_2d<f32>;
 @group(0) @binding(5) var txYFlux: texture_2d<f32>;
 @group(0) @binding(6) var oldGradients: texture_2d<f32>;

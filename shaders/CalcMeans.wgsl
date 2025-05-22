@@ -63,11 +63,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var hv2_max_new = 0.;
     var momflux_max_new = 0.;
     if (globals.n_time_steps_means > 1) {
-        eta_max_new = max(means_here.a,eta);
-
         u_max_new = max(speed_means_here.x,u);
         v_max_new = max(speed_means_here.y,v);
         speed_max_new = max(speed_means_here.z,speed);
+        eta_max_new = max(speed_means_here.a,eta);
 
         hu2_max_new = max(momflux_means_here.x,hu2);
         hv2_max_new = max(momflux_means_here.y,hv2);

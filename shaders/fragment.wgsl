@@ -353,7 +353,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (surfaceToPlot == 15) {  // bottom friction map
         render_surface = textureSample(txBottomFriction, textureSampler, uv).r; 
     } else if (surfaceToPlot == 16) {  // max free surface map
-        render_surface = textureSample(txMeans, textureSampler, uv).a;  
+        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv).g;  
         waves = render_surface; // change to max so maxs are plotted everywhere, including high runup areas that are not currently wet
     } else if (surfaceToPlot == 17) {  // sed C1 concentration
         render_surface = textureSample(txNewState_Sed, textureSampler, uv).r / H; 

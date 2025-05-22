@@ -4,7 +4,7 @@ import { loadDepthSurface, loadFrictionSurface, loadWaveData, loadOverlay, Creat
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { createSkyboxBindGroupLayout, createSkyboxBindGroup} from './Handler_Skybox.js';  // group bindings for skybox shaders
@@ -14,7 +14,7 @@ import { create_Pass1_BindGroupLayout, create_Pass1_BindGroup } from './Handler_
 import { create_SedTrans_Pass1_BindGroupLayout, create_SedTrans_Pass1_BindGroup } from './Handler_SedTrans_Pass1.js';  // group bindings for SedTrans_Pass1 shaders
 import { create_Pass2_BindGroupLayout, create_Pass2_BindGroup } from './Handler_Pass2.js';  // group bindings for Pass2 shaders 
 import { create_PassBreaking_BindGroupLayout, create_PassBreaking_BindGroup } from './Handler_PassBreaking.js';  // group bindings for PassBreaking shaders
-import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup } from './Handler_Pass3.js';  // group bindings for Pass3 shaders
+import { create_Pass3_BindGroupLayout, create_Pass3_BindGroup, create_Pass3A_Coulwave_BindGroupLayout, create_Pass3A_Coulwave_BindGroup, create_Pass3B_Coulwave_BindGroupLayout, create_Pass3B_Coulwave_BindGroup } from './Handler_Pass3.js';  // group bindings for Pass3 shaders
 import { create_SedTrans_Pass3_BindGroupLayout, create_SedTrans_Pass3_BindGroup } from './Handler_SedTrans_Pass3.js';  // group bindings for SedTrans_Pass3 shaders
 import { create_BoundaryPass_BindGroupLayout, create_BoundaryPass_BindGroup } from './Handler_BoundaryPass.js';  // group bindings for BoundaryPass shaders
 import { create_Tridiag_BindGroupLayout, create_Tridiag_BindGroup } from './Handler_Tridiag.js';  // group bindings for Tridiag X and Y shaders
@@ -139,6 +139,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const SedTrans_Pass1_uniformBuffer = createUniformBuffer(device);
     const Pass2_uniformBuffer = createUniformBuffer(device);
     const PassBreaking_uniformBuffer = createUniformBuffer(device);
+    const Pass3A_Coulwave_uniformBuffer = createUniformBuffer(device);
+    const Pass3B_Coulwave_uniformBuffer = createUniformBuffer(device);
     const Pass3_uniformBuffer = createUniformBuffer(device);
     const SedTrans_Pass3_uniformBuffer = createUniformBuffer(device);
     const SedTrans_UpdateBottom_uniformBuffer = createUniformBuffer(device);
@@ -235,6 +237,34 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const txBoundaryForcing = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
     const txModelVelocities = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the u,v velocities from the cell size averages - these are the proper u,v used by the flux scheme
+    var txCW_groupings = null;  // stores the variables groupings for the coulwave implementation 
+    var txCW_uvhuhv; var txCW_zalpha = null; var txCW_STval = null; var txCW_STgrad = null; var txCW_Eterms = null; var txCW_FGterms = null; // these are only used if COULWAVE is selected
+    
+    if (calc_constants.NLSW_or_Bous == 2) {  // only use the space if needed
+        txCW_groupings = create_3D_Data_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 6, allTextures); 
+        // level 0: txCW_uvhuhv, [u, v, du, dv]
+        // level 1: txCW_zalpha, [za, dzadx, dzady, 0.0)]
+        // level 2: txCW_STval, [S, T, d2udxdy, d2vdxdy]
+        // level 3: txCW_STgrad, [dSdx, dSdy, dTdx, dTdy]
+        // level 4: txCW_Eterms, [E1, E2, E,  dvdx - dudy]
+        // level 5: txCW_FGterms, [EzST, TzS2, uSxvSy, uTxvTy]
+        txCW_uvhuhv = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the velocities
+        txCW_zalpha = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the z-alpha values
+        txCW_STval = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the S and T values
+        txCW_STgrad = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the S and T gradients
+        txCW_Eterms = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the E terms
+        txCW_FGterms = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the F and G terms
+    }
+    else {  // these need to exist as textures, but are not used, so make them small
+        txCW_groupings = create_3D_Data_Texture(device, 1, 1, 2, allTextures); 
+        txCW_uvhuhv = create_2D_Texture(device, 1, 1, allTextures);  // stores the velocities
+        txCW_zalpha = create_2D_Texture(device, 1, 1, allTextures);  // stores the z-alpha values
+        txCW_STval = create_2D_Texture(device, 1, 1, allTextures);  // stores the S and T values
+        txCW_STgrad = create_2D_Texture(device, 1, 1, allTextures);  // stores the S and T gradients
+        txCW_Eterms = create_2D_Texture(device, 1, 1, allTextures);  // stores the E terms
+        txCW_FGterms = create_2D_Texture(device, 1, 1, allTextures);  // stores the F and G terms
+    }
+    
     const txMeans = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
     const txtemp_Means = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txMeans_Speed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores various mean values
@@ -593,9 +623,34 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     PassBreaking_view.setFloat32(48, calc_constants.dzdt_I_coef, true);             // f32
     PassBreaking_view.setFloat32(52, calc_constants.dzdt_F_coef, true);             // f32
 
+    // Pass3A Coulwave Bindings & Uniforms Config
+    const Pass3A_Coulwave_BindGroupLayout = create_Pass3A_Coulwave_BindGroupLayout(device);
+    const Pass3A_Coulwave_BindGroup = create_Pass3A_Coulwave_BindGroup(device, Pass3A_Coulwave_uniformBuffer, txState, txBottom, txU, txV, txModelVelocities, txCW_zalpha, txCW_uvhuhv);
+    const Pass3A_Coulwave_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let Pass3A_Coulwave_view = new DataView(Pass3A_Coulwave_uniforms);
+    Pass3A_Coulwave_view.setInt32(0, calc_constants.WIDTH, true);          // u32
+    Pass3A_Coulwave_view.setInt32(4, calc_constants.HEIGHT, true);          // u32
+    Pass3A_Coulwave_view.setFloat32(8, calc_constants.one_over_dx, true);           // f32
+    Pass3A_Coulwave_view.setFloat32(12, calc_constants.one_over_dy, true);       // f32
+    Pass3A_Coulwave_view.setFloat32(16, calc_constants.Bous_alpha, true);       // f32
+    Pass3A_Coulwave_view.setFloat32(20, calc_constants.delta, true);       // f32
+
+    // Pass3B Coulwave Bindings & Uniforms Config
+    const Pass3B_Coulwave_BindGroupLayout = create_Pass3B_Coulwave_BindGroupLayout(device);
+    const Pass3B_Coulwave_BindGroup = create_Pass3B_Coulwave_BindGroup(device, Pass3B_Coulwave_uniformBuffer, txState, txBottom, txCW_uvhuhv, txCW_zalpha, txCW_STval, txCW_STgrad, txCW_Eterms, txCW_FGterms, dU_by_dt);
+    const Pass3B_Coulwave_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
+    let Pass3B_Coulwave_view = new DataView(Pass3B_Coulwave_uniforms);
+    Pass3B_Coulwave_view.setInt32(0, calc_constants.WIDTH, true);          // u32
+    Pass3B_Coulwave_view.setInt32(4, calc_constants.HEIGHT, true);          // u32
+    Pass3B_Coulwave_view.setFloat32(8, calc_constants.one_over_dx, true);           // f32
+    Pass3B_Coulwave_view.setFloat32(12, calc_constants.one_over_dy, true);       // f32
+    Pass3B_Coulwave_view.setFloat32(16, calc_constants.one_over_d2x, true);           // f32
+    Pass3B_Coulwave_view.setFloat32(20, calc_constants.one_over_d2y, true);       // f32
+    Pass3B_Coulwave_view.setFloat32(24, calc_constants.one_over_dxdy, true);           // f32
+
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
-    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
+    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txCW_groupings, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
     const Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass3_view = new DataView(Pass3_uniforms);
     Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
@@ -713,24 +768,28 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
-    const TridiagX_BindGroup = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, newcoef_x, txNewState, current_stateUVstar, txtemp_PCRx, txtemp2_PCRx);
+    const TridiagX_BindGroup = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, newcoef_x, txNewState, current_stateUVstar, txtemp_PCRx, txtemp2_PCRx, txBottom);
     const TridiagX_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let TridiagX_view = new DataView(TridiagX_uniforms);
     TridiagX_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     TridiagX_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
     TridiagX_view.setInt32(8, calc_constants.Px, true);             // i32, holds "p"
     TridiagX_view.setInt32(12, 1, true);            // i32, hols "s"
+    TridiagX_view.setInt32(16, calc_constants.Px, true);            // i32, hols "Px"
+    TridiagX_view.setFloat32(20, calc_constants.delta, true);            // f32
 
     // TridiagY - Bindings & Uniforms Config
     const TridiagY_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
-    const TridiagY_BindGroup = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, newcoef_y, txNewState, current_stateUVstar, txtemp_PCRy, txtemp2_PCRy);
+    const TridiagY_BindGroup = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, newcoef_y, txNewState, current_stateUVstar, txtemp_PCRy, txtemp2_PCRy, txBottom);
     const TridiagY_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let TridiagY_view = new DataView(TridiagY_uniforms);
     TridiagY_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     TridiagY_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
     TridiagY_view.setInt32(8, calc_constants.Py, true);             // i32, holds "p"
     TridiagY_view.setInt32(12, 1, true);            // i32, hols "s"
-
+    TridiagY_view.setInt32(16, calc_constants.Py, true);            // i32, hols "Py"
+    TridiagY_view.setFloat32(20, calc_constants.delta, true);            // f32
+    
     // SedTrans_UpdateBottom -  Bindings & Uniforms Config
     const SedTrans_UpdateBottom_BindGroupLayout = create_SedTrans_UpdateBottom_BindGroupLayout(device);
     const SedTrans_UpdateBottom_BindGroup = create_SedTrans_UpdateBottom_BindGroup(device, SedTrans_UpdateBottom_uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change);
@@ -756,7 +815,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // UpdateTrid -  Bindings & Uniforms Config
     const UpdateTrid_BindGroupLayout = create_UpdateTrid_BindGroupLayout(device);
-    const UpdateTrid_BindGroup = create_UpdateTrid_BindGroup(device, UpdateTrid_uniformBuffer, txBottom, txNewState, coefMatx, coefMaty);
+    const UpdateTrid_BindGroup = create_UpdateTrid_BindGroup(device, UpdateTrid_uniformBuffer, txBottom, current_stateUVstar, coefMatx, coefMaty);
     const UpdateTrid_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let UpdateTrid_view = new DataView(UpdateTrid_uniforms);
     UpdateTrid_view.setUint32(0, calc_constants.WIDTH, true);          // i32
@@ -768,6 +827,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     UpdateTrid_view.setFloat32(24, calc_constants.Bous_alpha, true);             // f32
     UpdateTrid_view.setFloat32(28, calc_constants.one_over_d2x, true);             // f32
     UpdateTrid_view.setFloat32(32, calc_constants.one_over_d2y, true);             // f32
+    UpdateTrid_view.setFloat32(36, calc_constants.delta, true);             // f32
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
@@ -954,7 +1014,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Copy f32 data to f16 texture compute shader
     const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);
-    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txRenderVarsf16);
+    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16);
     const Copytxf32_txf16_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Copytxf32_txf16_view = new DataView(Copytxf32_txf16_uniforms);
     Copytxf32_txf16_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -969,7 +1029,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     } else {
         Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
     }
-    const SedTrans_Pass1_ShaderCode = await fetchShader('/shaders/SedTrans_Pass1.wgsl');
     var Pass2_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
         console.log("Using HLLEM Flux Solver in Pass2");
@@ -978,15 +1037,42 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');  
     }
     const PassBreaking_ShaderCode = await fetchShader('/shaders/Pass_Breaking.wgsl'); 
+    const Pass3A_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3A_COULWAVE.wgsl')
+    const Pass3B_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3B_COULWAVE.wgsl')
     const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
-    const Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
+    var Pass3_ShaderCode_Bous = null;
+    if (calc_constants.NLSW_or_Bous == 1) {
+        console.log("Using Celeris equations in Boussinesq mode");
+        Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
+    }
+    else if (calc_constants.NLSW_or_Bous == 2) {
+        console.log("Using COULWAVE equations in Boussinesq mode");
+        Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_COULWAVE.wgsl');
+    }
+    
+    const SedTrans_Pass1_ShaderCode = await fetchShader('/shaders/SedTrans_Pass1.wgsl');
     const SedTrans_Pass3_ShaderCode = await fetchShader('/shaders/SedTrans_Pass3.wgsl')
     const BoundaryPass_ShaderCode = await fetchShader('/shaders/BoundaryPass.wgsl');
-    const TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
-    const TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
+    
+    var TridiagX_ShaderCode = null; var TridiagY_ShaderCode = null;  //we can likely fold thee back into a single shader
+    if (calc_constants.NLSW_or_Bous == 2) {
+        TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx_COULWAVE.wgsl');
+        TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy_COULWAVE.wgsl');
+    } else {
+        TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
+        TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
+    }
+
     const SedTrans_UpdateBottom_ShaderCode = await fetchShader('/shaders/SedTrans_UpdateBottom.wgsl');
     const Updateneardry_ShaderCode = await fetchShader('/shaders/Update_neardry.wgsl');
-    const UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
+    
+    var UpdateTrid_ShaderCode = null;  // we can likely fold these back into a single shader
+    if (calc_constants.NLSW_or_Bous == 2) {
+        UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef_COULWAVE.wgsl');
+    } else {
+        UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
+    }
+
     const CalcMeans_ShaderCode = await fetchShader('/shaders/CalcMeans.wgsl');
     const CalcWaveHeight_ShaderCode = await fetchShader('/shaders/CalcWaveHeight.wgsl');
     const AddDisturbance_ShaderCode = await fetchShader('/shaders/AddDisturbance.wgsl');
@@ -1013,6 +1099,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const SedTrans_Pass1_Pipeline = createComputePipeline(device, SedTrans_Pass1_ShaderCode, SedTrans_Pass1_BindGroupLayout, allComputePipelines);
     const Pass2_Pipeline = createComputePipeline(device, Pass2_ShaderCode, Pass2_BindGroupLayout, allComputePipelines);
     const PassBreaking_Pipeline = createComputePipeline(device, PassBreaking_ShaderCode, PassBreaking_BindGroupLayout, allComputePipelines);
+    const Pass3A_Coulwave_Pipeline = createComputePipeline(device, Pass3A_Coulwave_ShaderCode, Pass3A_Coulwave_BindGroupLayout, allComputePipelines);
+    const Pass3B_Coulwave_Pipeline = createComputePipeline(device, Pass3B_Coulwave_ShaderCode, Pass3B_Coulwave_BindGroupLayout, allComputePipelines);
     const Pass3_Pipeline_NLSW = createComputePipeline(device, Pass3_ShaderCode_NLSW, Pass3_BindGroupLayout, allComputePipelines);
     const Pass3_Pipeline_Bous = createComputePipeline(device, Pass3_ShaderCode_Bous, Pass3_BindGroupLayout, allComputePipelines);
     const SedTrans_Pass3_Pipeline = createComputePipeline(device, SedTrans_Pass3_ShaderCode, SedTrans_Pass3_BindGroupLayout, allComputePipelines);
@@ -1407,7 +1495,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txstateUVstar)
-                        if (calc_constants.NLSW_or_Bous > 0) {
+                        if (calc_constants.NLSW_or_Bous == 1) { // only update for Celeris Boussinesq equations
                             console.log('Updating neardry & tridiag coef due to change in depth')
                             runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                             runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
@@ -1495,7 +1583,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 }
 
                 // Pass3
-                calc_constants.pred_or_corrector = 1;  //set to p[redcitor step]
+                if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
+                    runComputeShader(device, commandEncoder, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader(device, commandEncoder, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    copy2DDataTo3DTexture(device, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, txCW_STgrad, txCW_groupings, 3, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, txCW_Eterms, txCW_groupings, 4, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, txCW_FGterms, txCW_groupings, 5, calc_constants.WIDTH, calc_constants.HEIGHT);
+                }
+
+                calc_constants.pred_or_corrector = 1;  //set to predictor step
                 Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
                 if (calc_constants.NLSW_or_Bous > 0) { //BOUS
                     runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -1592,6 +1691,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     }
 
                     // Pass3
+                    if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
+                        runComputeShader(device, commandEncoder, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader(device, commandEncoder, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        copy2DDataTo3DTexture(device, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, txCW_STgrad, txCW_groupings, 3, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, txCW_Eterms, txCW_groupings, 4, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, txCW_FGterms, txCW_groupings, 5, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    }
+
                     calc_constants.pred_or_corrector = 2;
                     Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
                     if (calc_constants.NLSW_or_Bous > 0) { //BOUS
@@ -1640,7 +1750,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     runComputeShader(device, commandEncoder, SedTrans_UpdateBottom_uniformBuffer, SedTrans_UpdateBottom_uniforms, SedTrans_UpdateBottom_Pipeline, SedTrans_UpdateBottom_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Botttom, txBottom)
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Change, txBotChange_Sed)
-                    if (calc_constants.NLSW_or_Bous > 0) {
+                    if (calc_constants.NLSW_or_Bous == 1) { // only need to update neardry and tridiagonal coefficients for Celeris Boussinesq equations
                      //   console.log('Updating neardry & tridiag coef sediment transport depth change')
                         runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)

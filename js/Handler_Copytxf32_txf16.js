@@ -28,8 +28,17 @@ export function create_Copytxf32_txf16_BindGroupLayout(device) {
                 }
             },
             {
-                // 3rd binding: A storage texture. The compute shader will write results into this texture.
+                // 3rd binding: A texture that the fragment shader will sample from.
                 binding: 3,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 4th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 4,
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
@@ -42,7 +51,7 @@ export function create_Copytxf32_txf16_BindGroupLayout(device) {
 }
 
 
-export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewState, txBottom, txRenderVarsf16) {
+export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16) {
     return device.createBindGroup({
         layout: create_Copytxf32_txf16_BindGroupLayout(device),
         entries: [
@@ -62,6 +71,10 @@ export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewSta
             },
             {
                 binding: 3,
+                resource: txMeans_Speed.createView()
+            },
+            {
+                binding: 4,
                 resource: txRenderVarsf16.createView()
             },
         ]
