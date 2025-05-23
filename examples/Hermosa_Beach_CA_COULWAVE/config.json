@@ -6,7 +6,8 @@
     "Courant_num": 0.2,
     "timeScheme": 2,
     "pred_or_corrector": 2,
-    "NLSW_or_Bous": 1,
+    "NLSW_or_Bous": 2,
+    "Accuracy_mode": 1,
     "Bcoef": 0.06666667,
     "g": 9.81,
     "seaLevel": 0,
@@ -55,7 +56,7 @@
     "disturbanceLength": 0,
     "disturbanceDip": 0,
     "disturbanceRake": 0,
-    "run_example": 27,
+    "run_example": 37,
     "exampleDirs": [
         "./examples/Ventura/",
         "./examples/Santa_Cruz/",
@@ -92,7 +93,9 @@
         "./examples/LA_River_Model/",
         "./examples/Oceanside_CA/",
         "./examples/Portage_Lake_AK/",
-        "./examples/Greenland_Umanak/"
+        "./examples/Greenland_Umanak/",
+        "./examples/LA_River_Model_Large/",
+        "./examples/Hermosa_Beach_CA_COULWAVE/"
     ],
     "colorVal_max": 1,
     "colorVal_min": -1,
