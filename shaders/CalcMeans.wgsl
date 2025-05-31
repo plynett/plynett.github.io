@@ -3,7 +3,9 @@ struct Globals {
     delta: f32,
     base_depth: f32,
     width: i32,
-    height: i32
+    height: i32,
+    dx: f32,
+    dy: f32
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -50,10 +52,26 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let hv2 = h*v*v;
     let momflux = sqrt(hu2*hu2 + hv2*hv2);
 
+    // for mean vorticity
+    let rightIdx = min(idx + vec2<i32>(1, 0), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
+    let upIdx = min(idx + vec2<i32>(0, 1), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
+    let leftIdx = max(idx + vec2<i32>(-1, 0), vec2<i32>(0, 0));
+    let downIdx = max(idx + vec2<i32>(0, -1), vec2<i32>(0, 0));
+    let u4_up = textureLoad(txU, upIdx, 0);
+    let u_up = (u4_up.x + u4_up.y + u4_up.z + u4_up.w) / 4.0;
+    let u4_down = textureLoad(txU, downIdx, 0);
+    let u_down = (u4_down.x + u4_down.y + u4_down.z + u4_down.w) / 4.0;
+    let v4_right = textureLoad(txV, rightIdx, 0);
+    let v_right = (v4_right.x + v4_right.y + v4_right.z + v4_right.w) / 4.0;
+    let v4_left = textureLoad(txV, leftIdx, 0);
+    let v_left = (v4_left.x + v4_left.y + v4_left.z + v4_left.w) / 4.0;
+    let vorticity = (u_up - u_down) / (2. * globals.dy) - (v_right - v_left) / (2. * globals.dx);
+
     let update_frac = 1. / f32(globals.n_time_steps_means);
     let old_frac = 1.0 - update_frac;
 
     let means_new = means_here*old_frac + state_here*update_frac;
+    let vorticity_means_new = momflux_means_here.w*old_frac + abs(vorticity)*update_frac;
 
     var eta_max_new = 0.;
     var u_max_new = 0.;
@@ -75,7 +93,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     textureStore(txtemp_Means, idx, means_new);
     textureStore(txtemp_Means_Speed, idx, vec4<f32>(u_max_new, v_max_new, speed_max_new, eta_max_new));
-    textureStore(txtemp_Means_Momflux, idx, vec4<f32>(hu2_max_new, hv2_max_new, momflux_max_new, 0.0));
+    textureStore(txtemp_Means_Momflux, idx, vec4<f32>(hu2_max_new, hv2_max_new, momflux_max_new, vorticity_means_new));
     textureStore(txModelVelocities, idx, vec4<f32>(u, v, eta, h));
 }
 

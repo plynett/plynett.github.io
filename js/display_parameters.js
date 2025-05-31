@@ -24,8 +24,11 @@ export function displayCalcConstants(calc_constants, total_time) {
     if (calc_constants.NLSW_or_Bous == 0) {
         addTextToContainer(`NLSW Simulation`, container);
     }
-    else {
+    else if (calc_constants.NLSW_or_Bous == 1) {
         addTextToContainer(`Boussinesq Simulation`, container);
+    }
+    else {
+        addTextToContainer(`High-Order Boussinesq Simulation`, container);
     }
     if (calc_constants.timeScheme == 2) {
         addTextToContainer(`4th-Order Implicit Predictor-Corrector Scheme`, container);
@@ -33,8 +36,6 @@ export function displayCalcConstants(calc_constants, total_time) {
     else {
         addTextToContainer(`3rd-Order Explicit Predictor Scheme`, container);
     }
-
-    addTextToContainer(`Using MinMod with Theta: ${calc_constants.Theta}`, container);
 
     addTextToContainer(`Grid Size in X-direction (m): ${Math.round(calc_constants.dx*1000)/1000}`, container);
     addTextToContainer(`Grid Size in Y-direction (m): ${Math.round(calc_constants.dy*1000)/1000}`, container);
@@ -50,11 +51,9 @@ export function displayCalcConstants(calc_constants, total_time) {
 
     if (calc_constants.isManning == 1) {
         addTextToContainer(`Usings Mannings Friction Law`, container);
-        addTextToContainer(`-      with Mannings n: ${calc_constants.friction}`, container);
     }
     else {
         addTextToContainer(`Usings Quadratic Friction Law`, container);
-        addTextToContainer(`-      with friction factor: ${calc_constants.friction}`, container);
     }
     addTextToContainer(`Wave Breaking Slope Threshold: ${calc_constants.dissipation_threshold}`, container);
     addTextToContainer(`Turbulent Decay Coefficient: ${calc_constants.whiteWaterDecayRate}`, container);
@@ -94,8 +93,11 @@ export function displaySimStatus(calc_constants, total_time, total_time_since_ht
             addTextToContainer(`NLSW Simulation`, container);
         }
     }
-    else {
+    else if (calc_constants.NLSW_or_Bous == 1) {
         addTextToContainer(`Boussinesq Simulation`, container);
+    }
+    else if (calc_constants.NLSW_or_Bous == 2) {
+        addTextToContainer(`High-Order Boussinesq Simulation`, container);
     }
     addTextToContainer(`,      Simulated Time (min): ${Math.round(total_time / 60. * 10) / 10}`, container);
     addTextToContainer(`,      Faster-than-Realtime Ratio: ${Math.round(total_time_since_http_update / calc_constants.elapsedTime_update * 10) / 10}`, container);

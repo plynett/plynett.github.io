@@ -42,8 +42,35 @@ export function create_Copytxf32_txf16_BindGroupLayout(device) {
                 visibility: GPUShaderStage.COMPUTE,
                 storageTexture: {
                     access: 'write-only',      // This texture is only for writing data
-                    format: 'rgba16float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
-                    viewDimension: '2d'       // The texture is a 2D texture
+                    format: 'rgba16float',    // Data format: 16-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d-array'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 5th binding: A texture that the fragment shader will sample from.
+                binding: 5,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 6th binding: A texture that the fragment shader will sample from.
+                binding: 6,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 7th binding: A texture that the fragment shader will sample from.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
                 }
             },
         ]
@@ -51,7 +78,7 @@ export function create_Copytxf32_txf16_BindGroupLayout(device) {
 }
 
 
-export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16) {
+export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16, txMeans_Momflux, txModelVelocities, txMeans) {
     return device.createBindGroup({
         layout: create_Copytxf32_txf16_BindGroupLayout(device),
         entries: [
@@ -76,6 +103,18 @@ export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewSta
             {
                 binding: 4,
                 resource: txRenderVarsf16.createView()
+            },
+            {
+                binding: 5,
+                resource: txMeans_Momflux.createView()
+            },
+            {
+                binding: 6,
+                resource: txModelVelocities.createView()
+            },
+            {
+                binding: 7,
+                resource: txMeans.createView()
             },
         ]
     });

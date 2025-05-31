@@ -12,9 +12,9 @@ export function create_2D_Texture(device, width, height, allTextures) {
     return texture;
 }
 
-export function create_2D_F16Texture(device, width, height, allTextures) {
+export function create_2D_F16Texture(device, width, height, depth, allTextures) {
     const texture = device.createTexture({
-        size: [width, height, 1],
+        size: [width, height, depth],
         format: 'rgba16float',
         usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     });

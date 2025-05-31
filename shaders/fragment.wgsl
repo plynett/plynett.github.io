@@ -76,7 +76,7 @@ struct Globals {
 @group(0) @binding(15) var txBreaking: texture_2d<f32>;  
 @group(0) @binding(16) var txSamplePNGs: texture_2d_array<f32>;
 @group(0) @binding(17) var textureSampler_linear: sampler;
-@group(0) @binding(18) var txRenderVarsf16: texture_2d<f32>;
+@group(0) @binding(18) var txRenderVarsf16: texture_2d_array<f32>;
 
 
 fn calculateChangeEta(x_global: f32, y_global: f32, dx: f32, amplitude: f32, thetap: f32) -> f32 {
@@ -268,8 +268,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     let surfaceToPlot = globals.surfaceToPlot;
     var photorealistic = i32(0);  // globals.photorealistic
     
-    let bottom = textureSample(txRenderVarsf16, textureSampler_linear, uv).b;
-    var waves = textureSample(txRenderVarsf16, textureSampler_linear, uv).r;  // free surface elevation
+    let bottom = textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).b;
+    var waves = textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).r;  // free surface elevation
     let friction = textureSample(txBottomFriction, textureSampler, uv).r;  // friction
     let GoogleMap = textureSample(txOverlayMap, textureSampler, uv_mod).rgb;
     let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
@@ -282,42 +282,38 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         if(colorMap_choice == 0) {photorealistic = i32(1);}  // globals.photorealistic
 
     } else if (surfaceToPlot == 1) {  // fluid speed
-        let P = textureSample(etaTexture, textureSampler, uv).g; 
-        let Q = textureSample(etaTexture, textureSampler, uv).b; 
-        let u = P/H;
-        let v = Q/H;
+        let u = textureSample(txRenderVarsf16, textureSampler_linear, uv, 1).r;  
+        let v = textureSample(txRenderVarsf16, textureSampler_linear, uv, 1).g;  
         render_surface = sqrt(u * u + v * v);
 
     } else if (surfaceToPlot == 2) { // x-component of fluid speed
-        let P = textureSample(etaTexture, textureSampler, uv).g; 
-        render_surface = P/H;
+        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv, 1).r;  
 
     } else if (surfaceToPlot == 3) {  // y-component of fluid speed
-        let Q = textureSample(etaTexture, textureSampler, uv).b; 
-        render_surface = Q/H;
+        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv, 1).g;  
 
     } else if (surfaceToPlot == 4) {  // total vertical vorticity
         // up
         var uv_vort = uv;
         uv_vort.y = uv_vort.y + 1/f32(globals.HEIGHT);
-        let P_up = textureSample(etaTexture, textureSampler, uv_vort).g; 
+        let u_up = textureSample(txRenderVarsf16, textureSampler_linear, uv_vort, 1).r; 
 
         // down
         uv_vort = uv;
         uv_vort.y = uv_vort.y - 1/f32(globals.HEIGHT);
-        let P_down = textureSample(etaTexture, textureSampler, uv_vort).g; 
+        let u_down = textureSample(txRenderVarsf16, textureSampler_linear, uv_vort, 1).r; 
 
         // right
         uv_vort = uv;
         uv_vort.x = uv_vort.x + 1/f32(globals.WIDTH);
-        let Q_right = textureSample(etaTexture, textureSampler, uv_vort).b; 
+        let v_right = textureSample(txRenderVarsf16, textureSampler_linear, uv_vort, 1).g; 
         
         // left
         uv_vort = uv;
         uv_vort.x = uv_vort.x - 1/f32(globals.WIDTH);
-        let Q_left = textureSample(etaTexture, textureSampler, uv_vort).b; 
+        let v_left = textureSample(txRenderVarsf16, textureSampler_linear, uv_vort, 1).g; 
 
-        render_surface = 0.5*(P_up - P_down)/globals.dy - 0.5*(Q_right - Q_left)/globals.dx;
+        render_surface = 0.5*(u_up - u_down)/globals.dy - 0.5*(v_right - v_left)/globals.dx;
 
     } else if (surfaceToPlot == 5) {  // breaking
         render_surface = textureSample(txBreaking, textureSampler, uv).g;
@@ -353,7 +349,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (surfaceToPlot == 15) {  // bottom friction map
         render_surface = textureSample(txBottomFriction, textureSampler, uv).r; 
     } else if (surfaceToPlot == 16) {  // max free surface map
-        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv).g;  
+        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).g;  
         waves = render_surface; // change to max so maxs are plotted everywhere, including high runup areas that are not currently wet
     } else if (surfaceToPlot == 17) {  // sed C1 concentration
         render_surface = textureSample(txNewState_Sed, textureSampler, uv).r / H; 
@@ -367,6 +363,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = textureSample(txBotChange_Sed, textureSampler, uv).r; 
     } else if (surfaceToPlot == 22) {  // design components 
         render_surface = textureSample(txDesignComponents, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 23) {  // mean vorticity 
+        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv, 1).a; 
     }
     
     var light_effects = vec3<f32>(1.0, 1.0, 1.0);
@@ -730,8 +728,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         let uv_center = (vec2<f32>(f32(bin_idx.x), f32(bin_idx.y)) + 0.5) / bins;
 
         // 4. sample velocity once per bin
-        let bottom_arrow = textureSample(txRenderVarsf16, textureSampler_linear, uv_center).b;
-        let waves_arrow = textureSample(txRenderVarsf16, textureSampler_linear, uv_center).r;  
+        let bottom_arrow = textureSample(txRenderVarsf16, textureSampler_linear, uv_center, 0).b;
+        let waves_arrow = textureSample(txRenderVarsf16, textureSampler_linear, uv_center, 0).r;  
         let H_arrow = max(globals.delta, waves - bottom);   
         var speed = 0.0;
         var u = 0.0;
@@ -775,10 +773,10 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     
     if (globals.showBreaking ==1 && globals.surfaceToPlot != 11) {  // cannot see mean breaking if also plotting mean breaking
-        let breaking =  breaking_texture * textureSample(txRenderVarsf16, textureSampler_linear, uv).a;
+        let breaking =  breaking_texture * textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).a;
         color_rgb = color_rgb + vec3<f32>(breaking, breaking, breaking);
     } else if (globals.showBreaking == 2 && globals.surfaceToPlot != 11) {
-        let tracer = textureSample(txRenderVarsf16, textureSampler_linear, uv).a;
+        let tracer = textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).a;
         color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
     }
 

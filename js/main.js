@@ -285,7 +285,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txCube_Skybox = create_3D_Image_Texture(device, skybox_image_size, skybox_image_size, 6, allTextures); // will store all textures to be sampled for photo-realism
     
     let depthTexture = create_Depth_Texture(device, canvas.width, canvas.height, allTextures); // initial depth texture for Explorer mode
-    const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // used to store the f16 render variables for the render pipeline
+    const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 2, allTextures);  // used to store the f16 render variables for the render pipeline
 
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
@@ -839,6 +839,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     CalcMeans_view.setFloat32(8, calc_constants.base_depth, true);           // f32
     CalcMeans_view.setInt32(12, calc_constants.WIDTH, true);          // i32
     CalcMeans_view.setInt32(16, calc_constants.HEIGHT, true);          // i32  
+    CalcMeans_view.setFloat32(20, calc_constants.dx, true);           // f32
+    CalcMeans_view.setFloat32(24, calc_constants.dy, true);           // f32
 
     // CalcWaveHeight -  Bindings & Uniforms Config
     const CalcWaveHeight_BindGroupLayout = create_CalcWaveHeight_BindGroupLayout(device);
@@ -1014,7 +1016,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Copy f32 data to f16 texture compute shader
     const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);
-    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16);
+    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16, txMeans_Momflux, txModelVelocities, txMeans);
     const Copytxf32_txf16_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Copytxf32_txf16_view = new DataView(Copytxf32_txf16_uniforms);
     Copytxf32_txf16_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -2360,6 +2362,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 { tx: txMeans,        ch: 2, filename: 'current_Umean.bin'},
                 { tx: txMeans,        ch: 3, filename: 'current_Vmean.bin'},
                 { tx: txMeans,        ch: 4, filename: 'current_Foammean.bin'},
+                { tx: txMeans_Momflux,ch: 4, filename: 'current_Vorticitymean.bin'},
             ];
             
             for (const {tx, ch, filename} of files) {
