@@ -33,7 +33,8 @@ export function create_Pass3_BindGroupLayout(device) {
                 visibility: GPUShaderStage.COMPUTE,
                 texture: {
                     sampleType: 'unfilterable-float',
-                    format: 'rgba32float'
+                    format: 'rgba32float',
+                    viewDimension: '3d'
                 }
             },
             {
@@ -198,7 +199,7 @@ export function create_Pass3_BindGroupLayout(device) {
 }
 
 
-export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txH, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction) {
+export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom, txCW_groupings, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, F_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction) {
     return device.createBindGroup({
         layout: create_Pass3_BindGroupLayout(device),
         entries: [
@@ -218,7 +219,7 @@ export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom,
             },
             {
                 binding: 3,
-                resource: txH.createView()
+                resource: txCW_groupings.createView({dimension: '3d',})
             },
             {
                 binding: 4,
@@ -291,3 +292,281 @@ export function create_Pass3_BindGroup(device, uniformBuffer, txState, txBottom,
         ]
     });
 }  
+
+
+
+export function create_Pass3A_Coulwave_BindGroupLayout(device) {
+    return device.createBindGroupLayout({
+        entries: [
+            {
+                // 0th binding: A uniform buffer (for parameters like time, etc.)
+                binding: 0,
+                visibility: GPUShaderStage.COMPUTE, // This buffer is only visible to the compute stage
+                buffer: { type: 'uniform' }  // It's a uniform buffer
+            },
+            {
+                // 1st binding: A texture that the fragment shader will sample from.
+                binding: 1,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 2nd binding: A texture that the fragment shader will sample from.
+                binding: 2,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 3rd binding: A storage texture. The compute shader will write results into this texture.
+                binding: 3,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 4th binding: A texture that the fragment shader will sample from.
+                binding: 4,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 5th binding: A texture that the fragment shader will sample from.
+                binding: 5,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 6,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            }
+        ]
+    });
+}
+
+
+export function create_Pass3A_Coulwave_BindGroup(device, uniformBuffer, txState, txBottom, txU, txV, txModelVelocities, txCW_zalpha, txCW_uvhuhv) {
+    return device.createBindGroup({
+        layout: create_Pass3A_Coulwave_BindGroupLayout(device),
+        entries: [
+            {
+                binding: 0,
+                resource: {
+                    buffer: uniformBuffer
+                }
+            },
+            {
+                binding: 1,
+                resource: txState.createView() 
+            },
+            {
+                binding: 2,
+                resource: txBottom.createView()
+            },
+            {
+                binding: 3,
+                resource: txU.createView()
+            },
+            {
+                binding: 4,
+                resource: txV.createView()
+            },
+            {
+                binding: 5,
+                resource: txModelVelocities.createView()
+            },
+            {
+                binding: 6,
+                resource: txCW_zalpha.createView()
+            },
+            {
+                binding: 7,
+                resource: txCW_uvhuhv.createView()
+            },
+        ]
+    });
+}
+
+
+
+
+
+export function create_Pass3B_Coulwave_BindGroupLayout(device) {
+    return device.createBindGroupLayout({
+        entries: [
+            {
+                // 0th binding: A uniform buffer (for parameters like time, etc.)
+                binding: 0,
+                visibility: GPUShaderStage.COMPUTE, // This buffer is only visible to the compute stage
+                buffer: { type: 'uniform' }  // It's a uniform buffer
+            },
+            {
+                // 1st binding: A texture that the fragment shader will sample from.
+                binding: 1,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 2nd binding: A texture that the fragment shader will sample from.
+                binding: 2,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 3rd binding: A storage texture. The compute shader will write results into this texture.
+                binding: 3,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 4th binding: A texture that the fragment shader will sample from.
+                binding: 4,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 5th binding: A texture that the fragment shader will sample from.
+                binding: 5,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 6th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 6,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 7th binding: A texture that the fragment shader will sample from.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            },
+            {
+                // 8th binding: A storage texture. The compute shader will write results into this texture.
+                binding: 8,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: 'write-only',      // This texture is only for writing data
+                    format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
+                    viewDimension: '2d'       // The texture is a 2D texture
+                }
+            }, 
+            {
+                // 9th binding: A texture that the fragment shader will sample from.
+                binding: 9,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+        ]
+    });
+}
+
+
+export function create_Pass3B_Coulwave_BindGroup(device, uniformBuffer, txState, txBottom, txCW_uvhuhv, txCW_zalpha, txCW_STval, txCW_STgrad, txCW_Eterms, txCW_FGterms, dU_by_dt) {
+    return device.createBindGroup({
+        layout: create_Pass3B_Coulwave_BindGroupLayout(device),
+        entries: [
+            {
+                binding: 0,
+                resource: {
+                    buffer: uniformBuffer
+                }
+            },
+            {
+                binding: 1,
+                resource: txState.createView() 
+            },
+            {
+                binding: 2,
+                resource: txBottom.createView()
+            },
+            {
+                binding: 3,
+                resource: txCW_uvhuhv.createView()
+            },
+            {
+                binding: 4,
+                resource: txCW_zalpha.createView()
+            },
+            {
+                binding: 5,
+                resource: txCW_STval.createView()
+            },
+            {
+                binding: 6,
+                resource: txCW_STgrad.createView()
+            },
+            {
+                binding: 7,
+                resource: txCW_Eterms.createView()
+            },
+            {
+                binding: 8,
+                resource: txCW_FGterms.createView()
+            },
+            {
+                binding: 9,
+                resource: dU_by_dt.createView()
+            },
+        ]
+    });
+}
+

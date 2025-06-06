@@ -19,6 +19,8 @@ struct Globals {
     sedC1_erosion: f32,
     sedC1_n: f32,
     sedC1_fallvel: f32,
+    base_depth: f32,
+    delta: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -36,6 +38,10 @@ struct Globals {
 @group(0) @binding(10) var dU_by_dt_Sed: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(11) var erosion_Sed: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(12) var depostion_Sed: texture_storage_2d<rgba32float, write>;
+
+@group(0) @binding(13) var txBreaking: texture_2d<f32>;
+@group(0) @binding(14) var txU: texture_2d<f32>;
+@group(0) @binding(15) var txV: texture_2d<f32>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -74,13 +80,23 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let C_state_down_left = textureLoad(txState_Sed, downleftIdx, 0);
     let C_state_down_right = textureLoad(txState_Sed, downrightIdx, 0);
 
-    let Dxx = 1.0;
-    let Dxy = 1.0;
-    let Dyy = 1.0;
+    let Kh_here = textureLoad(txBreaking, idx, 0).y + textureLoad(txBreaking, idx, 0).w;
+    let Kh_right = textureLoad(txBreaking, rightIdx, 0).y + textureLoad(txBreaking, rightIdx, 0).w;
+    let Kh_up = textureLoad(txBreaking, upIdx, 0).y + textureLoad(txBreaking, upIdx, 0).w;
+    let Kh_left = textureLoad(txBreaking, leftIdx, 0).y + textureLoad(txBreaking, leftIdx, 0).w;
+    let Kh_down = textureLoad(txBreaking, downIdx, 0).y + textureLoad(txBreaking, downIdx, 0).w;
+    let Kh_average = 0.5 * Kh_here + 0.125 * (Kh_right + Kh_up + Kh_left + Kh_down);
 
-    let hc_by_dx_dx = Dxx * globals.one_over_d2x * (C_state_right - 2.0 * C_state_here + C_state_left);
-    let hc_by_dy_dy = Dyy * globals.one_over_d2y * (C_state_up - 2.0 * C_state_here + C_state_down);
-    let hc_by_dx_dy = Dxy * globals.one_over_dxdy * (C_state_up_right - C_state_up_left - C_state_down_right + C_state_down_left) / 4.0;
+    let C_xx = globals.one_over_d2x * (C_state_right - 2.0 * C_state_here + C_state_left);
+    let C_yy = globals.one_over_d2y * (C_state_up - 2.0 * C_state_here + C_state_down);
+    let C_x  = 0.5 * globals.one_over_dx * (C_state_right - C_state_left);
+    let C_y  = 0.5 * globals.one_over_dy * (C_state_up - C_state_down);
+
+    let Kh_x = 0.5 * globals.one_over_dx * (Kh_right - Kh_left);
+    let Kh_y = 0.5 * globals.one_over_dy * (Kh_up - Kh_down);
+
+    let hc_by_dx_dx = Kh_average * C_xx + Kh_x * C_x;
+    let hc_by_dy_dy = Kh_average * C_yy + Kh_y * C_y;
 
     let B = textureLoad(txBottom, idx, 0).z;
     let in_state_here = textureLoad(txState, idx, 0);
@@ -89,18 +105,22 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let hv = in_state_here.z;
     let h = eta - B;
 
-    let h2 = h * h;
-    let divide_by_h = 2.0 * h / sqrt(h2 + max(h2, globals.epsilon));
+    let h_scaled = h / globals.base_depth;
+    let h2 = h_scaled * h_scaled;
+    let divide_by_h = 2.0 * h_scaled / (h2 + max(h2, 1.e-6)) / globals.base_depth;
 
     var f: f32;
     if (globals.isManning == 1) {
         f = 9.81 * pow(globals.friction, 2.0) * pow(abs(divide_by_h), 1.0 / 3.0);
     } else {
-        f = globals.friction / 2.0;
+        f = globals.friction;
     }
 
-    let u = hu * divide_by_h;
-    let v = hv * divide_by_h;
+    // u, v here
+    var u4 = textureLoad(txU, idx, 0);
+    var v4 = textureLoad(txV, idx, 0);
+    let u = (u4.x + u4.y + u4.z + u4.w) / 4.0;
+    let v = (v4.x + v4.y + v4.z + v4.w) / 4.0;
     let local_speed = sqrt(u * u + v * v);
     let shear_velocity = sqrt(f) * local_speed;
     let shields = shear_velocity * shear_velocity * globals.sedC1_shields;
@@ -113,7 +133,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let Cmin = max(1.0e-6, C_state_here.x);   // only for C1 right now
     let deposition = min(2.0, (1.0 - globals.sedC1_n) / Cmin) * C_state_here.x * globals.sedC1_fallvel;
 
-    let source_term = hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + erosion - deposition;
+    let source_term = hc_by_dx_dx + hc_by_dy_dy + erosion - deposition;
 
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 

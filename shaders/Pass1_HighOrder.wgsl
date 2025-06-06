@@ -83,11 +83,14 @@ fn calcSlopes(dh0: f32, dh1: f32, dh2: f32, dh3: f32, dh4: f32) -> vec3<f32> {
     return vec3<f32>(sh1, sh2, sh3);
 }
 // Reconstruct function for 4th-order MUSCL-TVD
-fn ReconstructMUSCL4(z_m3: f32, z_m2: f32, z_m1: f32, z0:   f32, z1:   f32, z2:   f32, z3:   f32) -> vec2<f32> {
+fn ReconstructMUSCL4(z_m3: f32, z_m2: f32, z_m1: f32, z0:   f32, z1:   f32, z2:   f32, z3:   f32, dh_max: f32) -> vec2<f32> {
     // Precompute constants
     let b0 = 2.0; 
     let b1 = 2.0;
-    let ilim_c = 0; // 1 = TVD limiter, 0 = no limiter
+    var ilim_c = 0; // 1 = TVD limiter, 0 = no limiter
+    if (dh_max > 0.60) {
+        ilim_c = 1;
+    }
 
     // Compute right-side slopes
     let dhR0 = z_m1 - z_m2;
@@ -188,6 +191,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let B_west = textureLoad(txBottom, leftIdx, 0).z;
     let B_east = textureLoad(txBottom, rightIdx, 0).z;
 
+    let B_south2 = textureLoad(txBottom, down2Idx, 0).z;
+    let B_north2 = textureLoad(txBottom, up2Idx, 0).z;
+    let B_west2 = textureLoad(txBottom, left2Idx, 0).z;
+    let B_east2 = textureLoad(txBottom, right2Idx, 0).z;
+
+    let B_south3 = textureLoad(txBottom, down3Idx, 0).z;
+    let B_north3 = textureLoad(txBottom, up3Idx, 0).z;
+    let B_west3 = textureLoad(txBottom, left3Idx, 0).z;
+    let B_east3 = textureLoad(txBottom, right3Idx, 0).z;
+
     let h_here = in_here.x - B_here;
     let h_south = in_south.x - B_south;
     let h_north = in_north.x - B_north;
@@ -243,7 +256,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         dB_max = 0.5*vec4<f32>(dB_north, dB_east, dB_south, dB_west);
     }
 
-    if(wetdry <= globals.epsilon || B_here >= 0.0) {
+    let maxB =  max(B_here, max(B_south,  max(B_north,  max(B_west,  B_east))));
+    let maxB2 = max(maxB,   max(B_south2, max(B_north2, max(B_west2, B_east2))));
+    let maxB3 = max(maxB2,  max(B_south3, max(B_north3, max(B_west3, B_east3))));
+
+    if(wetdry <= globals.epsilon || maxB3 >= -globals.epsilon) {
 
         // left / right: Use the original Reconstruct function for boundary conditions
         wwy =  Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
@@ -257,26 +274,65 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         hvzx = Reconstruct(in_south.z, in_here.z, in_north.z, TWO_THETAc);
         hczx = Reconstruct(in_south.w, in_here.w, in_north.w, TWO_THETAc);
     } else {
+		var dh0 = in_west2.x-in_west3.x;
+		var dh1 = in_west.x-in_west2.x;
+		var dh2 = in_here.x-in_west.x;
+		var dh3 = in_east.x-in_here.x;
+		var dh4 = in_east2.x-in_east.x;
+		var dh5 = in_east3.x-in_east2.x;
+		var dh_max = max(max(abs(dh0), abs(dh1)), max(abs(dh2), max(abs(dh3), max(abs(dh4), abs(dh5))))) / globals.dx_global;
 
         // left / right: Use the high-order Reconstruct function for interior points
-        wwy =  ReconstructMUSCL4(in_west3.x, in_west2.x, in_west.x, in_here.x, in_east.x, in_east2.x, in_east3.x);
-        huwy = ReconstructMUSCL4(in_west3.y, in_west2.y, in_west.y, in_here.y, in_east.y, in_east2.y, in_east3.y);
-        hvwy = ReconstructMUSCL4(in_west3.z, in_west2.z, in_west.z, in_here.z, in_east.z, in_east2.z, in_east3.z);
-        hcwy = ReconstructMUSCL4(in_west3.w, in_west2.w, in_west.w, in_here.w, in_east.w, in_east2.w, in_east3.w);
+        wwy =  ReconstructMUSCL4(in_west3.x, in_west2.x, in_west.x, in_here.x, in_east.x, in_east2.x, in_east3.x, dh_max);
+        huwy = ReconstructMUSCL4(in_west3.y, in_west2.y, in_west.y, in_here.y, in_east.y, in_east2.y, in_east3.y, dh_max);
+        hvwy = ReconstructMUSCL4(in_west3.z, in_west2.z, in_west.z, in_here.z, in_east.z, in_east2.z, in_east3.z, dh_max);
+        hcwy = ReconstructMUSCL4(in_west3.w, in_west2.w, in_west.w, in_here.w, in_east.w, in_east2.w, in_east3.w, dh_max);
+
+        dh0 = in_south2.x-in_south3.x;
+        dh1 = in_south.x-in_south2.x;
+        dh2 = in_here.x-in_south.x;
+        dh3 = in_north.x-in_here.x;
+        dh4 = in_north2.x-in_north.x;
+        dh5 = in_north3.x-in_north2.x;
+        dh_max = max(max(abs(dh0), abs(dh1)), max(abs(dh2), max(abs(dh3), max(abs(dh4), abs(dh5))))) / globals.dy_global;
 
         // south / north: Use the high-order Reconstruct function for interior points
-        wzx =  ReconstructMUSCL4(in_south3.x, in_south2.x, in_south.x, in_here.x, in_north.x, in_north2.x, in_north3.x);
-        huzx = ReconstructMUSCL4(in_south3.y, in_south2.y, in_south.y, in_here.y, in_north.y, in_north2.y, in_north3.y);
-        hvzx = ReconstructMUSCL4(in_south3.z, in_south2.z, in_south.z, in_here.z, in_north.z, in_north2.z, in_north3.z);
-        hczx = ReconstructMUSCL4(in_south3.w, in_south2.w, in_south.w, in_here.w, in_north.w, in_north2.w, in_north3.w);
+        wzx =  ReconstructMUSCL4(in_south3.x, in_south2.x, in_south.x, in_here.x, in_north.x, in_north2.x, in_north3.x, dh_max);
+        huzx = ReconstructMUSCL4(in_south3.y, in_south2.y, in_south.y, in_here.y, in_north.y, in_north2.y, in_north3.y, dh_max);
+        hvzx = ReconstructMUSCL4(in_south3.z, in_south2.z, in_south.z, in_here.z, in_north.z, in_north2.z, in_north3.z, dh_max);
+        hczx = ReconstructMUSCL4(in_south3.w, in_south2.w, in_south.w, in_here.w, in_north.w, in_north2.w, in_north3.w, dh_max);
     }
 
     w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);
     h = w - B;
-    h = max(h, vec4<f32>(0.0, 0.0, 0.0, 0.0));
     hu = vec4<f32>(huzx.y, huwy.y, huzx.x, huwy.x);
     hv = vec4<f32>(hvzx.y, hvwy.y, hvzx.x, hvwy.x);
     hc = vec4<f32>(hczx.y, hcwy.y, hczx.x, hcwy.x);
+
+    if (h.x < globals.delta) {
+        h.x = 0.0;;
+        hu.x = 0.0;
+        hv.x = 0.0;
+        hc.x = 0.0;
+    }
+    if (h.y < globals.delta) {
+        h.y =0.0;;
+        hu.y = 0.0;
+        hv.y = 0.0;
+        hc.y = 0.0;
+    }   
+    if (h.z < globals.delta) {
+        h.z =0.0;;
+        hu.z = 0.0;
+        hv.z = 0.0;
+        hc.z = 0.0;
+    }
+    if (h.w < globals.delta) {
+        h.w =0.0;;
+        hu.w = 0.0;
+        hv.w = 0.0;
+        hc.w = 0.0;
+    }
 
     // CalcUVC 
     var u: vec4<f32>;

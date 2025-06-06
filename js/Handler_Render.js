@@ -168,6 +168,7 @@ export function createRenderBindGroupLayout(device) {
                 texture: {
                     sampleType: 'float',
                     format: 'rgba16float',  // f16 data format
+                    viewDimension: '2d-array'
                 }
             },
         ]
@@ -295,25 +296,27 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
     // Mapping from surface ID to label text
     const textMapping = {
         0: "Free Surface Elevation (m)",
-        6: "Bathymetry/Topography (m)",
-        15: "Bottom Friction Map",
         1: "Fluid Speed (m/s)",
         2: "East-West (x) Velocity (m/s)",
         3: "North-South (y) Velocity (m/s)",
-        4: "Total Vertical Vorticity (m/s)",
+        4: "Vertical Vorticity (1/s)",
         5: "Foam / Tracer Concentration",
-        16: "Max Free Surface Elev (m)",
+        6: "Bathymetry/Topography (m)",
         7: "Mean Free Surface Elev (m)",
         8: "Mean Fluid Speed [Magn] (m/s)",
         9: "Mean Fluid Speed [E-W] (m/s)",
         10: "Mean Fluid Speed [N-S] (m/s)",
+        11: "Mean Foam/Tracer Concentration",
         12: "RMS Wave Height (m)",
         13: "Significant Wave Height (m)",
         14: "Difference from Baseline Hs (m)",
-        21: "Depth Change (m) due to Sed Trans",
+        15: "Bottom Friction Map",
+        16: "Max Free Surface Elev (m)",
         17: "Sediment Class 1 Concentration",
         18: "Sediment Class 1 Erosion Rate",
+        21: "Depth Change (m) due to Sed Trans",
         22: "Design Component Map",
+        23: "Mean |Vertical Vorticity| (1/s)",
     };
 
     const labelText = textMapping[calc_constants.surfaceToPlot];

@@ -53,13 +53,17 @@ fn HLL_Flux(
     Fplus:    vec4<f32>,
     Fminus:   vec4<f32>,
     Uplus:    vec4<f32>,
-    Uminus:   vec4<f32>
+    Uminus:   vec4<f32>,
+    DU_flag:  i32
 ) -> vec4<f32> {
     let denom = aplus - aminus;
     if (denom == 0.0) {
         return vec4<f32>(0.0);
     }
-    let DU = Uplus - Uminus;  // ΔU
+    var DU = Uplus - Uminus;  // ΔU
+    if (DU_flag == 1) {
+        DU.x = 0.0;
+    }
     // standard two‐wave HLL:
     //   (S_R F_L - S_L F_R + S_L S_R ΔU) / (S_R - S_L)
     return (aplus * Fminus
@@ -75,10 +79,11 @@ fn HLLEM_Flux(
     Fplus:    vec4<f32>,   // F⁺
     Fminus:   vec4<f32>,   // F⁻
     Uplus:    vec4<f32>,   // U⁺
-    Uminus:   vec4<f32>    // U⁻
+    Uminus:   vec4<f32>,    // U⁻
+    DU_flag:  i32          // flag for near dry cells
 ) -> vec4<f32> {
     // 1) Compute the base HLL flux
-    let Fhll = HLL_Flux(aplus, aminus, Fplus, Fminus, Uplus, Uminus);
+    let Fhll = HLL_Flux(aplus, aminus, Fplus, Fminus, Uplus, Uminus, DU_flag);
 
     // 2) Roe‐average velocity for the contact wave
     var uL: f32 = 0.0;
@@ -99,7 +104,10 @@ fn HLLEM_Flux(
 
     // 3) Build a simple Roe‐type “linearized” flux
     //    Froe = 0.5*(F⁺ + F⁻) - 0.5*|uRoe|*(U⁺ - U⁻)
-    let DU = Uplus - Uminus;
+    var DU = Uplus - Uminus;
+    if (DU_flag == 1) {
+        DU.x = 0.0;
+    }
     let Froe = 0.5 * (Fplus + Fminus) - 0.5 * abs(uRoe) * DU;
 
     // 4) Compute a limiter φ that restores the contact
@@ -153,12 +161,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let minH = min(h_vec.w, min(h_vec.z, min(h_vec.y, h_vec.x)));  // minimum water height in the cell and its neighbors
 
+    var DU_flag = 0;
     if (minH <= globals.delta) {  // special treament for near dry cells
-        let h_mid = 0.25 * (hW_east + h_here.y + hS_north + h_here.x);
-        hW_east = h_mid;
-        hS_north = h_mid;
-        h_here.y = h_mid;
-        h_here.x = h_mid;
+        DU_flag = 1;
     }
 
     let state_plus_x = vec4<f32>(hW_east, hW_east * uW_east, hW_east * vW_east, hW_east * cW_east); // state at the cell face
@@ -176,10 +181,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let DU_y = state_plus_y - state_minus_y; // ΔU = [h⁺–h⁻, (h⁺u⁺–h⁻u⁻), (h⁺v⁺–h⁻v⁻), (h⁺c⁺–h⁻c⁻)]
 
     // call the vectorized HLL flux
-    //let xflux = HLL_Flux(aplus, aminus, Fp_x, Fm_x, state_plus_x, state_minus_x);
-    //let yflux = HLL_Flux(bplus, bminus, Fp_y, Fm_y, state_plus_y, state_minus_y);
-    let xflux = HLLEM_Flux(aplus, aminus, Fp_x, Fm_x, state_plus_x, state_minus_x);
-    let yflux = HLLEM_Flux(bplus, bminus, Fp_y, Fm_y, state_plus_y, state_minus_y);
+    var xflux = vec4<f32>(0.0);
+    var yflux = vec4<f32>(0.0);
+//    if (minH <= globals.delta) { 
+//        xflux = HLL_Flux(aplus, aminus, Fp_x, Fm_x, state_plus_x, state_minus_x, DU_flag);
+//        yflux = HLL_Flux(bplus, bminus, Fp_y, Fm_y, state_plus_y, state_minus_y, DU_flag);
+//    }
+//    else {
+        xflux = HLLEM_Flux(aplus, aminus, Fp_x, Fm_x, state_plus_x, state_minus_x, DU_flag);
+        yflux = HLLEM_Flux(bplus, bminus, Fp_y, Fm_y, state_plus_y, state_minus_y, DU_flag);
+//    }
 
     textureStore(txXFlux, idx, xflux);
     textureStore(txYFlux, idx, yflux);

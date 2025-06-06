@@ -56,12 +56,21 @@ export function create_Tridiag_BindGroupLayout(device) {
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
             },
+            {
+                // 6th binding: A texture that the fragment shader will sample from.
+                binding: 6,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
 
-export function create_Tridiag_BindGroup(device, uniformBuffer, newcoef, current_state, current_stateUVstar, txtemp, txtemp2) {
+export function create_Tridiag_BindGroup(device, uniformBuffer, newcoef, current_state, current_stateUVstar, txtemp, txtemp2, txBottom) {
     return device.createBindGroup({
         layout: create_Tridiag_BindGroupLayout(device),
         entries: [
@@ -90,6 +99,10 @@ export function create_Tridiag_BindGroup(device, uniformBuffer, newcoef, current
             {
                 binding: 5,
                 resource: txtemp2.createView()
+            },
+            {
+                binding: 6,
+                resource: txBottom.createView()
             },
         ]
     });
