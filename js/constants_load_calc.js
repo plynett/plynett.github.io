@@ -77,10 +77,10 @@ var calc_constants = {
     ship_heading: 0.0,  // 0=moving to the east
 
     // Sediment transport parameters
-    useSedTransModel: 1, // sed model on or off [0]
+    useSedTransModel: 0, // sed model on or off [0]
     sedC1_d50: 0.2,   // D50 for Class 1 sed
     sedC1_n: 0.40,   // porosity for Class 1 sed
-    sedC1_psi: 0.000005,   // psi for Class 1 sed
+    sedC1_psi: 0.00005,   // psi for Class 1 sed
     sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
     sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
 
