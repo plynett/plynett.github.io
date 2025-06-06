@@ -692,7 +692,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
-    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed);
+    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV);
     const SedTrans_Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let SedTrans_Pass3_view = new DataView(SedTrans_Pass3_uniforms);
     SedTrans_Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
@@ -715,7 +715,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     SedTrans_Pass3_view.setFloat32(68, calc_constants.sedC1_erosion, true);           // f32
     SedTrans_Pass3_view.setFloat32(72, calc_constants.sedC1_n, true);           // f32
     SedTrans_Pass3_view.setFloat32(76, calc_constants.sedC1_fallvel, true);           // f32
-
+    SedTrans_Pass3_view.setFloat32(80, calc_constants.base_depth, true);           // f32
+    SedTrans_Pass3_view.setFloat32(84, calc_constants.delta, true);           // f32
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
@@ -804,6 +805,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     SedTrans_UpdateBottom_view.setInt32(24, calc_constants.timeScheme, true);       // f32
     SedTrans_UpdateBottom_view.setInt32(28, calc_constants.pred_or_corrector, true);       // i32
     SedTrans_UpdateBottom_view.setFloat32(32, calc_constants.sedC1_n, true);           // f32
+    SedTrans_UpdateBottom_view.setInt32(36, calc_constants.west_boundary_type, true);       // i32
+    SedTrans_UpdateBottom_view.setInt32(40, calc_constants.east_boundary_type, true);           // i32
+    SedTrans_UpdateBottom_view.setInt32(44, calc_constants.south_boundary_type, true);           // i32
+    SedTrans_UpdateBottom_view.setInt32(48, calc_constants.north_boundary_type, true);       // i32
 
     // Updateneardry -  Bindings & Uniforms Config
     const Updateneardry_BindGroupLayout = create_Updateneardry_BindGroupLayout(device);

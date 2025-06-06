@@ -8,6 +8,10 @@ struct Globals {
     timeScheme: i32,
     pred_or_corrector: i32,
     sedC1_n: f32,
+    west_boundary_type: i32,
+    east_boundary_type: i32,
+    south_boundary_type: i32,
+    north_boundary_type: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -42,8 +46,26 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let dB_right = 0.5 * ( dB_here +  globals.dt * (e_right - d_right) / (1.0 - globals.sedC1_n));
     let dB_up =    0.5 * ( dB_here +  globals.dt * (e_up - d_up) / (1.0 - globals.sedC1_n));
 
-    let dB = vec4<f32>(dB_up, dB_right, dB_here, 0.0);
-    B_here = B_here; // - dB;  // B is elevation, so a positive dB (eroding) should decrease the elevation
+    var dB = vec4<f32>(dB_up, dB_right, dB_here, 0.0);
+
+    if (globals.west_boundary_type == 2 && idx.x < 10) {
+        let ramp = max(0.0, (f32(idx.x)-5.0) / 5.0);  // Linear ramp from 0 to 1 over the first 10 columns
+        dB = ramp * dB;  // No sediment transport in the first 20 columns
+    }
+    if (globals.east_boundary_type == 2 && idx.x > globals.width - 11) {
+        let ramp = max(0.0, (f32(globals.width - idx.x) - 5.0) / 5.0);  // Linear ramp from 0 to 1 over the last 10 columns
+        dB = ramp * dB;  // No sediment transport in the last 20 columns    
+    }
+    if (globals.south_boundary_type == 2 && idx.y < 10) {
+        let ramp = max(0.0, (f32(idx.y)-5.0) / 5.0);  // Linear ramp from 0 to 1 over the first 10 rows
+        dB = ramp * dB;  // No sediment transport in the first 20 rows
+    }
+    if (globals.north_boundary_type == 2 && idx.y > globals.height - 11) {
+        let ramp = max(0.0, (f32(globals.height - idx.y) - 5.0) / 5.0);  // Linear ramp from 0 to 1 over the last 10 rows
+        dB = ramp * dB;  // No sediment transport in the last 20 rows    
+    }
+
+    B_here = B_here - dB;  // B is elevation, so a positive dB (eroding) should decrease the elevation
     dB_cumulative = dB_cumulative - dB;
 
     textureStore(txtemp_SedTrans_Botttom, idx, B_here);

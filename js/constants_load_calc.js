@@ -77,10 +77,10 @@ var calc_constants = {
     ship_heading: 0.0,  // 0=moving to the east
 
     // Sediment transport parameters
-    useSedTransModel: 0, // sed model on or off [0]
+    useSedTransModel: 1, // sed model on or off [0]
     sedC1_d50: 0.2,   // D50 for Class 1 sed
     sedC1_n: 0.40,   // porosity for Class 1 sed
-    sedC1_psi: 0.00005,   // psi for Class 1 sed
+    sedC1_psi: 0.000005,   // psi for Class 1 sed
     sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
     sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
 
@@ -444,7 +444,19 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.changeAmplitude = 0.1 * calc_constants.base_depth;
 
     calc_constants.sedC1_erosion = calc_constants.sedC1_psi*Math.pow(calc_constants.sedC1_d50/1000.,-0.2);
+    
     calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * 9.81 * calc_constants.sedC1_d50/1000.);
+    
+    // let nu = 0.000001; // kinematic viscosity of water in m^2/s
+    // let delta = calc_constants.sedC1_denrat - 1.0;
+    // let d = calc_constants.sedC1_d50/1000.; // convert d50 to meters
+    // let ds =  d * Math.pow(delta * calc_constants.g / (nu * nu) , 1.0 / 3.0)   // (delta*g/nu^2)^(1/3)*d
+    // let A = 25; // shape factor, natural particles
+    // let B = 1.25; // shape factor, natural particles
+    // let n = 1.0; // exponent for fall velocity, natural particles
+    // let fall_vel = nu / d * (Math.sqrt(0.25 * (A / B) ** (2 / n) + (4 / 3 * (ds ** 3 / B)) ** (1 / n)) - 0.5 * (A / B) ** (1 / n)) ** n; // fall velocity for natural particles; nu/d*(sqrt(0.25*(A/B)^(2/n)+(4/3*(ds^3/B))^(1/n))-0.5*(A/B)^(1/n))^n
+    // calc_constants.sedC1_fallvel = fall_vel; // set the fall velocity for Class 1 sediment
+    // console.log(ds, fall_vel)
     let fall_vel_a = 4.0 / 3.0 * 9.81 * calc_constants.sedC1_d50/1000. / 0.2 * (calc_constants.sedC1_denrat - 1.0); 
     calc_constants.sedC1_fallvel = Math.pow(fall_vel_a, 0.5);
  

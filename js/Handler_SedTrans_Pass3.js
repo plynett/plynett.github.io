@@ -120,13 +120,40 @@ export function create_SedTrans_Pass3_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
-            }
+            },
+            {
+                // 13th binding: A texture that the fragment shader will sample from.
+                binding: 13,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 14th binding: A texture that the fragment shader will sample from.
+                binding: 14,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 15th binding: A texture that the fragment shader will sample from.
+                binding: 15,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
 
-export function create_SedTrans_Pass3_BindGroup(device, uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed) {
+export function create_SedTrans_Pass3_BindGroup(device, uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV) {
     return device.createBindGroup({
         layout: create_SedTrans_Pass3_BindGroupLayout(device),
         entries: [
@@ -183,6 +210,18 @@ export function create_SedTrans_Pass3_BindGroup(device, uniformBuffer, txState_S
             {
                 binding: 12,
                 resource: depostion_Sed.createView()
+            },
+            {
+                binding: 13,
+                resource: txBreaking.createView()
+            },
+            {
+                binding: 14,
+                resource: txU.createView()
+            },
+            {
+                binding: 15,
+                resource: txV.createView()
             },
         ]
     });
