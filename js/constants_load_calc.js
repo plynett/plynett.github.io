@@ -83,6 +83,7 @@ var calc_constants = {
     sedC1_psi: 0.00005,   // psi for Class 1 sed
     sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
     sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
+    sedTurbDispersion: 0.0, // eddy viscosity coefficient for sediment transport
 
     // River sim parameters
     river_sim: 0, // equal to oneif running a river simulation, using river.html

@@ -21,6 +21,7 @@ struct Globals {
     sedC1_fallvel: f32,
     base_depth: f32,
     delta: f32,
+    sedTurbDispersion: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -86,7 +87,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let Kh_up = min(max_Kh, textureLoad(txBreaking, upIdx, 0).y + textureLoad(txBreaking, upIdx, 0).w);
     let Kh_left = min(max_Kh, textureLoad(txBreaking, leftIdx, 0).y + textureLoad(txBreaking, leftIdx, 0).w);
     let Kh_down = min(max_Kh, textureLoad(txBreaking, downIdx, 0).y + textureLoad(txBreaking, downIdx, 0).w);
-    let Kh_average = 1.0 + 0.5 * Kh_here + 0.125 * (Kh_right + Kh_up + Kh_left + Kh_down); // background nu of 1.0, good for tsunami models
+    let Kh_average = globals.sedTurbDispersion + 0.5 * Kh_here + 0.125 * (Kh_right + Kh_up + Kh_left + Kh_down); // background nu of 1.0, good for tsunami models
 
     let C_xx = globals.one_over_d2x * (C_state_right - 2.0 * C_state_here + C_state_left);
     let C_yy = globals.one_over_d2y * (C_state_up - 2.0 * C_state_here + C_state_down);

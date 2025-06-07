@@ -717,6 +717,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     SedTrans_Pass3_view.setFloat32(76, calc_constants.sedC1_fallvel, true);           // f32
     SedTrans_Pass3_view.setFloat32(80, calc_constants.base_depth, true);           // f32
     SedTrans_Pass3_view.setFloat32(84, calc_constants.delta, true);           // f32
+    SedTrans_Pass3_view.setFloat32(88, calc_constants.sedTurbDispersion, true);           // f32
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
