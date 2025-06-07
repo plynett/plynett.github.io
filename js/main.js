@@ -692,7 +692,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
-    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV);
+    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV, txSed_C1);
     const SedTrans_Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let SedTrans_Pass3_view = new DataView(SedTrans_Pass3_uniforms);
     SedTrans_Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
