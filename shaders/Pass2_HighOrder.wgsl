@@ -215,19 +215,23 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let c4W_east = textureLoad(txSed_C4, rightIdx, 0).w;
         let c4S_north = textureLoad(txSed_C4, upIdx, 0).z;
 
-        let xflux_Sed = vec4<f32>(
-            NumericalFlux(aplus, aminus, hW_east * uW_east * c1W_east, h_here.y * u_here.y * c1_here.y, phix * (hW_east * c1W_east - h_here.y * c1_here.y)),
-            NumericalFlux(aplus, aminus, hW_east * uW_east * c2W_east, h_here.y * u_here.y * c2_here.y, phix * (hW_east * c2W_east - h_here.y * c2_here.y)),
-            NumericalFlux(aplus, aminus, hW_east * uW_east * c3W_east, h_here.y * u_here.y * c3_here.y, phix * (hW_east * c3W_east - h_here.y * c3_here.y)),
-            NumericalFlux(aplus, aminus, hW_east * uW_east * c4W_east, h_here.y * u_here.y * c4_here.y, phix * (hW_east * c4W_east - h_here.y * c4_here.y))
-        );
-            
-        let yflux_Sed = vec4<f32>(
-            NumericalFlux(bplus, bminus, hS_north * c1S_north * vS_north, h_here.x * c1_here.x * v_here.x, phiy * (hS_north * c1S_north - h_here.x * c1_here.x)),
-            NumericalFlux(bplus, bminus, hS_north * c2S_north * vS_north, h_here.x * c2_here.x * v_here.x, phiy * (hS_north * c2S_north - h_here.x * c2_here.x)),
-            NumericalFlux(bplus, bminus, hS_north * c3S_north * vS_north, h_here.x * c3_here.x * v_here.x, phiy * (hS_north * c3S_north - h_here.x * c3_here.x)),
-            NumericalFlux(bplus, bminus, hS_north * c4S_north * vS_north, h_here.x * c4_here.x * v_here.x, phiy * (hS_north * c4S_north - h_here.x * c4_here.x))
-        );
+        let Cstate_plus_x = vec4<f32>(hW_east * c1W_east, hW_east * c2W_east, hW_east * c3W_east, hW_east * c4W_east); // state at the cell face
+        let Cstate_minus_x = vec4<f32>(h_here.y * c1_here.y, h_here.y * c2_here.y, h_here.y * c3_here.y, h_here.y * c4_here.y); // state at the cell face
+        let FpC_x = Cstate_plus_x * uW_east; // F⁺ = [h⁺u⁺, h⁺u⁺², h⁺u⁺v⁺, h⁺u⁺c⁺]
+        let FmC_x = Cstate_minus_x * u_here.y; // F⁻ = [h⁻u⁻, h⁻u⁻², h⁻u⁻v⁻, h⁻u⁻c⁻]
+        let DUC_x = Cstate_plus_x - Cstate_minus_x; // ΔU = [h⁺–h⁻, (h⁺u⁺–h⁻u⁻), (h⁺v⁺–h⁻v⁻), (h⁺c⁺–h⁻c⁻)]
+
+
+        let Cstate_plus_y = vec4<f32>(hS_north * c1S_north, hS_north * c2S_north, hS_north * c3S_north, hS_north * c4S_north); // state at the cell face
+        let Cstate_minus_y = vec4<f32>(h_here.x * c1_here.x, h_here.x * c2_here.x, h_here.x * c3_here.x, h_here.x * c4_here.x); // state at the cell face
+
+        let FpC_y = Cstate_plus_y * vS_north; // F⁺ = [h⁺u⁺, h⁺u⁺², h⁺u⁺v⁺, h⁺u⁺c⁺]
+        let FmC_y = Cstate_minus_y * v_here.x; // F⁻ = [h⁻u⁻, h⁻u⁻², h⁻u⁻v⁻, h⁻u⁻c⁻]
+        let DUC_y = Cstate_plus_y - Cstate_minus_y; // ΔU = [h⁺–h⁻, (h⁺u⁺–h⁻u⁻), (h⁺v⁺–h⁻v⁻), (h⁺c⁺–h⁻c⁻)]
+
+
+        let xflux_Sed = HLLEM_Flux(aplus, aminus, FpC_x, FmC_x, Cstate_plus_x, Cstate_minus_x, DU_flag);
+        let yflux_Sed = HLLEM_Flux(bplus, bminus, FpC_y, FmC_y, Cstate_plus_y, Cstate_minus_y, DU_flag);
 
         textureStore(txXFlux_Sed, idx, xflux_Sed);
         textureStore(txYFlux_Sed, idx, yflux_Sed);

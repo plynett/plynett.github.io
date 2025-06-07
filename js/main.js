@@ -2368,6 +2368,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 { tx: txMeans,        ch: 3, filename: 'current_Vmean.bin'},
                 { tx: txMeans,        ch: 4, filename: 'current_Foammean.bin'},
                 { tx: txMeans_Momflux,ch: 4, filename: 'current_Vorticitymean.bin'},
+                { tx: txBotChange_Sed,ch: 3, filename: 'current_SedTransDepthChange.bin'},
             ];
             
             for (const {tx, ch, filename} of files) {

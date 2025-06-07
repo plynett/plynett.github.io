@@ -80,11 +80,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let C_state_down_left = textureLoad(txState_Sed, downleftIdx, 0);
     let C_state_down_right = textureLoad(txState_Sed, downrightIdx, 0);
 
-    let Kh_here = textureLoad(txBreaking, idx, 0).y + textureLoad(txBreaking, idx, 0).w;
-    let Kh_right = textureLoad(txBreaking, rightIdx, 0).y + textureLoad(txBreaking, rightIdx, 0).w;
-    let Kh_up = textureLoad(txBreaking, upIdx, 0).y + textureLoad(txBreaking, upIdx, 0).w;
-    let Kh_left = textureLoad(txBreaking, leftIdx, 0).y + textureLoad(txBreaking, leftIdx, 0).w;
-    let Kh_down = textureLoad(txBreaking, downIdx, 0).y + textureLoad(txBreaking, downIdx, 0).w;
+    let max_Kh = 0.1 * globals.dx * globals.dy / globals.dt;
+    let Kh_here = min(max_Kh, textureLoad(txBreaking, idx, 0).y + textureLoad(txBreaking, idx, 0).w);
+    let Kh_right = min(max_Kh, textureLoad(txBreaking, rightIdx, 0).y + textureLoad(txBreaking, rightIdx, 0).w);
+    let Kh_up = min(max_Kh, textureLoad(txBreaking, upIdx, 0).y + textureLoad(txBreaking, upIdx, 0).w);
+    let Kh_left = min(max_Kh, textureLoad(txBreaking, leftIdx, 0).y + textureLoad(txBreaking, leftIdx, 0).w);
+    let Kh_down = min(max_Kh, textureLoad(txBreaking, downIdx, 0).y + textureLoad(txBreaking, downIdx, 0).w);
     let Kh_average = 0.5 * Kh_here + 0.125 * (Kh_right + Kh_up + Kh_left + Kh_down);
 
     let C_xx = globals.one_over_d2x * (C_state_right - 2.0 * C_state_here + C_state_left);
