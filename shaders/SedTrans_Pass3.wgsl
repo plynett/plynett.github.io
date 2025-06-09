@@ -81,9 +81,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var yflux_south = textureLoad(txYFlux_Sed, downIdx, 0);
 
     // Calculate scalar transport additions
-    // var c4 = textureLoad(txSed_C1, idx, 0);
-    // let C_here = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    // let H_here = h;
+    var c4 = textureLoad(txSed_C1, idx, 0);
+    let C_here = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    //let H_here = h;
     // c4 = textureLoad(txSed_C1, rightIdx, 0);
     // let C_right = (c4.x + c4.y + c4.z + c4.w) / 4.0;
     // let H_right = textureLoad(txState, rightIdx, 0).x - textureLoad(txBottom, rightIdx, 0).z;
