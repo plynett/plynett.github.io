@@ -319,6 +319,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     // create hard bottom elevation file
+    console.log(hardbottomFile)
     if(hardbottomFile){
         console.log('Loading Uploaded Hard Bottom Elevation File')
         calc_constants.loadHardBottom = 1;
@@ -3290,7 +3291,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetch('/no_waves.txt')
                         .then(response => response.text())
                         .then(defaultWaveContent => {
-                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile);
+                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile, frictionFile, hardbottomFile);
                         })
                         .catch(error => {
                             console.error("Failed to load the default wave file:", error);
