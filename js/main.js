@@ -1,6 +1,6 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadFrictionSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadFrictionSurface, loadHardBottomSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
@@ -80,7 +80,7 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
 
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
-async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile) {
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting Celeris-WebGPU");
 
@@ -198,6 +198,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const erosion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local erosion for all class "e"
     const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local depostion for all class "d"
     const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cumulative bottom elevation change
+    const txHardBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores hard bottom elevation
     const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores bottom friction info   
     const txDesignComponents = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores map of added components  
     const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores passive tracer source map
@@ -285,7 +286,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txCube_Skybox = create_3D_Image_Texture(device, skybox_image_size, skybox_image_size, 6, allTextures); // will store all textures to be sampled for photo-realism
     
     let depthTexture = create_Depth_Texture(device, canvas.width, canvas.height, allTextures); // initial depth texture for Explorer mode
-    const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 2, allTextures);  // used to store the f16 render variables for the render pipeline
+    const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 3, allTextures);  // used to store the f16 render variables for the render pipeline
 
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
@@ -316,6 +317,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     } else  {    
         copyConstantValueToTexture(calc_constants, device, txBottomFriction, calc_constants.friction, 0.0, 0.0, 0.0);
     }
+
+    // create hard bottom elevation file
+    if(hardbottomFile){
+        console.log('Loading Uploaded Hard Bottom Elevation File')
+        calc_constants.loadHardBottom = 1;
+        const HardBottomContent = await hardbottomFile.text();
+        let HardBottom2D = await loadHardBottomSurface(HardBottomContent, calc_constants); 
+        copyInitialConditionDataToTexture(calc_constants, device, HardBottom2D, txHardBottom)
+    } else  {    
+        copyConstantValueToTexture(calc_constants, device, txHardBottom, -2.0 * calc_constants.base_depth, 0.0, 0.0, 0.0);
+    }
+
 
     // create tridiag coef matrices
     copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec);
@@ -591,7 +604,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Pass2 Bindings & Uniforms Config
     const Pass2_BindGroupLayout = create_Pass2_BindGroupLayout(device);
-    const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux, txSed_C1, txSed_C2, txSed_C3, txSed_C4, txXFlux_Sed, txYFlux_Sed);
+    const Pass2_BindGroup = create_Pass2_BindGroup(device, Pass2_uniformBuffer, txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux, txSed_C1, txSed_C2, txSed_C3, txSed_C4, txXFlux_Sed, txYFlux_Sed, txBreaking);
     const Pass2_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass2_view = new DataView(Pass2_uniforms);
     Pass2_view.setUint32(0, calc_constants.WIDTH, true);          // u32
@@ -602,6 +615,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass2_view.setFloat32(20, calc_constants.dy, true);           // f32
     Pass2_view.setFloat32(24, calc_constants.delta, true);           // f32
     Pass2_view.setInt32(28, calc_constants.useSedTransModel, true);   //i32
+    Pass2_view.setFloat32(32, calc_constants.sedTurbDispersion, true);           // f32
+    Pass2_view.setFloat32(36, calc_constants.sedBreakingDispersionCoef, true);           // f32
 
     // Breaking Pass Bindings & Uniforms Config
     const PassBreaking_BindGroupLayout = create_PassBreaking_BindGroupLayout(device);
@@ -692,7 +707,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
-    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV, txSed_C1);
+    const SedTrans_Pass3_BindGroup = create_SedTrans_Pass3_BindGroup(device, SedTrans_Pass3_uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV, txSed_C1, txHardBottom);
     const SedTrans_Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let SedTrans_Pass3_view = new DataView(SedTrans_Pass3_uniforms);
     SedTrans_Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
@@ -718,6 +733,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     SedTrans_Pass3_view.setFloat32(80, calc_constants.base_depth, true);           // f32
     SedTrans_Pass3_view.setFloat32(84, calc_constants.delta, true);           // f32
     SedTrans_Pass3_view.setFloat32(88, calc_constants.sedTurbDispersion, true);           // f32
+    SedTrans_Pass3_view.setFloat32(92, calc_constants.sedBreakingDispersionCoef, true);           // f32
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
@@ -1022,7 +1038,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Copy f32 data to f16 texture compute shader
     const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);
-    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16, txMeans_Momflux, txModelVelocities, txMeans);
+    const Copytxf32_txf16_BindGroup = create_Copytxf32_txf16_BindGroup(device, Copytxf32_txf16_uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16, txMeans_Momflux, txModelVelocities, txMeans, txHardBottom);
     const Copytxf32_txf16_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Copytxf32_txf16_view = new DataView(Copytxf32_txf16_uniforms);
     Copytxf32_txf16_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -3246,6 +3262,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var bathymetryFile = document.getElementById('bathymetryFile').files[0];
         var waveFile = document.getElementById('waveFile').files[0];
         var frictionFile = document.getElementById('frictionmapFile').files[0];
+        var hardbottomFile = document.getElementById('hardbottomFile').files[0];
         var OverlayFile = document.getElementById('satimageFile').files[0];
         var modelFile = document.getElementById('modelFile').files[0];
     
@@ -3281,7 +3298,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     waveReader.onload = function (e) {
                         var waveContent = e.target.result;
-                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile);
+                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile);
                     };
                     waveReader.readAsText(waveFile);
                 }
@@ -3293,7 +3310,7 @@ document.addEventListener('DOMContentLoaded', function () {
         configReader.readAsText(configFile);
     }
     
-    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile) {
+    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile) {
         // Here you could do the actual simulation initialization
     //    console.log("Starting simulation with the following data:");
     //    console.log("Config:", configContent);
@@ -3302,7 +3319,7 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Overlay:", OverlayFile);
     
         // Initialize your WebGPU application here
-        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile).catch(error => {
+        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile).catch(error => {
              console.error("Initialization failed:", error);
         });
     }

@@ -7,6 +7,8 @@ struct Globals {
     dy: f32,
     delta: f32,
     useSedTransModel: i32,
+    sedTurbDispersion: f32,
+    sedBreakingDispersionCoef: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -28,6 +30,8 @@ struct Globals {
 
 @group(0) @binding(13) var txXFlux_Sed: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(14) var txYFlux_Sed: texture_storage_2d<rgba32float, write>;
+
+@group(0) @binding(15) var txBreaking: texture_2d<f32>;
 
 fn NumericalFlux(aplus: f32, aminus: f32, Fplus: f32, Fminus: f32, Udifference: f32) -> f32 {
     if (aplus - aminus != 0.0) {
@@ -199,6 +203,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let phiy = 1.0;
     if(globals.useSedTransModel == 1){
         // Sediment transport code
+        let k_here =  globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, idx, 0).y;
+        let k_right =  globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, rightIdx, 0).y;
+        let k_up = globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, upIdx, 0).y;
+        let k_left =  globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, leftIdx, 0).y;
+        let k_down = globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, downIdx, 0).y;
+
+        let k_east = 0.5 * (k_here + k_right);
+        let k_north = 0.5 * (k_here + k_up);
+        let k_west = 0.5 * (k_here + k_left);
+        let k_south = 0.5 * (k_here + k_down);
+
         let c1_here = textureLoad(txSed_C1, idx, 0).xy;
         let c1W_east = textureLoad(txSed_C1, rightIdx, 0).w;
         let c1S_north = textureLoad(txSed_C1, upIdx, 0).z;
@@ -214,6 +229,26 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let c4_here = textureLoad(txSed_C4, idx, 0).xy;
         let c4W_east = textureLoad(txSed_C4, rightIdx, 0).w;
         let c4S_north = textureLoad(txSed_C4, upIdx, 0).z;
+
+        // this only works for one class right now
+        var c4 = textureLoad(txSed_C1, idx, 0);
+        let C_here = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+        c4 = textureLoad(txSed_C1, rightIdx, 0);
+        let C_right = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+        c4 = textureLoad(txSed_C1, leftIdx, 0);
+        let C_left = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+        c4 = textureLoad(txSed_C1, upIdx, 0);
+        let C_up = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+        c4 = textureLoad(txSed_C1, downIdx, 0);
+        let C_down = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+
+        let C1x_east = (C_right - C_here) / globals.dx;
+        let C1x_west = (C_here - C_left) / globals.dx;
+        let C1y_north =(C_up - C_here) / globals.dy;
+        let C1y_south =(C_here - C_down) / globals.dy;
+
+        // diffusion terms have NOT been incorporating into the HLLEM fluxes
+        // as currently configured, that would require a divide by zero
 
         let Cstate_plus_x = vec4<f32>(hW_east * c1W_east, hW_east * c2W_east, hW_east * c3W_east, hW_east * c4W_east); // state at the cell face
         let Cstate_minus_x = vec4<f32>(h_here.y * c1_here.y, h_here.y * c2_here.y, h_here.y * c3_here.y, h_here.y * c4_here.y); // state at the cell face

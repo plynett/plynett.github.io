@@ -73,12 +73,21 @@ export function create_Copytxf32_txf16_BindGroupLayout(device) {
                     format: 'rgba32float'
                 }
             },
+            {
+                // 8th binding: A texture that the fragment shader will sample from.
+                binding: 8,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
 
-export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16, txMeans_Momflux, txModelVelocities, txMeans) {
+export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewState, txBottom, txMeans_Speed, txRenderVarsf16, txMeans_Momflux, txModelVelocities, txMeans, txHardBottom) {
     return device.createBindGroup({
         layout: create_Copytxf32_txf16_BindGroupLayout(device),
         entries: [
@@ -116,6 +125,10 @@ export function create_Copytxf32_txf16_BindGroup(device, uniformBuffer, txNewSta
                 binding: 7,
                 resource: txMeans.createView()
             },
+            {
+                binding: 8,
+                resource: txHardBottom.createView()
+            },
         ]
     });
-}
+}  

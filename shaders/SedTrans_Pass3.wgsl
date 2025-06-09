@@ -22,6 +22,7 @@ struct Globals {
     base_depth: f32,
     delta: f32,
     sedTurbDispersion: f32,
+    sedBreakingDispersionCoef: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -44,7 +45,7 @@ struct Globals {
 @group(0) @binding(14) var txU: texture_2d<f32>;
 @group(0) @binding(15) var txV: texture_2d<f32>;
 @group(0) @binding(16) var txSed_C1: texture_2d<f32>;
-
+@group(0) @binding(17) var txHardBottom: texture_2d<f32>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -80,40 +81,40 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var yflux_south = textureLoad(txYFlux_Sed, downIdx, 0);
 
     // Calculate scalar transport additions
-    var c4 = textureLoad(txSed_C1, idx, 0);
-    let C_here = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    let H_here = h;
-    c4 = textureLoad(txSed_C1, rightIdx, 0);
-    let C_right = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    let H_right = textureLoad(txState, rightIdx, 0).x - textureLoad(txBottom, rightIdx, 0).z;
-    c4 = textureLoad(txSed_C1, leftIdx, 0);
-    let C_left = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    let H_left = textureLoad(txState, leftIdx, 0).x - textureLoad(txBottom, leftIdx, 0).z;
-    c4 = textureLoad(txSed_C1, upIdx, 0);
-    let C_up = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    let H_up = textureLoad(txState, upIdx, 0).x - textureLoad(txBottom, upIdx, 0).z;
-    c4 = textureLoad(txSed_C1, downIdx, 0);
-    let C_down = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    let H_down = textureLoad(txState, downIdx, 0).x - textureLoad(txBottom, downIdx, 0).z;
+    // var c4 = textureLoad(txSed_C1, idx, 0);
+    // let C_here = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    // let H_here = h;
+    // c4 = textureLoad(txSed_C1, rightIdx, 0);
+    // let C_right = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    // let H_right = textureLoad(txState, rightIdx, 0).x - textureLoad(txBottom, rightIdx, 0).z;
+    // c4 = textureLoad(txSed_C1, leftIdx, 0);
+    // let C_left = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    // let H_left = textureLoad(txState, leftIdx, 0).x - textureLoad(txBottom, leftIdx, 0).z;
+    // c4 = textureLoad(txSed_C1, upIdx, 0);
+    // let C_up = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    // let H_up = textureLoad(txState, upIdx, 0).x - textureLoad(txBottom, upIdx, 0).z;
+    // c4 = textureLoad(txSed_C1, downIdx, 0);
+    // let C_down = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    // let H_down = textureLoad(txState, downIdx, 0).x - textureLoad(txBottom, downIdx, 0).z;
     
-    let max_Kh = min(10.0, 0.5 * globals.dx * globals.dy / globals.dt);
-    let Kh_here = min(max_Kh, textureLoad(txBreaking, idx, 0).y + textureLoad(txBreaking, idx, 0).w);
-    let Kh_right = min(max_Kh, textureLoad(txBreaking, rightIdx, 0).y + textureLoad(txBreaking, rightIdx, 0).w);
-    let Kh_up = min(max_Kh, textureLoad(txBreaking, upIdx, 0).y + textureLoad(txBreaking, upIdx, 0).w);
-    let Kh_left = min(max_Kh, textureLoad(txBreaking, leftIdx, 0).y + textureLoad(txBreaking, leftIdx, 0).w);
-    let Kh_down = min(max_Kh, textureLoad(txBreaking, downIdx, 0).y + textureLoad(txBreaking, downIdx, 0).w);
-    let Kh_average = globals.sedTurbDispersion + Kh_here; // + 0.125 * (Kh_right + Kh_up + Kh_left + Kh_down); // background nu of 1.0, good for tsunami models
+    // let max_Kh = min(10.0, 0.5 * globals.dx * globals.dy / globals.dt);
+    // let Kh_here = min(max_Kh, globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, idx, 0).y);
+    // let Kh_right = min(max_Kh, globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, rightIdx, 0).y);
+    // let Kh_up = min(max_Kh, globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, upIdx, 0).y);
+    // let Kh_left = min(max_Kh, globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, leftIdx, 0).y);
+    // let Kh_down = min(max_Kh, globals.sedTurbDispersion + globals.sedBreakingDispersionCoef * textureLoad(txBreaking, downIdx, 0).y);
+    // let Kh_average = Kh_here; // + 0.125 * (Kh_right + Kh_up + Kh_left + Kh_down); // background nu of 1.0, good for tsunami models
 
-    let C_xx = globals.one_over_d2x * (C_right - 2.0 * C_here + C_left);
-    let C_yy = globals.one_over_d2y * (C_up - 2.0 * C_here + C_down);
-    let C_x  = 0.5 * globals.one_over_dx * (C_right - C_left);
-    let C_y  = 0.5 * globals.one_over_dy * (C_up - C_down);
+    // let C_xx = globals.one_over_d2x * (C_right - 2.0 * C_here + C_left);
+    // let C_yy = globals.one_over_d2y * (C_up - 2.0 * C_here + C_down);
+    // let C_x  = 0.5 * globals.one_over_dx * (C_right - C_left);
+    // let C_y  = 0.5 * globals.one_over_dy * (C_up - C_down);
 
-    let Kh_x = 0.5 * globals.one_over_dx * (Kh_right * H_right - Kh_left * H_left);
-    let Kh_y = 0.5 * globals.one_over_dy * (Kh_up * H_up - Kh_down * H_down);
+    // let Kh_x = 0.5 * globals.one_over_dx * (Kh_right * H_right - Kh_left * H_left);
+    // let Kh_y = 0.5 * globals.one_over_dy * (Kh_up * H_up - Kh_down * H_down);
 
-    let hc_by_dx_dx = Kh_average * H_here * C_xx + Kh_x * C_x;
-    let hc_by_dy_dy = Kh_average * H_here * C_yy + Kh_y * C_y;
+    // let hc_by_dx_dx = Kh_average * H_here * C_xx + Kh_x * C_x;
+    // let hc_by_dy_dy = Kh_average * H_here * C_yy + Kh_y * C_y;
 
     // friction
     let h_scaled = h / globals.base_depth;
@@ -139,11 +140,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var erosion = 0.0;
     if (shields >= globals.sedC1_criticalshields) {
         erosion = globals.sedC1_erosion * (shields - globals.sedC1_criticalshields) * local_speed * divide_by_h;
+        erosion = max(erosion, 0.0);
+    }
+    let hardbottom = textureLoad(txHardBottom, idx, 0).x;
+    let avaliable_depth = B - hardbottom;
+    if (avaliable_depth < globals.delta) {
+        erosion = 0.0;
     }
 
-    let deposition = min(2.0 * C_here, 1.0 - globals.sedC1_n) * globals.sedC1_fallvel;
+    var deposition = min(2.0 * C_here, 1.0 - globals.sedC1_n) * globals.sedC1_fallvel;
+    deposition = max(deposition, 0.0);
 
-    let source_term = hc_by_dx_dx + hc_by_dy_dy + erosion - deposition;
+    let source_term = erosion - deposition;
 
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 
@@ -163,6 +171,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let predicted = textureLoad(predictedGradients_Sed, idx, 0);
         newState = C_state_here + globals.dt / 24.0 * (9.0 * d_by_dt + 19.0 * predicted - 5.0 * oldies + oldOldies);
     }
+
+    newState = max(newState, vec4<f32>(0.0, 0.0, 0.0, 0.0)); // ensure no negative concentrations
 
     textureStore(txNewState_Sed, idx, newState);
     textureStore(dU_by_dt_Sed, idx, d_by_dt);

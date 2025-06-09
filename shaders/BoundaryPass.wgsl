@@ -151,7 +151,7 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
     var eta = amplitude * sin(omega * t - kx - ky + phase) * min(1.0, t / period);
     var num_waves = 0;
     if (globals.incident_wave_type == 2){ // transient pulse
-        num_waves = 4;
+        num_waves = 8;
     }
     if(num_waves > 0){
         eta = eta * max(0.0, min(1.0, ((f32(num_waves) * period - t)/(period))));

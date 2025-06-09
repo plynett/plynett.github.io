@@ -314,6 +314,7 @@ export async function update_colorbar(device, offscreenCanvas, ctx, calc_constan
         16: "Max Free Surface Elev (m)",
         17: "Sediment Class 1 Concentration",
         18: "Sediment Class 1 Erosion Rate",
+        19: "Sediment Class 1 Available Depth (m)",
         21: "Depth Change (m) due to Sed Trans",
         22: "Design Component Map",
         23: "Mean |Vertical Vorticity| (1/s)",

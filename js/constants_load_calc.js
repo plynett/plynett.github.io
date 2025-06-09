@@ -83,7 +83,9 @@ var calc_constants = {
     sedC1_psi: 0.00005,   // psi for Class 1 sed
     sedC1_criticalshields: 0.045,   // critical shields for Class 1 sed
     sedC1_denrat: 2.65,   // desnity sed / desnity water for Class 1 sed
-    sedTurbDispersion: 0.0, // eddy viscosity coefficient for sediment transport
+    sedTurbDispersion: 10.0, // eddy viscosity constant (background) value for sediment transport
+    sedBreakingDispersionCoef: 0.0, // fraction of breaking eddy viscosity to use for sediment transport dispersion
+    loadHardBottom: 0, // load hard bottom from file when == 1
 
     // River sim parameters
     river_sim: 0, // equal to oneif running a river simulation, using river.html
@@ -448,18 +450,18 @@ async function init_sim_parameters(canvas, configContent) {
     
     calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * 9.81 * calc_constants.sedC1_d50/1000.);
     
-    // let nu = 0.000001; // kinematic viscosity of water in m^2/s
-    // let delta = calc_constants.sedC1_denrat - 1.0;
-    // let d = calc_constants.sedC1_d50/1000.; // convert d50 to meters
-    // let ds =  d * Math.pow(delta * calc_constants.g / (nu * nu) , 1.0 / 3.0)   // (delta*g/nu^2)^(1/3)*d
-    // let A = 25; // shape factor, natural particles
-    // let B = 1.25; // shape factor, natural particles
-    // let n = 1.0; // exponent for fall velocity, natural particles
-    // let fall_vel = nu / d * (Math.sqrt(0.25 * (A / B) ** (2 / n) + (4 / 3 * (ds ** 3 / B)) ** (1 / n)) - 0.5 * (A / B) ** (1 / n)) ** n; // fall velocity for natural particles; nu/d*(sqrt(0.25*(A/B)^(2/n)+(4/3*(ds^3/B))^(1/n))-0.5*(A/B)^(1/n))^n
-    // calc_constants.sedC1_fallvel = fall_vel; // set the fall velocity for Class 1 sediment
+    let nu = 0.000001; // kinematic viscosity of water in m^2/s
+    let delta = calc_constants.sedC1_denrat - 1.0;
+    let d = calc_constants.sedC1_d50/1000.; // convert d50 to meters
+    let ds =  d * Math.pow(delta * calc_constants.g / (nu * nu) , 1.0 / 3.0)   // (delta*g/nu^2)^(1/3)*d
+    let A = 25; // shape factor, natural particles
+    let B = 1.25; // shape factor, natural particles
+    let n = 1.0; // exponent for fall velocity, natural particles
+    let fall_vel = nu / d * (Math.sqrt(0.25 * (A / B) ** (2 / n) + (4 / 3 * (ds ** 3 / B)) ** (1 / n)) - 0.5 * (A / B) ** (1 / n)) ** n; // fall velocity for natural particles; nu/d*(sqrt(0.25*(A/B)^(2/n)+(4/3*(ds^3/B))^(1/n))-0.5*(A/B)^(1/n))^n
+    calc_constants.sedC1_fallvel = fall_vel; // set the fall velocity for Class 1 sediment
     // console.log(ds, fall_vel)
-    let fall_vel_a = 4.0 / 3.0 * 9.81 * calc_constants.sedC1_d50/1000. / 0.2 * (calc_constants.sedC1_denrat - 1.0); 
-    calc_constants.sedC1_fallvel = Math.pow(fall_vel_a, 0.5);
+    //let fall_vel_a = 4.0 / 3.0 * 9.81 * calc_constants.sedC1_d50/1000. / 0.2 * (calc_constants.sedC1_denrat - 1.0); 
+    //calc_constants.sedC1_fallvel = Math.pow(fall_vel_a, 0.5);
  
     // Set the canvas dimensions based on the above-defined WIDTH and HEIGHT values.
     let grid_ratio = calc_constants.dx / calc_constants.dy;

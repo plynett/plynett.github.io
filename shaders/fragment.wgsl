@@ -355,8 +355,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         render_surface = textureSample(txNewState_Sed, textureSampler, uv).r / H; 
     } else if (surfaceToPlot == 18) {  // sed C1 erosion
         render_surface = textureSample(erosion_Sed, textureSampler, uv).r; 
-  //  } else if (surfaceToPlot == 19) {  // sed C1 deposition
-  //      render_surface = textureSample(depostion_Sed, textureSampler, uv).r; 
+    } else if (surfaceToPlot == 19) {  // available scour depth
+        render_surface = textureSample(txRenderVarsf16, textureSampler_linear, uv, 2).b;  
  //   } else if (surfaceToPlot == 20) {  // sed C1 net deposition 
  //       render_surface = textureSample(depostion_Sed, textureSampler, uv).r - textureSample(erosion_Sed, textureSampler, uv).r; 
     } else if (surfaceToPlot == 21) {  // sed C1 net deposition 

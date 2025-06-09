@@ -157,12 +157,21 @@ export function create_SedTrans_Pass3_BindGroupLayout(device) {
                     format: 'rgba32float'
                 }
             },
+            {
+                // 17th binding: A texture that the fragment shader will sample from.
+                binding: 17,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
 
-export function create_SedTrans_Pass3_BindGroup(device, uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV, txSed_C1) {
+export function create_SedTrans_Pass3_BindGroup(device, uniformBuffer, txState_Sed, txXFlux_Sed, txYFlux_Sed, oldGradients_Sed, oldOldGradients_Sed, predictedGradients_Sed, txBottom, txState, txNewState_Sed, dU_by_dt_Sed, erosion_Sed, depostion_Sed, txBreaking, txU, txV, txSed_C1, txHardBottom) {
     return device.createBindGroup({
         layout: create_SedTrans_Pass3_BindGroupLayout(device),
         entries: [
@@ -236,6 +245,10 @@ export function create_SedTrans_Pass3_BindGroup(device, uniformBuffer, txState_S
                 binding: 16,
                 resource: txSed_C1.createView()
             },
+            {
+                binding: 17,
+                resource: txHardBottom.createView()
+            },
         ]
     });
-}
+} 

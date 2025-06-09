@@ -12,7 +12,7 @@ struct Globals {
 @group(0) @binding(5) var txMeans_Momflux: texture_2d<f32>;
 @group(0) @binding(6) var txModelVelocities: texture_2d<f32>;
 @group(0) @binding(7) var txMeans: texture_2d<f32>;
-
+@group(0) @binding(8) var txHardBottom: texture_2d<f32>;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -29,7 +29,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let vort_mean = textureLoad(txMeans_Momflux, idx, 0).a;
     let output_layer1 = vec4<f32>(u, v, 0.0, vort_mean);
     
+    let hard_bottom = textureLoad(txHardBottom, idx, 0).r;
+    let avaliable_depth = bottom - hard_bottom;
+    let output_layer2 = vec4<f32>(bottom, hard_bottom, avaliable_depth, 0.0);
+    
     textureStore(txRenderVarsf16, idx, 0, output_layer0);
     textureStore(txRenderVarsf16, idx, 1, output_layer1);
+    textureStore(txRenderVarsf16, idx, 2, output_layer2);
 }
 

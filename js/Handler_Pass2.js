@@ -138,13 +138,22 @@ export function create_Pass2_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
-            }
+            },
+            {
+                // 15th binding: A texture that the fragment shader will sample from.
+                binding: 15,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
 
-export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux, txSed_C1, txSed_C2, txSed_C3, txSed_C4, txXFlux_Sed, txYFlux_Sed) {
+export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBottom, txC, txHnear, txXFlux, txYFlux, txSed_C1, txSed_C2, txSed_C3, txSed_C4, txXFlux_Sed, txYFlux_Sed, txBreaking) {
     return device.createBindGroup({
         layout: create_Pass2_BindGroupLayout(device),
         entries: [
@@ -210,6 +219,10 @@ export function create_Pass2_BindGroup(device, uniformBuffer,txH, txU, txV, txBo
                 binding: 14,
                 resource: txYFlux_Sed.createView()
             },
+            {
+                binding: 15,
+                resource: txBreaking.createView()
+            },
         ]
     });
-}
+}  

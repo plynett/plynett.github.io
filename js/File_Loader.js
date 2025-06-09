@@ -143,6 +143,66 @@ export async function loadFrictionSurface(frictionContent, calc_constants) {
 }
 
 
+// load hard bottom file
+export async function loadHardBottomSurface(fileContent, calc_constants) {
+    let response;
+    let lines;
+    let filePath;
+    // Try to parse the uploaded content, if fails, then load server side file
+    try {
+
+        lines = fileContent.split('\n');
+
+        console.log("Hard Bottom data loaded successfully from the uploaded file.");
+
+    } catch (error) {
+        console.log("Loading server side example hard bottom file");
+        filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'hardbottom.txt';
+        try {
+            response = await fetch(filePath);
+        } catch (error) {
+            console.error("Could not find hard bottom file at " + filePath);
+            return null;
+        }
+
+        if (!response.ok) {
+            console.error("Error fetching hard bottom file:", response.statusText);
+            return null;
+        }
+
+        const fileContents = await response.text();
+
+        lines = fileContents.split('\n');
+        console.log("Server side hard bottom data loaded successfully.");
+    }
+
+    const filedata2D = Array.from({ length: calc_constants.WIDTH }, () => Array(calc_constants.HEIGHT));
+
+    // Parse the depth data.
+    for (let y = 0; y < calc_constants.HEIGHT; y++) {
+        // Split each line by spaces or tabs.
+        const hardbottomValues = lines[y].split(/\s+/).filter(Boolean);
+
+        if (hardbottomValues.length !== calc_constants.WIDTH) {
+            console.error("Hard bottom file at " + filePath + " is not in the correct format.");
+            return null;
+        }
+
+        for (let x = 0; x < calc_constants.WIDTH; x++) {
+            const parsedValue = parseFloat(hardbottomValues[x]);
+            if (isNaN(parsedValue)) {
+                console.error(`Could not parse hard bottom value at [${x}, ${y}] in file at ${filePath}`);
+                return null;
+            }
+            filedata2D[x][y] = parsedValue;
+        }
+    }
+
+    console.log("Hard bottom data parsed successfully.");
+
+    return filedata2D;
+}
+
 // load wave data
 export async function loadWaveData(waveContent, calc_constants) {
     let lines;
