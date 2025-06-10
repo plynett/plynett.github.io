@@ -64,12 +64,21 @@ export function create_AddDisturbance_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
+            },
+            {
+                // 7th binding: A texture that the fragment shader will sample from.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
             }
         ]
     });
 }
 
-export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom, txState, txBottomInitial, txtemp_AddDisturbance, txBoundaryForcing, txtemp_bottom) {
+export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom, txState, txBottomInitial, txtemp_AddDisturbance, txBoundaryForcing, txtemp_bottom, txBotChange_Sed) {
     return device.createBindGroup({
         layout: create_AddDisturbance_BindGroupLayout(device),
         entries: [
@@ -102,6 +111,10 @@ export function create_AddDisturbance_BindGroup(device, uniformBuffer, txBottom,
             {
                 binding: 6,
                 resource: txtemp_bottom.createView()
+            },
+            {
+                binding: 7,
+                resource: txBotChange_Sed.createView()
             },
         ]
     });

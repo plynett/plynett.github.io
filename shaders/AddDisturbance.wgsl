@@ -36,7 +36,7 @@ struct Globals {
 @group(0) @binding(4) var txtemp_AddDisturbance: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(5) var txBoundaryForcing: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(6) var txtemp_bottom: texture_storage_2d<rgba32float, write>;
-
+@group(0) @binding(7) var txBotChange_Sed: texture_2d<f32>; 
 
 fn solitary_wave(xloc: f32, yloc: f32, amplitude: f32, angle: f32, depth: f32, bottom: f32) -> vec4<f32> {
     let k = sqrt(0.75 * abs(amplitude)/pow(depth,3.0));
@@ -157,7 +157,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
 
     let bottom_tex = textureLoad(txBottom, idx, 0);
-    let bottom_initial_tex = textureLoad(txBottomInitial, idx, 0);
+    let bottom_initial_tex = textureLoad(txBottomInitial, idx, 0) + textureLoad(txBotChange_Sed, idx, 0);
     var bottom = bottom_tex.z;
     let depth = globals.base_depth;
     var in_state_here = textureLoad(txState, idx, 0);
