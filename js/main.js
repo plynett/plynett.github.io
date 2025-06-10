@@ -191,29 +191,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txV = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of v
     const txHnear = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of w (eta) - currrently not used
     const txC = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
-    const txSed_C1 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
-    const txSed_C2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
-    const txSed_C3 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
-    const txSed_C4 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
-    const erosion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local erosion for all class "e"
-    const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local depostion for all class "d"
-    const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cumulative bottom elevation change
-    const txHardBottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores hard bottom elevation
     const txBottomFriction = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores bottom friction info   
     const txDesignComponents = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores map of added components  
     const txContSource = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores passive tracer source map
     const txXFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores x-flux values along cell edges
     const txYFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores y-flux values along cell edges
-    const txXFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores x-flux values along cell edges
-    const txYFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores y-flux values along cell edges
     const txBreaking = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores breaking parameters
     const txDissipationFlux = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores dissipation flux values
     const predictedGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values found in the predictor step
     const oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values at previous time step
     const oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values from two time steps ago
-    const predictedGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values found in the predictor step
-    const oldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values at previous time step
-    const oldOldGradients_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values from two time steps ago
     const predictedF_G_star = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores F*, G* (bous only) found in predictor step
     const F_G_star_oldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures); // stores F*, G* (bous only) found at previous time step
     const F_G_star_oldOldGradients = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures); // stores F*, G* (bous only) found from two time steps ago
@@ -221,8 +208,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txtemp_bottom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for boundary pass - probably all these temps can be combined
     const txtemp_boundary = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for boundary pass - probably all these temps can be combined
     const txtemp_boundary_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for boundary pass - probably all these temps can be combined
-    const txtemp_SedTrans_Botttom = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for bottom update
-    const txtemp_SedTrans_Change = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage texture for bottom update
     const txtemp_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for PCR x-dir
     const txtemp_PCRy = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for PCR y-dir
     const txtemp2_PCRx = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // temp storage for PCR x-dir
@@ -235,12 +220,39 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const newcoef_x = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // PCR reduced tridiagonal coefficients for x-dir (bous only) 
     const newcoef_y = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // PCR reduced tridiagonal coefficients for y-dir (bous only) 
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
-    const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const txBoundaryForcing = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
     const txModelVelocities = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the u,v velocities from the cell size averages - these are the proper u,v used by the flux scheme
+
+    // sediment transport textures
+    const txSed_C1 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C2 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C3 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txSed_C4 = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cell edge values of c
+    const txXFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores x-flux values along cell edges
+    const txYFlux_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores y-flux values along cell edges
+    const erosion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local erosion for all class "e"
+    const depostion_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // local depostion for all class "d"
+    const txBotChange_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // cumulative bottom elevation change
+
+    var sedTexture_WIDTH = 1;
+    var sedTexture_HEIGHT = 1;
+   // if (calc_constants.useSedTransModel == 1) {  // if sediment transport is enabled, use the full grid size
+        sedTexture_WIDTH = calc_constants.WIDTH;
+        sedTexture_HEIGHT = calc_constants.HEIGHT;
+   // }
+    const txBotChangeRecent_Sed = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // recent bottom elevation change
+    const txHardBottom = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // stores hard bottom elevation
+    const predictedGradients_Sed = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // stores d(state)/dt values found in the predictor step
+    const oldGradients_Sed = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // stores d(state)/dt values at previous time step
+    const oldOldGradients_Sed = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // stores d(state)/dt values from two time steps ago
+    const dU_by_dt_Sed = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
+    const txtemp_SedTrans_Botttom = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // temp storage texture for bottom update
+    const txtemp_SedTrans_Change = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // temp storage texture for bottom update
+    const txtemp_txBotChangeRecent_Sed = create_2D_Texture(device, sedTexture_WIDTH, sedTexture_HEIGHT, allTextures);  // temp storage texture for bottom update
+    
+    // COULWAVE textures
     var txCW_groupings = null;  // stores the variables groupings for the coulwave implementation 
     var txCW_uvhuhv; var txCW_zalpha = null; var txCW_STval = null; var txCW_STgrad = null; var txCW_Eterms = null; var txCW_FGterms = null; // these are only used if COULWAVE is selected
-    
     if (calc_constants.NLSW_or_Bous == 2) {  // only use the space if needed
         txCW_groupings = create_3D_Data_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 6, allTextures); 
         // level 0: txCW_uvhuhv, [u, v, du, dv]
@@ -811,7 +823,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     
     // SedTrans_UpdateBottom -  Bindings & Uniforms Config
     const SedTrans_UpdateBottom_BindGroupLayout = create_SedTrans_UpdateBottom_BindGroupLayout(device);
-    const SedTrans_UpdateBottom_BindGroup = create_SedTrans_UpdateBottom_BindGroup(device, SedTrans_UpdateBottom_uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change);
+    const SedTrans_UpdateBottom_BindGroup = create_SedTrans_UpdateBottom_BindGroup(device, SedTrans_UpdateBottom_uniformBuffer, txBottom, txBotChange_Sed, txBotChangeRecent_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change, txtemp_txBotChangeRecent_Sed);
     const SedTrans_UpdateBottom_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let SedTrans_UpdateBottom_view = new DataView(SedTrans_UpdateBottom_uniforms);
     SedTrans_UpdateBottom_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -827,6 +839,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     SedTrans_UpdateBottom_view.setInt32(40, calc_constants.east_boundary_type, true);           // i32
     SedTrans_UpdateBottom_view.setInt32(44, calc_constants.south_boundary_type, true);           // i32
     SedTrans_UpdateBottom_view.setInt32(48, calc_constants.north_boundary_type, true);       // i32
+    SedTrans_UpdateBottom_view.setInt32(52, 0, true);           // i32, holds current time step
+    SedTrans_UpdateBottom_view.setInt32(56, calc_constants.sedUpdateInt, true);       // i32
 
     // Updateneardry -  Bindings & Uniforms Config
     const Updateneardry_BindGroupLayout = create_Updateneardry_BindGroupLayout(device);
@@ -1772,9 +1786,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 // Update Bottom from Sed Transport
                 if(calc_constants.useSedTransModel == 1){
+                    // run SedTrans_UpdateBottom
+                    SedTrans_UpdateBottom_view.setInt32(52, frame_count, true);       // i32
                     runComputeShader(device, commandEncoder, SedTrans_UpdateBottom_uniformBuffer, SedTrans_UpdateBottom_uniforms, SedTrans_UpdateBottom_Pipeline, SedTrans_UpdateBottom_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Botttom, txBottom)
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Change, txBotChange_Sed)
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_txBotChangeRecent_Sed, txBotChangeRecent_Sed)
                     if (calc_constants.NLSW_or_Bous == 1) { // only need to update neardry and tridiagonal coefficients for Celeris Boussinesq equations
                      //   console.log('Updating neardry & tridiag coef sediment transport depth change')
                         runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth

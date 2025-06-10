@@ -78,6 +78,7 @@ var calc_constants = {
 
     // Sediment transport parameters
     useSedTransModel: 0, // sed model on or off [0]
+    sedUpdateInt: 10, // update bottom from sediment transport every sedUpdateInt time steps
     sedC1_d50: 0.2,   // D50 for Class 1 sed
     sedC1_n: 0.40,   // porosity for Class 1 sed
     sedC1_psi: 0.00005,   // psi for Class 1 sed

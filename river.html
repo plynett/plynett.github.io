@@ -223,6 +223,18 @@
                         </label>
                         <br />
                         <br />
+                        <input type="file" id="frictionmapFile" accept="application/txt" style="display: none;" />
+                        <label for="frictionmapFile" class="custom-file-upload-button">
+                            Load Friction Map Data File [Optional]
+                        </label>
+                        <br />
+                        <br />
+                        <input type="file" id="hardbottomFile" accept="application/txt" style="display: none;" />
+                        <label for="hardbottomFile" class="custom-file-upload-button">
+                            Load Hard (non-erodible) Bottom Elevation Data File [Optional]
+                        </label>
+                        <br />
+                        <br />
                         <html4f>
                             For image overlay, you have two choices.  
                             If you have a high-resolution satellite or aerial image, you can load that file below.  
@@ -381,6 +393,28 @@
                     <br />
                     <br />
 
+                    <!-- Updates go to calc_constants.ShowLogos-->
+                    <label for="ShowArrows-select">Show flow field vector arrows:<br></label>
+                    <select id="ShowArrows-select" name="ShowArrowsValue">
+                        <option value="0">No</option>
+                        <option value="1">Instantaneous Velocity Vectors</option>
+                        <option value="2">Time-Averaged Velocity Vectors</option>
+                    </select>
+                    <br />
+                    <br />
+                    <label for="arrow_scale-input">Arrow scale factor:</label>
+                    <br />
+                    <input type="number" id="arrow_scale-input" name="arrow_scaleValue">
+                    <button id="arrow_scale-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    <label for="arrow_density-input">Arrow density factor:</label>
+                    <br />
+                    <input type="number" id="arrow_density-input" name="arrow_densityValue">
+                    <button id="arrow_density-button" type="button">Update</button>
+                    <br />
+                    <br />
+                    
                     <!-- Updates go to calc_constants.ShowLogos-->
                     <label for="ShowLogos-select">Show USC logos:<br></label>
                     <select id="ShowLogos-select" name="ShowLogosValue">
