@@ -448,7 +448,9 @@ async function init_sim_parameters(canvas, configContent) {
 
     calc_constants.sedC1_erosion = calc_constants.sedC1_psi*Math.pow(calc_constants.sedC1_d50/1000.,-0.2);
     
-    calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * 9.81 * calc_constants.sedC1_d50/1000.);
+    calc_constants.sedC1_shields = 1.0 / ( (calc_constants.sedC1_denrat - 1.0) * calc_constants.g  * calc_constants.sedC1_d50/1000.);
+
+    calc_constants.sedC1_bedloadMPM = 8.0 * Math.sqrt(calc_constants.g  * (calc_constants.sedC1_denrat - 1.0) * Math.pow(calc_constants.sedC1_d50/1000., 3.0));
     
     let nu = 0.000001; // kinematic viscosity of water in m^2/s
     let delta = calc_constants.sedC1_denrat - 1.0;
