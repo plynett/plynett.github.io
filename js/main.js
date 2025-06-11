@@ -1521,10 +1521,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txstateUVstar)
+                        runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                         if (calc_constants.NLSW_or_Bous == 1) { // only update for Celeris Boussinesq equations
                             console.log('Updating neardry & tridiag coef due to change in depth')
-                            runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                            runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                             runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                         }
                     } else if(calc_constants.surfaceToChange == 2){  //when changing friction
@@ -1776,10 +1776,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     runComputeShader(device, commandEncoder, SedTrans_UpdateBottom_uniformBuffer, SedTrans_UpdateBottom_uniforms, SedTrans_UpdateBottom_Pipeline, SedTrans_UpdateBottom_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Botttom, txBottom)
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Change, txBotChange_Sed)
+                    runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                     if (calc_constants.NLSW_or_Bous == 1) { // only need to update neardry and tridiagonal coefficients for Celeris Boussinesq equations
                      //   console.log('Updating neardry & tridiag coef sediment transport depth change')
-                        runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                         runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                     }
                 }
