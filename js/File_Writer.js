@@ -572,6 +572,12 @@ export async function writeSurfaceData(total_time,frame_count_output,device,txBo
         await saveSingleValueToFile(calc_constants.HEIGHT,filename);
     }
 
+    if(calc_constants.useSedTransModel ==1 || calc_constants.disturbanceType == 5){  // write depth if using sediment transport model or landslide
+        let filename = `depth_${frame_count_output}.bin`;
+        await downloadTextureData(device, txBottom, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
+    }
+
     if(calc_constants.write_eta == 1){  // free surface elevation
         let filename = `elev_${frame_count_output}.bin`;
         await downloadTextureData(device, txState, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
