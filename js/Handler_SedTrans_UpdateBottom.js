@@ -64,13 +64,31 @@ export function create_SedTrans_UpdateBottom_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
-            }
+            },
+            {
+                // 7th binding: A texture that the fragment shader will sample from.
+                binding: 7,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 8th binding: A texture that the fragment shader will sample from.
+                binding: 8,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
 
-export function create_SedTrans_UpdateBottom_BindGroup(device, uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change) {
+export function create_SedTrans_UpdateBottom_BindGroup(device, uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change, txHardBottom, txBottomInitial) {
     return device.createBindGroup({
         layout: create_SedTrans_UpdateBottom_BindGroupLayout(device),
         entries: [
@@ -103,6 +121,14 @@ export function create_SedTrans_UpdateBottom_BindGroup(device, uniformBuffer, tx
             {
                 binding: 6,
                 resource: txtemp_SedTrans_Change.createView()
+            },
+            {
+                binding: 7,
+                resource: txHardBottom.createView()
+            },
+            {
+                binding: 8,
+                resource: txBottomInitial.createView()
             },
         ]
     });

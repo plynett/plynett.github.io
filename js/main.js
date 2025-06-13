@@ -812,7 +812,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     
     // SedTrans_UpdateBottom -  Bindings & Uniforms Config
     const SedTrans_UpdateBottom_BindGroupLayout = create_SedTrans_UpdateBottom_BindGroupLayout(device);
-    const SedTrans_UpdateBottom_BindGroup = create_SedTrans_UpdateBottom_BindGroup(device, SedTrans_UpdateBottom_uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change);
+    const SedTrans_UpdateBottom_BindGroup = create_SedTrans_UpdateBottom_BindGroup(device, SedTrans_UpdateBottom_uniformBuffer, txBottom, txBotChange_Sed, erosion_Sed, depostion_Sed, txtemp_SedTrans_Botttom, txtemp_SedTrans_Change, txHardBottom, txBottomInitial);
     const SedTrans_UpdateBottom_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let SedTrans_UpdateBottom_view = new DataView(SedTrans_UpdateBottom_uniforms);
     SedTrans_UpdateBottom_view.setInt32(0, calc_constants.WIDTH, true);          // i32

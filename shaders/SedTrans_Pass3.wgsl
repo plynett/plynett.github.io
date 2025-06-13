@@ -74,6 +74,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let hu = in_state_here.y;
     let hv = in_state_here.z;
     let h = eta - B;
+    let C_state_here = textureLoad(txState_Sed, idx, 0);
 
     // Load values from txXFlux and txYFlux using idx
     var xflux_here = textureLoad(txXFlux_Sed, idx, 0);
@@ -132,15 +133,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // u, v here
     var u4 = textureLoad(txU, idx, 0);
     var v4 = textureLoad(txV, idx, 0);
-    let u = (u4.x + u4.y + u4.z + u4.w) / 4.0;
-    let v = (v4.x + v4.y + v4.z + v4.w) / 4.0;
-    let local_speed = sqrt(u * u + v * v);
+    let u_here = (u4.x + u4.y + u4.z + u4.w) / 4.0;
+    let v_here = (v4.x + v4.y + v4.z + v4.w) / 4.0;
+    let local_speed = sqrt(u_here * u_here + v_here * v_here);
     let shear_velocity = sqrt(f) * local_speed;
     let shields = shear_velocity * shear_velocity * globals.sedC1_shields;
 
     var erosion = 0.0;
     if (shields > globals.sedC1_criticalshields) {
-        erosion = globals.sedC1_erosion * (shields - globals.sedC1_criticalshields) * local_speed * divide_by_h;
+        erosion = globals.sedC1_erosion * (shields - globals.sedC1_criticalshields) * local_speed;
         erosion = max(erosion, 0.0);
     }
     let hardbottom = textureLoad(txHardBottom, idx, 0).x;
@@ -152,8 +153,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // add Bed load MP&M
     var bedload_erosion = 0.0;
     if (shields > globals.sedC1_criticalshields) {
-        u4 = textureLoad(txSed_C1, leftIdx, 0);
-        v4 = textureLoad(txSed_C1, leftIdx, 0);
+        u4 = textureLoad(txU, leftIdx, 0);
+        v4 = textureLoad(txV, leftIdx, 0);
         let u_left = (u4.x + u4.y + u4.z + u4.w) / 4.0;
         let v_left = (v4.x + v4.y + v4.z + v4.w) / 4.0;
         let local_speed_left = sqrt(u_left * u_left + v_left * v_left);
@@ -165,8 +166,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             bedload_left_X = bedload_left * u_left / local_speed_left;
         }
 
-        u4 = textureLoad(txSed_C1, rightIdx, 0);
-        v4 = textureLoad(txSed_C1, rightIdx, 0);
+        u4 = textureLoad(txU, rightIdx, 0);
+        v4 = textureLoad(txV, rightIdx, 0);
         let u_right = (u4.x + u4.y + u4.z + u4.w) / 4.0;
         let v_right = (v4.x + v4.y + v4.z + v4.w) / 4.0;
         let local_speed_right = sqrt(u_right * u_right + v_right * v_right);
@@ -178,8 +179,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             bedload_right_X = bedload_right * u_right / local_speed_right;
         }
 
-        u4 = textureLoad(txSed_C1, upIdx, 0);
-        v4 = textureLoad(txSed_C1, upIdx, 0);
+        u4 = textureLoad(txU, upIdx, 0);
+        v4 = textureLoad(txV, upIdx, 0);
         let u_up = (u4.x + u4.y + u4.z + u4.w) / 4.0;
         let v_up = (v4.x + v4.y + v4.z + v4.w) / 4.0;
         let local_speed_up = sqrt(u_up * u_up + v_up * v_up);
@@ -191,8 +192,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             bedload_up_Y = bedload_up * v_up / local_speed_up;
         }
 
-        u4 = textureLoad(txSed_C1, downIdx, 0);
-        v4 = textureLoad(txSed_C1, downIdx, 0);
+        u4 = textureLoad(txU, downIdx, 0);
+        v4 = textureLoad(txV, downIdx, 0);
         let u_down = (u4.x + u4.y + u4.z + u4.w) / 4.0;
         let v_down = (v4.x + v4.y + v4.z + v4.w) / 4.0;
         let local_speed_down = sqrt(u_down * u_down + v_down * v_down);
@@ -208,10 +209,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         bedload_erosion = 0.5 * globals.one_over_dx * (bedload_right_X - bedload_left_X) + 0.5 * globals.one_over_dy * (bedload_up_Y - bedload_down_Y);
     }
 
-    var deposition = min(2.0 * C_here, 1.0 - globals.sedC1_n) * globals.sedC1_fallvel;
+    var deposition = min(2.0 * C_state_here.x, h * (1.0 - globals.sedC1_n)) * globals.sedC1_fallvel;
     deposition = max(deposition, 0.0);
 
-    let source_term = erosion - deposition;  // do not add bedload here, since this is only for suspended load
+    let source_term = (erosion - deposition) * divide_by_h;  // do not add bedload here, since this is only for suspended load
 
     let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
 
@@ -220,7 +221,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let oldOldies = textureLoad(oldOldGradients_Sed, idx, 0);
 
     var newState = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    let C_state_here = textureLoad(txState_Sed, idx, 0);
     if (globals.timeScheme == 0) {
         newState = C_state_here + globals.dt * d_by_dt;
 
@@ -236,6 +236,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     textureStore(txNewState_Sed, idx, newState);
     textureStore(dU_by_dt_Sed, idx, d_by_dt);
-    textureStore(erosion_Sed, idx, vec4<f32>(erosion + bedload_erosion, 0.0, 0.0, 0.0));  // add bedload here, which is used for bed update
-    textureStore(depostion_Sed, idx, vec4<f32>(deposition, 0.0, 0.0, 0.0));
+    textureStore(erosion_Sed, idx, vec4<f32>(erosion * divide_by_h + bedload_erosion, 0.0, 0.0, 0.0));  // add bedload here, which is used for bed update
+    textureStore(depostion_Sed, idx, vec4<f32>(deposition * divide_by_h, 0.0, 0.0, 0.0));
 }
