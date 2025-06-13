@@ -74,10 +74,11 @@ fn vs_main(v : VertexIn) -> VertexOut {
     // uv directly from position
     out.uv = v.pos * 0.5 + 0.5;
 
-    let elev = textureSampleLevel(txRenderVarsf16, textureSampler_linear, out.uv, 0, 0.0).r;
+    //let elev = textureSampleLevel(txRenderVarsf16, textureSampler_linear, out.uv, 0, 0.0).r;
+    var elev = textureLoad(etaTexture, vec2<i32>(i32(out.uv.x * f32(globals.WIDTH - 1)), i32(out.uv.y * f32(globals.HEIGHT - 1))), 0).r;
 
-    let worldX = out.uv.x * f32(globals.WIDTH)  * globals.dx;
-    let worldY = out.uv.y * f32(globals.HEIGHT) * globals.dy;
+    let worldX = out.uv.x * f32(globals.WIDTH - 1)  * globals.dx;
+    let worldY = out.uv.y * f32(globals.HEIGHT - 1) * globals.dy;
     let worldZ = elev * globals.renderZScale;
 
     out.clip_position = globals.viewProj * vec4<f32>(worldX, worldY, worldZ, 1.0);

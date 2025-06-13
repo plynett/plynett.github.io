@@ -377,8 +377,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
 
     if (photorealistic == 1) {  // add lighting for photo-realistic view
-        let width = f32(globals.WIDTH) * globals.dx;
-        let length = f32(globals.HEIGHT) * globals.dy;     
+        let width = f32(globals.WIDTH - 1) * globals.dx;
+        let length = f32(globals.HEIGHT - 1) * globals.dy;     
 
         // define local component index
         component_index = i32(0.01 + textureSample(txDesignComponents, textureSampler, uv).r); // this is equivalent to a floor operation, so add the shift just in case

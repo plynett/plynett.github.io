@@ -170,8 +170,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const textureSampler_linear = device.createSampler({
         magFilter: 'linear',
         minFilter: 'linear',
-        addressModeU: 'repeat',
-        addressModeV: 'repeat'
+        addressModeU: 'mirror-repeat',
+        addressModeV: 'mirror-repeat'
     });
 
     // Create a texturse with the desired dimensions (WIDTH, HEIGHT) and format 'rgba32float'.

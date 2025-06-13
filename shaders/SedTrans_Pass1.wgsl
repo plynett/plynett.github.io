@@ -93,7 +93,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     // modify limiters based on whether near the inundation limit
     let wetdry = min(h_here, min(h_south, min(h_north, min(h_west, h_east))));
     let rampcoef = min(max(0.0, wetdry / (0.02 * globals.base_depth)), 1.0);
-    let TWO_THETAc = globals.TWO_THETA * rampcoef + 2.0 * (1.0 - rampcoef);  // transition to full upwinding with overland flow, start transition at base_depth/50.
+    let TWO_THETAc = 2.0; //globals.TWO_THETA * rampcoef + 2.0 * (1.0 - rampcoef);  // transition to full upwinding with overland flow, start transition at base_depth/50.
 
     let c1_wy = Reconstruct(in_west.x, in_here.x, in_east.x, TWO_THETAc);
     let c1_zx = Reconstruct(in_south.x, in_here.x, in_north.x, TWO_THETAc);
