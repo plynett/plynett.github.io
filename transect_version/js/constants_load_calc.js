@@ -66,8 +66,8 @@ var calc_constants = {
     incident_wave_H: 0,  // Height (m) of Sine Wave / Pulse / Solitary Wave, or Significant Wave Height of Spectrum
     incident_wave_T: 0,  //Period (sec) of Sine Wave / Pulse, or Peak Period of Spectrum [not used for Solitary Wave]
     incident_wave_direction: 0,  // Wave Direction (deg CCW from E [-180 to 180])
-    numberOfWaves: 0, // number of wave components to be created
-
+    numberOfWaves: 2, // number of wave components to be created
+    
     // Vessel motion parameters (initial development)
     ship_posx: -100.0,  // initial ship position, if initially inside domain, the initial free surface must include the ship displacement 
     ship_posy: 450.0,
@@ -171,7 +171,7 @@ var calc_constants = {
     // plotting parameters
     colorVal_max: 1.0,  // value that maps to the "highest" color
     colorVal_min: -1.0,  // value that maps to the "lowest" color
-    colorMap_choice: 0,  // decision variable for the colormap to use during rendering
+    colorMap_choice: 2,  // decision variable for the colormap to use during rendering
     surfaceToPlot: 0, // which surface (eta, u, v, vort) to plot
     bathy_cmap_zero: 0.0, // shift in the topo shading colormap, sometimes need to move to see topo
     showBreaking: 1,  //  show breaking (foam) areas when ==1

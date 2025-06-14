@@ -142,6 +142,66 @@ export async function loadFrictionSurface(frictionContent, calc_constants) {
     return friction2D;
 }
 
+// load transect wave data
+export async function loadTransectWaveData(waveContent, calc_constants) {
+    let response;
+    let lines;
+    let filePath;
+    // Try to parse the uploaded content, if fails, then load server side file
+    try {
+
+        lines = waveContent.split('\n');
+
+        console.log("Transect Wave data loaded successfully from the uploaded file.");
+
+    } catch (error) {
+        console.log("Loading server side example transect wave file");
+        filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'waves.txt';
+        try {
+            response = await fetch(filePath);
+        } catch (error) {
+            console.error("Could not find transect wave file at " + filePath);
+            return null;
+        }
+
+        if (!response.ok) {
+            console.error("Error fetching transect wave file:", response.statusText);
+            return null;
+        }
+
+        const fileContents = await response.text();
+
+        lines = fileContents.split('\n');
+        console.log("Server side transect wave data loaded successfully.");
+    }
+
+    const TransectWaves = Array.from({ length: calc_constants.numberOfWaves }, () => Array(3 * calc_constants.HEIGHT));
+
+    // Parse the depth data.
+    for (let y = 0; y < 3 * calc_constants.HEIGHT; y++) {
+        // Split each line by spaces or tabs.
+        const TransectWavesValues = lines[y].split(/\s+/).filter(Boolean);
+
+        if (TransectWavesValues.length !== calc_constants.numberOfWaves) {
+            console.error("Transect wave file at " + filePath + " is not in the correct format.");
+            return null;
+        }
+
+        for (let x = 0; x < calc_constants.numberOfWaves; x++) {
+            const parsedValue = parseFloat(TransectWavesValues[x]);
+            if (isNaN(parsedValue)) {
+                console.error(`Could not parse transect wave value at [${x}, ${y}] in transect wave file at ${filePath}`);
+                return null;
+            }
+            TransectWaves[x][y] = parsedValue;
+        }
+    }
+
+    console.log("Transect wave data parsed successfully.");
+
+    return TransectWaves;
+}
+
 
 // load wave data
 export async function loadWaveData(waveContent, calc_constants) {

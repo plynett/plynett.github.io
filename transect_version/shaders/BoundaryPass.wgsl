@@ -55,6 +55,10 @@ struct Globals {
 @group(0) @binding(7) var txBreaking: texture_2d<f32>;
 @group(0) @binding(8) var txtemp_Breaking: texture_storage_2d<rgba32float, write>;
 
+@group(0) @binding(9) var txWaves_Transect: texture_2d<f32>;
+
+
+
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let real_idx = vec2<i32>(globals.boundary_shift  - idx.x, idx.y); 
     let in_state_real = textureLoad(txState, real_idx, 0);
@@ -177,7 +181,8 @@ fn BoundarySineWave(idx: vec2<i32>, iBC: i32, jBC: i32, current_boundary: i32) -
     
     if (d_here > 0.0001) {
         for (var iw: i32 = 0; iw < globals.numberOfWaves; iw = iw + 1) {
-            let wave = textureLoad(txWaves, vec2<i32>(iw, 0), 0);
+            //let wave = textureLoad(txWaves, vec2<i32>(iw, 0), 0);
+            let wave = textureLoad(txWaves_Transect, vec2<i32>(iw, idx.y), 0);
             result = result + sineWave(x, y, globals.total_time, d_here, wave.r, wave.g, wave.b, wave.a, current_boundary);
         }
     }

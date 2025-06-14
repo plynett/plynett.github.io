@@ -12,32 +12,32 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
     const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
 
     // remove single point islands
-    let change_point = 1.;
-    let new_count = 0.;
-    let old_count = 0.;
-    while (change_point > 0.5)  {
-        old_count = new_count;
-        new_count = 0.;
-        for (let y = 1; y < calc_constants.HEIGHT-1; y++) {
-            for (let x = 1; x < calc_constants.WIDTH-1; x++) {
-                if (bathy2D[x][y] >= 0.0){  // dry point
-                    if (bathy2D[x+1][y] <= 0.0 && bathy2D[x-1][y] <= 0.0 && bathy2D[x][y+1] <= 0.0 && bathy2D[x][y-1] <= 0.0 ){
-                        bathy2D[x][y] = 0.0;
-                        new_count = new_count + 1.0;
-                    }
-                }
-            }
-        }
-        change_point = new_count - old_count;
-        if (change_point > 0.5 ){
-            console.log("Flattened ", change_point, " single point islands from initial bathy/topo");
-        }
-    }
+    // let change_point = 1.;
+    // let new_count = 0.;
+    // let old_count = 0.;
+    // while (change_point > 0.5)  {
+    //     old_count = new_count;
+    //     new_count = 0.;
+    //     for (let y = 1; y < calc_constants.HEIGHT-1; y++) {
+    //         for (let x = 1; x < calc_constants.WIDTH-1; x++) {
+    //             if (bathy2D[x][y] >= 0.0){  // dry point
+    //                 if (bathy2D[x+1][y] <= 0.0 && bathy2D[x-1][y] <= 0.0 ){
+    //                     bathy2D[x][y] = 0.0;
+    //                     new_count = new_count + 1.0;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     change_point = new_count - old_count;
+    //     if (change_point > 0.5 ){
+    //         console.log("Flattened ", change_point, " single point islands from initial bathy/topo");
+    //     }
+    // }
 
     let lengthCheck = 3;    // check within three points
     for (let y = 0; y < calc_constants.HEIGHT; y++) {
         for (let x = 0; x < calc_constants.WIDTH; x++) {
-            let BN = 0.5 * bathy2D[x][y] + 0.5 * bathy2D[x][Math.min(calc_constants.HEIGHT - 1, y + 1)];
+            let BN = 0.0; // should not be used. 0.5 * bathy2D[x][y] + 0.5 * bathy2D[x][Math.min(calc_constants.HEIGHT - 1, y + 1)];
             let BE = 0.5 * bathy2D[x][y] + 0.5 * bathy2D[Math.min(calc_constants.WIDTH - 1, x + 1)][y];
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
@@ -47,16 +47,16 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
             paddedFlatData[paddedIndex + 3] = 99;  // alpha
 
             // boolean near-dry check
-            for (let yy = y - lengthCheck; yy <= y + lengthCheck; ++yy) {
+            //for (let yy = y - lengthCheck; yy <= y + lengthCheck; ++yy) {
                 for (let xx = x - lengthCheck; xx <= x + lengthCheck; ++xx) {
                     let xC = Math.min(calc_constants.WIDTH - 1, Math.max(0, xx));
-                    let yC = Math.min(calc_constants.HEIGHT - 1, Math.max(0, yy));
+                   // let yC = Math.min(calc_constants.HEIGHT - 1, Math.max(0, yy));
 
-                    if (bathy2D[xC][yC] >= 0) {
+                    if (bathy2D[xC][y] >= 0) {
                         paddedFlatData[paddedIndex + 3] = -99;
                     }
                 }
-            }
+            //}
 
      //       if (y < 4 || x < 4 || y > calc_constants.HEIGHT - 3 || x > calc_constants.WIDTH - 3) {
      //           paddedFlatData[paddedIndex + 3] = -99;
@@ -87,6 +87,48 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
 
     return paddedFlatData;
 }
+
+
+function copyTransectWaveDataToTexture(calc_constants, waveData, device, txWaves_Transect) {
+    // copy waveData into txWaves_Transect
+
+    const actualBytesPerRow = calc_constants.numberOfWaves * 4 * 4; // 4 channels and 4 bytes per float
+    const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
+    const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
+
+    for (let y = 0; y < calc_constants.HEIGHT; y++) {
+        for (let x = 0; x < calc_constants.numberOfWaves; x++) {
+
+            const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
+            paddedFlatData[paddedIndex] = waveData[x][y];  // red, amplitude
+            paddedFlatData[paddedIndex + 1] = waveData[x][y + calc_constants.HEIGHT];  // green, period
+            paddedFlatData[paddedIndex + 2] = 0.0;  // blue, direction - zeros
+            paddedFlatData[paddedIndex + 3] = waveData[x][y + 2 * calc_constants.HEIGHT];  // alpha, phases
+        }
+    }
+    const buffer = device.createBuffer({
+        size: paddedFlatData.byteLength,
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
+    buffer.unmap();
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyBufferToTexture({
+        buffer: buffer,
+        bytesPerRow: requiredBytesPerRow,
+        rowsPerImage: calc_constants.HEIGHT,
+    }, {
+        texture: txWaves_Transect
+    }, {
+        width: calc_constants.numberOfWaves,
+        height: calc_constants.HEIGHT,
+        depthOrArrayLayers: 1
+    });
+    device.queue.submit([commandEncoder.finish()]);
+
+}
+
 
 function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
     // copy waveData into txWaves
@@ -502,4 +544,4 @@ export function copy2DDataTo3DTexture(device, src2D, dst3D, dstLayer, width, hei
 
 
 
-export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};
+export { copyBathyDataToTexture, copyTransectWaveDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};

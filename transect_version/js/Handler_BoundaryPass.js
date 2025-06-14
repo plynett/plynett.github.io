@@ -83,12 +83,21 @@ export function create_BoundaryPass_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 2D texture
                 }
-            }
+            },
+            {
+                // 9th binding: A texture that the fragment shader will sample from.
+                binding: 9,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
         ]
     });
 }
 
-export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed, txBreaking, txtemp_Breaking) {
+export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed, txBreaking, txtemp_Breaking, txWaves_Transect) {
     return device.createBindGroup({
         layout: create_BoundaryPass_BindGroupLayout(device),
         entries: [
@@ -129,6 +138,10 @@ export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_sta
             {
                 binding: 8,
                 resource: txtemp_Breaking.createView()
+            } ,
+            {
+                binding: 9,
+                resource: txWaves_Transect.createView()
             } 
         ]
     });

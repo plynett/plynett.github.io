@@ -360,7 +360,7 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
  //   } else if (surfaceToPlot == 20) {  // sed C1 net deposition 
  //       render_surface = textureSample(depostion_Sed, textureSampler, uv).r - textureSample(erosion_Sed, textureSampler, uv).r; 
     } else if (surfaceToPlot == 21) {  // sed C1 depth change
-        render_surface = textureSample(txBotChange_Sed, textureSampler, uv).r; 
+        render_surface = textureSample(txBotChange_Sed, textureSampler, uv).b; 
         waves = textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).g;  // change to max so maxs are plotted everywhere, including high runup areas that are not currently wet
     } else if (surfaceToPlot == 22) {  // design components 
         render_surface = textureSample(txDesignComponents, textureSampler, uv).r; 

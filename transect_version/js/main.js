@@ -1,10 +1,10 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadFrictionSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadFrictionSurface, loadTransectWaveData, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+import { copyBathyDataToTexture, copyTransectWaveDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { createSkyboxBindGroupLayout, createSkyboxBindGroup} from './Handler_Skybox.js';  // group bindings for skybox shaders
@@ -73,8 +73,11 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     // Load depth surface file, place into 2D array bathy2D
     let bathy2D = await loadDepthSurface(bathymetryContent, calc_constants);  // Start this only after the first function completes
     // Load wave data file, place into waveArray 
-    let { numberOfWaves, waveData } = await loadWaveData(waveContent, calc_constants);  // Start this only after the first function completes
-    calc_constants.numberOfWaves = numberOfWaves; 
+    //let { numberOfWaves, waveData } = await loadWaveData(waveContent, calc_constants);  // Start this only after the first function completes
+    //calc_constants.numberOfWaves = numberOfWaves; 
+
+    let waveData = await loadTransectWaveData(waveContent, calc_constants);  // Start this only after the first function completes
+ 
     return { bathy2D, waveData };
 }
 
@@ -288,6 +291,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 2, allTextures);  // used to store the f16 render variables for the render pipeline
 
     const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
+    const txWaves_Transect = create_2D_Texture(device, calc_constants.numberOfWaves, calc_constants.HEIGHT, allTextures);  // stores various mean values
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
     const txTimeSeries_Data = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
 
@@ -296,7 +300,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // fill in the wave data texture
     if (calc_constants.numberOfWaves > 0) {
-        copyWaveDataToTexture(calc_constants, waveData, device, txWaves);
+       // copyWaveDataToTexture(calc_constants, waveData, device, txWaves);
+        copyTransectWaveDataToTexture(calc_constants, waveData, device, txWaves_Transect);
     }
 
     // fill in the time series location texture
@@ -719,8 +724,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
-    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking);
-    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking);
+    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txWaves_Transect);
+    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txWaves_Transect);
     const BoundaryPass_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
     BoundaryPass_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -1023,76 +1028,76 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Copytxf32_txf16_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
 
     // Fetch the source code of various shaders used in the application.
-    const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');
+    const Pass0_ShaderCode = await fetchShader('/transect_version/shaders/Pass0.wgsl');
     var Pass1_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
         console.log("Using 4th-order MUSCL-TVD reconstruction scheme in Pass1");
-        Pass1_ShaderCode = await fetchShader('/shaders/Pass1_HighOrder.wgsl');
+        Pass1_ShaderCode = await fetchShader('/transect_version/shaders/Pass1_HighOrder.wgsl');
     } else {
-        Pass1_ShaderCode = await fetchShader('/shaders/Pass1.wgsl');
+        Pass1_ShaderCode = await fetchShader('/transect_version/shaders/Pass1.wgsl');
     }
     var Pass2_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
         console.log("Using HLLEM Flux Solver in Pass2");
-        Pass2_ShaderCode = await fetchShader('/shaders/Pass2_HighOrder.wgsl');  
+        Pass2_ShaderCode = await fetchShader('/transect_version/shaders/Pass2_HighOrder.wgsl');  
     } else {
-        Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');  
+        Pass2_ShaderCode = await fetchShader('/transect_version/shaders/Pass2.wgsl');  
     }
-    const PassBreaking_ShaderCode = await fetchShader('/shaders/Pass_Breaking.wgsl'); 
-    const Pass3A_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3A_COULWAVE.wgsl')
-    const Pass3B_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3B_COULWAVE.wgsl')
-    const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
+    const PassBreaking_ShaderCode = await fetchShader('/transect_version/shaders/Pass_Breaking.wgsl'); 
+    const Pass3A_Coulwave_ShaderCode= await fetchShader('/transect_version/shaders/Pass3A_COULWAVE.wgsl')
+    const Pass3B_Coulwave_ShaderCode= await fetchShader('/transect_version/shaders/Pass3B_COULWAVE.wgsl')
+    const Pass3_ShaderCode_NLSW = await fetchShader('/transect_version/shaders/Pass3_NLSW.wgsl')
     var Pass3_ShaderCode_Bous = null;
     if (calc_constants.NLSW_or_Bous == 1) {
         console.log("Using Celeris equations in Boussinesq mode");
-        Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
+        Pass3_ShaderCode_Bous = await fetchShader('/transect_version/shaders/Pass3_Bous.wgsl');
     }
     else if (calc_constants.NLSW_or_Bous == 2) {
         console.log("Using COULWAVE equations in Boussinesq mode");
-        Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_COULWAVE.wgsl');
+        Pass3_ShaderCode_Bous = await fetchShader('/transect_version/shaders/Pass3_COULWAVE.wgsl');
     }
     
-    const SedTrans_Pass1_ShaderCode = await fetchShader('/shaders/SedTrans_Pass1.wgsl');
-    const SedTrans_Pass3_ShaderCode = await fetchShader('/shaders/SedTrans_Pass3.wgsl')
-    const BoundaryPass_ShaderCode = await fetchShader('/shaders/BoundaryPass.wgsl');
+    const SedTrans_Pass1_ShaderCode = await fetchShader('/transect_version/shaders/SedTrans_Pass1.wgsl');
+    const SedTrans_Pass3_ShaderCode = await fetchShader('/transect_version/shaders/SedTrans_Pass3.wgsl')
+    const BoundaryPass_ShaderCode = await fetchShader('/transect_version/shaders/BoundaryPass.wgsl');
     
     var TridiagX_ShaderCode = null; var TridiagY_ShaderCode = null;  //we can likely fold thee back into a single shader
     if (calc_constants.NLSW_or_Bous == 2) {
-        TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx_COULWAVE.wgsl');
-        TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy_COULWAVE.wgsl');
+        TridiagX_ShaderCode = await fetchShader('/transect_version/shaders/TriDiag_PCRx_COULWAVE.wgsl');
+        TridiagY_ShaderCode = await fetchShader('/transect_version/shaders/TriDiag_PCRy_COULWAVE.wgsl');
     } else {
-        TridiagX_ShaderCode = await fetchShader('/shaders/TriDiag_PCRx.wgsl');
-        TridiagY_ShaderCode = await fetchShader('/shaders/TriDiag_PCRy.wgsl');
+        TridiagX_ShaderCode = await fetchShader('/transect_version/shaders/TriDiag_PCRx.wgsl');
+        TridiagY_ShaderCode = await fetchShader('/transect_version/shaders/TriDiag_PCRy.wgsl');
     }
 
-    const SedTrans_UpdateBottom_ShaderCode = await fetchShader('/shaders/SedTrans_UpdateBottom.wgsl');
-    const Updateneardry_ShaderCode = await fetchShader('/shaders/Update_neardry.wgsl');
+    const SedTrans_UpdateBottom_ShaderCode = await fetchShader('/transect_version/shaders/SedTrans_UpdateBottom.wgsl');
+    const Updateneardry_ShaderCode = await fetchShader('/transect_version/shaders/Update_neardry.wgsl');
     
     var UpdateTrid_ShaderCode = null;  // we can likely fold these back into a single shader
     if (calc_constants.NLSW_or_Bous == 2) {
-        UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef_COULWAVE.wgsl');
+        UpdateTrid_ShaderCode = await fetchShader('/transect_version/shaders/Update_TriDiag_coef_COULWAVE.wgsl');
     } else {
-        UpdateTrid_ShaderCode = await fetchShader('/shaders/Update_TriDiag_coef.wgsl');
+        UpdateTrid_ShaderCode = await fetchShader('/transect_version/shaders/Update_TriDiag_coef.wgsl');
     }
 
-    const CalcMeans_ShaderCode = await fetchShader('/shaders/CalcMeans.wgsl');
-    const CalcWaveHeight_ShaderCode = await fetchShader('/shaders/CalcWaveHeight.wgsl');
-    const AddDisturbance_ShaderCode = await fetchShader('/shaders/AddDisturbance.wgsl');
-    const MouseClickChange_ShaderCode = await fetchShader('/shaders/MouseClickChange.wgsl');
-    const ExtractTimeSeries_ShaderCode = await fetchShader('/shaders/ExtractTimeSeries.wgsl');
+    const CalcMeans_ShaderCode = await fetchShader('/transect_version/shaders/CalcMeans.wgsl');
+    const CalcWaveHeight_ShaderCode = await fetchShader('/transect_version/shaders/CalcWaveHeight.wgsl');
+    const AddDisturbance_ShaderCode = await fetchShader('/transect_version/shaders/AddDisturbance.wgsl');
+    const MouseClickChange_ShaderCode = await fetchShader('/transect_version/shaders/MouseClickChange.wgsl');
+    const ExtractTimeSeries_ShaderCode = await fetchShader('/transect_version/shaders/ExtractTimeSeries.wgsl');
 
-    const Skybox_vertexShaderCode = await fetchShader('/shaders/skybox.vertex.wgsl');
-    const Skybox_fragmentShaderCode = await fetchShader('/shaders/skybox.fragment.wgsl');
-    //const Duck_vertexShaderCode = await fetchShader('/shaders/duck.vertex.wgsl');
-    //const Duck_fragmentShaderCode = await fetchShader('/shaders/duck.fragment.wgsl');
-    const Model_vertexShaderCode = await fetchShader('/shaders/model.vertex.wgsl');
-    const Model_fragmentShaderCode = await fetchShader('/shaders/model.fragment.wgsl');
+    const Skybox_vertexShaderCode = await fetchShader('/transect_version/shaders/skybox.vertex.wgsl');
+    const Skybox_fragmentShaderCode = await fetchShader('/transect_version/shaders/skybox.fragment.wgsl');
+    //const Duck_vertexShaderCode = await fetchShader('/transect_version/shaders/duck.vertex.wgsl');
+    //const Duck_fragmentShaderCode = await fetchShader('/transect_version/shaders/duck.fragment.wgsl');
+    const Model_vertexShaderCode = await fetchShader('/transect_version/shaders/model.vertex.wgsl');
+    const Model_fragmentShaderCode = await fetchShader('/transect_version/shaders/model.fragment.wgsl');
 
-    const vertexShaderCode = await fetchShader('/shaders/vertex.wgsl');
-    const vertex3DShaderCode = await fetchShader('/shaders/vertex3D.wgsl');
-    const fragmentShaderCode = await fetchShader('/shaders/fragment.wgsl');
+    const vertexShaderCode = await fetchShader('/transect_version/shaders/vertex.wgsl');
+    const vertex3DShaderCode = await fetchShader('/transect_version/shaders/vertex3D.wgsl');
+    const fragmentShaderCode = await fetchShader('/transect_version/shaders/fragment.wgsl');
 
-    const Copytxf32_txf16_ShaderCode = await fetchShader('/shaders/Copytxf32_txf16.wgsl');
+    const Copytxf32_txf16_ShaderCode = await fetchShader('/transect_version/shaders/Copytxf32_txf16.wgsl');
     console.log("Shaders loaded.");
 
     // Configure the pipelines, one for each shader.
