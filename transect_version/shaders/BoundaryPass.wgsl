@@ -172,7 +172,7 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
 }
 
 fn BoundarySineWave(idx: vec2<i32>, iBC: i32, jBC: i32, current_boundary: i32) -> vec4<f32> {
-    let B_here = -globals.base_depth; //textureLoad(txBottom, idx, 0).b;
+    let B_here = textureLoad(txBottom, idx, 0).b;
     let d_here = max(0.0, -B_here);
     let x = f32(idx.x - iBC) * globals.dx;
    // let y = f32(idx.y - jBC) * globals.dy;
