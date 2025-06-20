@@ -188,6 +188,67 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     BCState_Sed = max(BCState_Sed,zero);  // concentration can not go negative
     
+
+
+    // Periodic boundary conditions
+    let periodic_overlap = 2; // number of cells that overlap between periodic boundaries
+    // west boundary
+    if (globals.west_boundary_type == 3) {
+        if (idx.x <= periodic_overlap - 1) {
+            let idx_east = vec2<i32>(globals.width - 2 * periodic_overlap + idx.x - 1, idx.y);
+            BCState = textureLoad(txState, idx_east, 0);
+            BCState_Sed = textureLoad(txState_Sed, idx_east, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_east, 0);
+        }
+        else if (idx.x == periodic_overlap) {
+            let idx_east = vec2<i32>(globals.width - 2 * periodic_overlap + idx.x - 1, idx.y);
+            BCState.y = 0.5 * (BCState.y + textureLoad(txState, idx_east, 0).y);
+        }
+    }
+
+    // east boundary
+    if (globals.east_boundary_type == 3) {
+        if (idx.x >= globals.width  - periodic_overlap) {
+            let idx_west = vec2<i32>(2 * periodic_overlap - ( (globals.width - 1) - idx.x ) , idx.y);
+            BCState = textureLoad(txState, idx_west, 0);
+            BCState_Sed = textureLoad(txState_Sed, idx_west, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_west, 0);
+        }
+        else if (idx.x == globals.width - periodic_overlap - 1) {
+            let idx_west = vec2<i32>(2 * periodic_overlap - ( (globals.width - 1) - idx.x ) , idx.y);
+            BCState.y = 0.5 * (BCState.y + textureLoad(txState, idx_west, 0).y);
+        }
+    }
+
+    // south boundary
+    if (globals.south_boundary_type == 3) {
+        if (idx.y <= periodic_overlap - 1) {
+            let idx_north = vec2<i32>(idx.x, globals.height - 2 * periodic_overlap + idx.y - 1);
+            BCState = textureLoad(txState, idx_north, 0);
+            BCState_Sed = textureLoad(txState_Sed, idx_north, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_north, 0);
+        }
+        else if (idx.y == periodic_overlap) {
+            let idx_north = vec2<i32>(idx.x, globals.height - 2 * periodic_overlap + idx.y - 1);
+            BCState.z = 0.5 * (BCState.z + textureLoad(txState, idx_north, 0).z);
+        }
+    }
+
+    // north boundary
+    if (globals.north_boundary_type == 3) {
+        if (idx.y >= globals.height - periodic_overlap) {
+            let idx_south = vec2<i32>(idx.x, 2 * periodic_overlap - ( (globals.height - 1) - idx.y ) );
+            BCState = textureLoad(txState, idx_south, 0);
+            BCState_Sed = textureLoad(txState_Sed, idx_south, 0);
+            BCState_Breaking = textureLoad(txBreaking, idx_south, 0);
+        }
+        else if (idx.y == globals.height - periodic_overlap - 1) {
+            let idx_south = vec2<i32>(idx.x, 2 * periodic_overlap - ( (globals.height - 1) - idx.y ) );
+            BCState.z = 0.5 * (BCState.z + textureLoad(txState, idx_south, 0).z);
+        }
+    }
+
+
     // Sponge Layers
     // west boundary
     if (globals.west_boundary_type == 1 && idx.x <= 2 + (globals.BoundaryWidth)) {
@@ -324,47 +385,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let theta = -3.1415 / 2.0;
             BCState = SolitaryWave(idx, x0, y0, theta);
             BCState_Sed = zero;
-        }
-    }
-
-    // Periodic boundary conditions
-    // west boundary
-    if (globals.west_boundary_type == 3) {
-        if (idx.x <= 1) {
-            let idx_east = vec2<i32>(globals.width - (6 - idx.x), idx.y);
-            BCState = textureLoad(txState, idx_east, 0);
-            BCState_Sed = textureLoad(txState_Sed, idx_east, 0);
-            BCState_Breaking = textureLoad(txBreaking, idx_east, 0);
-        }
-    }
-
-    // east boundary
-    if (globals.east_boundary_type == 3) {
-        if (idx.x >= globals.width - 2) {
-            let idx_west = vec2<i32>(idx.x + 6 - globals.width, idx.y);
-            BCState = textureLoad(txState, idx_west, 0);
-            BCState_Sed = textureLoad(txState_Sed, idx_west, 0);
-            BCState_Breaking = textureLoad(txBreaking, idx_west, 0);
-        }
-    }
-
-    // south boundary
-    if (globals.south_boundary_type == 3) {
-        if (idx.y <= 1) {
-            let idx_north = vec2<i32>(idx.x, globals.height - (6 - idx.y));
-            BCState = textureLoad(txState, idx_north, 0);
-            BCState_Sed = textureLoad(txState_Sed, idx_north, 0);
-            BCState_Breaking = textureLoad(txBreaking, idx_north, 0);
-        }
-    }
-
-    // north boundary
-    if (globals.north_boundary_type == 3) {
-        if (idx.y >= globals.height - 2) {
-            let idx_south = vec2<i32>(idx.x, idx.y + 6 - globals.height);
-            BCState = textureLoad(txState, idx_south, 0);
-            BCState_Sed = textureLoad(txState_Sed, idx_south, 0);
-            BCState_Breaking = textureLoad(txBreaking, idx_south, 0);
         }
     }
 
