@@ -855,7 +855,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // CalcMeans -  Bindings & Uniforms Config
     const CalcMeans_BindGroupLayout = create_CalcMeans_BindGroupLayout(device);
-    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities, txC);
+    const CalcMeans_BindGroup = create_CalcMeans_BindGroup(device, CalcMeans_uniformBuffer, txMeans, txMeans_Speed, txMeans_Momflux, txH, txU, txV, txBottom, txtemp_Means, txtemp_Means_Speed, txtemp_Means_Momflux, txModelVelocities, txC, txNewState);
     const CalcMeans_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let CalcMeans_view = new DataView(CalcMeans_uniforms);
     CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
@@ -1045,6 +1045,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let Copytxf32_txf16_view = new DataView(Copytxf32_txf16_uniforms);
     Copytxf32_txf16_view.setInt32(0, calc_constants.WIDTH, true);          // i32
     Copytxf32_txf16_view.setInt32(4, calc_constants.HEIGHT, true);          // i32
+    Copytxf32_txf16_view.setFloat32(8, calc_constants.delta, true);           // f32
+    Copytxf32_txf16_view.setFloat32(12, calc_constants.base_depth, true);           // f32
 
     // Fetch the source code of various shaders used in the application.
     const Pass0_ShaderCode = await fetchShader('/shaders/Pass0.wgsl');

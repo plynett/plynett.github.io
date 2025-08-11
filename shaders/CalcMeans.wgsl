@@ -22,6 +22,7 @@ struct Globals {
 @group(0) @binding(10) var txtemp_Means_Momflux: texture_storage_2d<rgba32float, write>; 
 @group(0) @binding(11) var txModelVelocities: texture_storage_2d<rgba32float, write>; 
 @group(0) @binding(12) var txC: texture_2d<f32>;
+@group(0) @binding(13) var txNewState: texture_2d<f32>;
 
 
 @compute @workgroup_size(16, 16)
@@ -43,7 +44,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let u = (u4.x + u4.y + u4.z + u4.w) / 4.0;
     let v = (v4.x + v4.y + v4.z + v4.w) / 4.0;
     let c = (c4.x + c4.y + c4.z + c4.w) / 4.0;
-    let eta = h + bottom;
+    var eta = textureLoad(txNewState, idx, 0).x;
     let P = h*u;
     let Q = h*v;
     let state_here = vec4<f32>(eta, u, v, c);
@@ -51,6 +52,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let hu2 = h*u*u;
     let hv2 = h*v*v;
     let momflux = sqrt(hu2*hu2 + hv2*hv2);
+    if (eta - bottom < globals.delta) {
+        // If the water depth is below the base depth, set velocities to zero
+        eta = -10.*globals.base_depth; // This is a placeholder for dry cells
+    }
 
     // for mean vorticity
     let rightIdx = min(idx + vec2<i32>(1, 0), vec2<i32>(i32(globals.width)-1, i32(globals.height)-1));
