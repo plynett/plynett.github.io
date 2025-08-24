@@ -275,6 +275,9 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     let TextDraw = textureSample(txDraw, textureSampler, uv).rgb;
     let H = max(globals.delta, waves - bottom);
     var render_surface = waves;
+    
+    // depth change option
+    let depth_change = textureSample(bottomTexture, textureSampler, uv).b - textureSample(erosion_Sed, textureSampler, uv).b; 
 
     // if not just plotting waves, load the other stuff
     if (surfaceToPlot == 0) {  // waves
@@ -561,7 +564,12 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     if(photorealistic != 0 && (component_index == 3 || component_index >= 5)){design_component_allowed_on_land = 1;}  //magroves, and other components that can exist above zero datum
 
     if (bottom + globals.delta >= waves && surfaceToPlot != 6 && design_component_allowed_on_land == 0) {
-        if(globals.IsOverlayMapLoaded == 1) {
+
+        if (abs(depth_change) > globals.delta) {
+            let depth_change_scale = depth_change/globals.base_depth*50.0;
+            color_rgb = vec3<f32>(150+depth_change_scale, 150+depth_change_scale, 150+depth_change_scale)/256; // light gray
+        }
+        else if(globals.IsOverlayMapLoaded == 1) {
             color_rgb = GoogleMap;
         }
         else {

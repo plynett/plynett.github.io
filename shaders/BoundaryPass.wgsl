@@ -55,6 +55,8 @@ struct Globals {
 @group(0) @binding(7) var txBreaking: texture_2d<f32>;
 @group(0) @binding(8) var txtemp_Breaking: texture_storage_2d<rgba32float, write>;
 
+@group(0) @binding(9) var txBoundaryForcing: texture_2d<f32>;
+
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let real_idx = vec2<i32>(globals.boundary_shift  - idx.x, idx.y); 
     let in_state_real = textureLoad(txState, real_idx, 0);
@@ -184,7 +186,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var BCState = textureLoad(txState, idx, 0);
     var BCState_Sed = textureLoad(txState_Sed, idx, 0);
     var BCState_Breaking = textureLoad(txBreaking, idx, 0);
-    let B_here = textureLoad(txBottom, idx, 0).z;
+    
+    // dhdt for depth change option
+    let dhdt = textureLoad(txBoundaryForcing, idx, 0).y;
+
+    let B_here = textureLoad(txBottom, idx, 0).z - abs(dhdt) * globals.dt;
     let zero = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     BCState_Sed = max(BCState_Sed,zero);  // concentration can not go negative
     

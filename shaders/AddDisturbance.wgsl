@@ -112,7 +112,7 @@ fn depth_motion(xloc_in: f32, yloc_in: f32, bottom: f32, time: f32, dt: f32, bot
     let traj_timefactor = globals.disturbance_traj_timefactor;
     let final_traj = globals.disturbance_final_traj;
 
-    let angle = globals.disturbanceDir;
+    //let angle = globals.disturbanceDir;
     let p3 = globals.disturbanceLength;
     let p4 = globals.disturbanceWidth;
 
@@ -121,8 +121,10 @@ fn depth_motion(xloc_in: f32, yloc_in: f32, bottom: f32, time: f32, dt: f32, bot
     let gamma_val = globals.disturbance_gamma_val;
 
     let displacement = max_displacement*(1.0+tanh((time-time_shift)/(change_timescale)))/2.0;
-    let traj_angle = min(final_traj,initial_traj + displacement/max_displacement*traj_timefactor) * 3.1415 / 180.; 
+    let traj_angle = min(final_traj,initial_traj + displacement/max_displacement*(final_traj-initial_traj)*traj_timefactor) * 3.1415 / 180.; 
     
+    let angle = 3.1415-traj_angle;
+
     let d_xdist=displacement*cos(traj_angle);
     let d_ydist=-displacement*sin(traj_angle);
     
@@ -219,10 +221,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         depth_change = depth_motion(xloc, yloc, bottom, globals.time, globals.dt, bottom_initial);
         B_here.z = depth_change.z;
 
-        if(bottom_initial_tex.z > 0.0 ) {
-            B_here = bottom_tex;
-            depth_change.y = 0.0;
-        } 
+     //   if(bottom_initial_tex.z > 0.0 ) {  // without this, the slide creates water on dry land (for subaerial slides).
+     //       B_here = bottom_tex;
+     //       depth_change.y = 0.0;
+     //   } 
     }
 
     let state_out = in_state_here + disturbance;
