@@ -31,7 +31,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let upIdx = idx + vec2<i32>(0, 1);
 
     let d_here = -textureLoad(txBottom, idx, 0).z;
-    let near_dry = d_here; //textureLoad(txBottom, idx, 0).w;
+    let near_dry = textureLoad(txBottom, idx, 0).w;
 
     var a = 0.0;
     var b = 1.0;
@@ -51,8 +51,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
         if (globals.NLSW_or_Bous == 2) {
             // COULWAVE equations
-            let z_loc = 0.0; //textureLoad(current_state, idx, 0).x;
-            let zx_loc = 0.0; //(textureLoad(current_state, rightIdx, 0).x - textureLoad(current_state, leftIdx, 0).x) / globals.dx / 2.;
+            let z_loc = textureLoad(current_state, idx, 0).x;
+            let zx_loc = (textureLoad(current_state, rightIdx, 0).x - textureLoad(current_state, leftIdx, 0).x) / globals.dx / 2.;
             let za = globals.Bous_alpha * d_here;
             let za2 = za * za;
             let zloc2 = z_loc * z_loc;
@@ -85,8 +85,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
         if (globals.NLSW_or_Bous == 2) {
             // COULWAVE equations
-            let z_loc = 0.0; //textureLoad(current_state, idx, 0).x;
-            let zx_loc = 0.0; //(textureLoad(current_state, upIdx, 0).x - textureLoad(current_state, downIdx, 0).x) / globals.dy / 2.;
+            let z_loc = textureLoad(current_state, idx, 0).x;
+            let zx_loc = (textureLoad(current_state, upIdx, 0).x - textureLoad(current_state, downIdx, 0).x) / globals.dy / 2.;
             let za = globals.Bous_alpha * d_here;
             let za2 = za * za;
             let zloc2 = z_loc * z_loc;

@@ -1037,6 +1037,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Render_view.setInt32(256, calc_constants.ShowArrows, true);           // i32
     Render_view.setFloat32(260, calc_constants.arrow_scale, true);          // f32 
     Render_view.setFloat32(264, calc_constants.arrow_density, true);          // f32 
+    Render_view.setFloat32(268, calc_constants.disturbanceType, true);          // f32
 
     // Copy f32 data to f16 texture compute shader
     const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);

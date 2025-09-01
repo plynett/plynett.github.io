@@ -55,6 +55,7 @@ struct Globals {
     showArrows: i32,
     arrow_scale: f32,
     arrow_density: f32,
+    disturbanceType: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -565,8 +566,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
 
     if (bottom + globals.delta >= waves && surfaceToPlot != 6 && design_component_allowed_on_land == 0) {
 
-        if (abs(depth_change) > globals.delta) {
-            let depth_change_scale = depth_change/globals.base_depth*50.0;
+        if (abs(depth_change) > globals.delta && globals.disturbanceType == 5) {  // make slide mass gray
+            let depth_change_scale = depth_change/globals.base_depth*50.0;  
             color_rgb = vec3<f32>(150+depth_change_scale, 150+depth_change_scale, 150+depth_change_scale)/256; // light gray
         }
         else if(globals.IsOverlayMapLoaded == 1) {
