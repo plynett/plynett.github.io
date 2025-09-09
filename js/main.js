@@ -929,7 +929,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // ExtractTimeSeries -  Bindings & Uniforms Config
     const ExtractTimeSeries_BindGroupLayout = create_ExtractTimeSeries_BindGroupLayout(device);
-    const ExtractTimeSeries_BindGroup = create_ExtractTimeSeries_BindGroup(device, ExtractTimeSeries_uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data);
+    const ExtractTimeSeries_BindGroup = create_ExtractTimeSeries_BindGroup(device, ExtractTimeSeries_uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data, txMeans_Speed);
     const ExtractTimeSeries_uniforms = new ArrayBuffer(256);  // smallest multiple of 256s
     let ExtractTimeSeries_view = new DataView(ExtractTimeSeries_uniforms);
     ExtractTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -940,6 +940,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
     ExtractTimeSeries_view.setFloat32(24, 0.0, true);             // f32, total_time 
     ExtractTimeSeries_view.setInt32(28, calc_constants.river_sim, true);             // i32
+    ExtractTimeSeries_view.setInt32(32, calc_constants.disturbanceType, true);             // i32
 
     // Skybox Bindings
     const SkyboxBindGroupLayout = createSkyboxBindGroupLayout(device);
@@ -2800,6 +2801,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (calc_constants.river_sim == 1){
                 let flow_depth = calc_constants.tooltipVal_eta - calc_constants.tooltipVal_bottom;
                 tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bottom elevation (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>flow depth (m): ${flow_depth.toFixed(2)} <br>flow speed (m/s): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;    
+            }
+            else if (calc_constants.disturbanceType > 1) {
+                tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>max free surface (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
             }
             else {
                 tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;

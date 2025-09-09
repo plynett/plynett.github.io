@@ -71,13 +71,22 @@ export function create_ExtractTimeSeries_BindGroupLayout(device) {
                     format: 'rgba32float',    // Data format: 32-bit floating point values for red, green, blue, and alpha channels
                     viewDimension: '2d'       // The texture is a 1D texture
                 }
+            },
+            {
+                // 8th binding: A texture that the fragment shader will sample from.
+                binding: 8,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
             }
         ]
     });
 }
 
 
-export function create_ExtractTimeSeries_BindGroup(device, uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data) {
+export function create_ExtractTimeSeries_BindGroup(device, uniformBuffer, txBottom, txBottomFriction, txContSource, txState, txWaveHeight, txTimeSeries_Locations, txTimeSeries_Data, txMeans_Speed) {
     return device.createBindGroup({
         layout: create_ExtractTimeSeries_BindGroupLayout(device),
         entries: [
@@ -115,6 +124,10 @@ export function create_ExtractTimeSeries_BindGroup(device, uniformBuffer, txBott
                 binding: 7,
                 resource: txTimeSeries_Data.createView()
             },
+            {
+                binding: 8,
+                resource: txMeans_Speed.createView()
+            }
         ]
     });
 }

@@ -7,6 +7,7 @@ struct Globals {
     mouse_current_canvas_indY: i32,
     time: f32,
     river_sim: i32,
+    disturbanceType: i32
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -18,6 +19,7 @@ struct Globals {
 @group(0) @binding(5) var txWaveHeight: texture_2d<f32>; 
 @group(0) @binding(6) var txTimeSeries_Locations: texture_2d<f32>; 
 @group(0) @binding(7) var txTimeSeries_Data: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(8) var txMeans_Speed: texture_2d<f32>;
 
 
 @compute @workgroup_size(1, 1)
@@ -42,7 +44,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         else {
             let waves = textureLoad(txState, current_location, 0).x;  // Free surface elevation
-            let hsig = textureLoad(txWaveHeight, current_location, 0).z;  // Significant wave height
+            var hsig = 0.0;
+            if (globals.disturbanceType > 1) {
+                hsig = textureLoad(txMeans_Speed, current_location, 0).w;  // Max free surface elevation
+            } else {
+                hsig = textureLoad(txWaveHeight, current_location, 0).z;  // Significant wave height
+            }
             output = vec4<f32>(bottom, waves, hsig, friction);
         }
     } else {  // for all other indices, store the time series data
