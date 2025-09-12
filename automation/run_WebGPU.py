@@ -88,7 +88,7 @@ for key, value in new_params.items():
     config[key] = value
 
 # Write the updated configuration back to the file
-with open(config_file, "w") as f:
+with open(config_file_path, "w") as f:
     json.dump(config, f, indent=4)
 
 print("Updated config.json successfully.")
