@@ -423,7 +423,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let stage_elevation = globals.mean_upstream_channel_elevation + stage_c;
     let stage_speed = Q_c / stage_c / (globals.channel_bottom_width * cos(globals.river_inflow_angle) + stage_c / globals.channel_side_slope) ;
 
-    if (globals.west_boundary_type == 4) {
+    if (globals.west_boundary_type == 4) { // west boundary is assumed to be the upstream boundary
         var left_bottom_start = globals.channel_bank_start_upstream;
         let loc_c = f32(idx.y) * globals.dy;
         if (idx.x <= 1 && loc_c > left_bottom_start && loc_c < globals.channel_bank_end_upstream ) {  //LARIVER MOD
@@ -438,7 +438,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     // east boundary
-    if (globals.east_boundary_type == 4) {
+    if (globals.east_boundary_type == 4) {  // east boundary is assumed to be the downstream boundary
         if (idx.x >= globals.width - 2 && f32(idx.y) * globals.dy > globals.channel_bank_start_upstream && f32(idx.y) * globals.dy < globals.channel_bank_end_upstream ) {  //LARIVER MOD
             let elev_downstream = stage_elevation - 5.0; 
             let flow_depth = max(elev_downstream - B_here, 0.0);
