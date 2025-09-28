@@ -1524,10 +1524,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 if(calc_constants.whichPanelisOpen == 3){
                     if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
+                       // runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottomInitial) // not sure if I should do this - cant change depth with prescribed motion slide
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txstateUVstar)
                         runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
-                        if (calc_constants.NLSW_or_Bous == 1) { // only update for Celeris Boussinesq equations
+                        if (calc_constants.NLSW_or_Bous >= 1) { // only update for Celeris Boussinesq equations
                             console.log('Updating neardry & tridiag coef due to change in depth')
                             runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                         }
