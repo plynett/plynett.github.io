@@ -1,6 +1,6 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadFrictionSurface, loadHardBottomSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
+import { loadDepthSurface, loadInitCondSurface, loadFrictionSurface, loadHardBottomSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
@@ -80,7 +80,7 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
 
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
-async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile) {
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting Celeris-WebGPU");
 
@@ -303,28 +303,48 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // fill in the time series location texture
     copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations)  
 
-    // create initial condition
-    copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState);
-    copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txstateUVstar);
+    // create initial condition, initialize values
+    var writeStateFlag = 0; // used to indicate if we not writing any state (0), writing channel 1 (1), writing channel 2 (2), or writing channel 3 (3)
+    copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState, writeStateFlag);
+    copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txstateUVstar, writeStateFlag);
+
+        // create initial bottom friction surface
+    if(etaInitialConditionFile || calc_constants.loadetaIC == 1){
+        console.log('Loading Initial Free Surface File')
+        calc_constants.loadetaIC = 1;
+        var etaICContent = null;
+        try { 
+            etaICContent = await etaInitialConditionFile.text()
+        } 
+        catch {
+            etaICContent = null;
+        }
+        let etaIC2D = await loadInitCondSurface(etaICContent, calc_constants); 
+        writeStateFlag = 1; // writing channel 1
+        copyInitialConditionDataToTexture(calc_constants, device, etaIC2D, txState, writeStateFlag)
+        copyInitialConditionDataToTexture(calc_constants, device, etaIC2D, txstateUVstar, writeStateFlag)
+    }
 
     // create initial bottom friction surface
     if(frictionFile){
-        console.log('Loading Uploaded Friction Map File')
+        console.log('Loading Friction Map File')
         calc_constants.loadFriction = 1;
         const frictionContent = await frictionFile.text();
         let friction2D = await loadFrictionSurface(frictionContent, calc_constants); 
-        copyInitialConditionDataToTexture(calc_constants, device, friction2D, txBottomFriction)
+        writeStateFlag = 1; // writing channel 1
+        copyInitialConditionDataToTexture(calc_constants, device, friction2D, txBottomFriction, writeStateFlag)
     } else  {    
         copyConstantValueToTexture(calc_constants, device, txBottomFriction, calc_constants.friction, 0.0, 0.0, 0.0);
     }
 
     // create hard bottom elevation file
     if(hardbottomFile){
-        console.log('Loading Uploaded Hard Bottom Elevation File')
+        console.log('Loading Hard Bottom Elevation File')
         calc_constants.loadHardBottom = 1;
         const HardBottomContent = await hardbottomFile.text();
         let HardBottom2D = await loadHardBottomSurface(HardBottomContent, calc_constants); 
-        copyInitialConditionDataToTexture(calc_constants, device, HardBottom2D, txHardBottom)
+        writeStateFlag = 1; // writing channel 1
+        copyInitialConditionDataToTexture(calc_constants, device, HardBottom2D, txHardBottom, writeStateFlag)
     } else  {    
         copyConstantValueToTexture(calc_constants, device, txHardBottom, -2.0 * calc_constants.base_depth, 0.0, 0.0, 0.0);
     }
@@ -3271,6 +3291,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var configFile = document.getElementById('configFile').files[0];
         var bathymetryFile = document.getElementById('bathymetryFile').files[0];
         var waveFile = document.getElementById('waveFile').files[0];
+        var etaInitialConditionFile = document.getElementById('etaInitialConditionFile').files[0];
         var frictionFile = document.getElementById('frictionmapFile').files[0];
         var hardbottomFile = document.getElementById('hardbottomFile').files[0];
         var OverlayFile = document.getElementById('satimageFile').files[0];
@@ -3300,7 +3321,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetch('/no_waves.txt')
                         .then(response => response.text())
                         .then(defaultWaveContent => {
-                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile, frictionFile, hardbottomFile);
+                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile);
                         })
                         .catch(error => {
                             console.error("Failed to load the default wave file:", error);
@@ -3308,7 +3329,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     waveReader.onload = function (e) {
                         var waveContent = e.target.result;
-                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile);
+                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile);
                     };
                     waveReader.readAsText(waveFile);
                 }
@@ -3320,7 +3341,7 @@ document.addEventListener('DOMContentLoaded', function () {
         configReader.readAsText(configFile);
     }
     
-    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile) {
+    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile) {
         // Here you could do the actual simulation initialization
     //    console.log("Starting simulation with the following data:");
     //    console.log("Config:", configContent);
@@ -3329,7 +3350,7 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Overlay:", OverlayFile);
     
         // Initialize your WebGPU application here
-        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, frictionFile, hardbottomFile).catch(error => {
+        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile).catch(error => {
              console.error("Initialization failed:", error);
         });
     }

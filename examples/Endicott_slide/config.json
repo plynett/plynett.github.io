@@ -17,7 +17,7 @@
     "friction": 0.005,
     "isManning": 0,
     "loadFriction": 0,
-    "min_allowable_depth": 0.005,
+    "min_allowable_depth": 0.01,
     "useBreakingModel": 1,
     "delta_breaking": 2,
     "T_star_coef": 5,

@@ -176,7 +176,7 @@ function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
 }
 
 
-function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txState) {
+function copyInitialConditionDataToTexture(calc_constants, device, initialState, txState, writeStateFlag) {
     // create and place initial condition into txState
 
     // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
@@ -190,20 +190,28 @@ function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txSt
     for (let y = 0; y < calc_constants.HEIGHT; y++) {
         for (let x = 0; x < calc_constants.WIDTH; x++) {
 
-             // Calculate the differences between the current coordinates and the center
-            let dx = x - calc_constants.WIDTH / 10.;
-            let dy = y - calc_constants.HEIGHT / 3.;
-            let sigma = 24.0;
+             // Testing IC Calculate the differences between the current coordinates and the center
+            //let dx = x - calc_constants.WIDTH / 10.;
+            //let dy = y - calc_constants.HEIGHT / 3.;
+            //let sigma = 24.0;
 
-            var eta = 0. * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
-            if (calc_constants.river_sim == 1  || calc_constants.loadFriction == 1 || calc_constants.loadHardBottom == 1){
-                eta = bathy2D[x][y]
+            var eta = 0.; // * Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
+            var u = 0.; 
+            var v = 0.; 
+            if (writeStateFlag == 1){
+                eta = initialState[x][y]
+            }
+            else if (writeStateFlag == 2){
+                u = initialState[x][y]
+            }   
+            else if (writeStateFlag == 3){
+                v = initialState[x][y]
             }
 
             const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
             paddedFlatData[paddedIndex] = eta;  // red
-            paddedFlatData[paddedIndex + 1] = 0.0;  // green
-            paddedFlatData[paddedIndex + 2] = 0.0;  // blue
+            paddedFlatData[paddedIndex + 1] = u;  // green
+            paddedFlatData[paddedIndex + 2] = v;  // blue
             paddedFlatData[paddedIndex + 3] = 0.0;  // alpha
         }
     }

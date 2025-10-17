@@ -39,6 +39,7 @@ var calc_constants = {
     friction: 0.000,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
     isManning: 0,  // A boolean friction model value, if==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
     loadFriction: 0,  // Load friction from file when == 1
+    loadetaIC: 0,  // Load initial free surface from file when == 1
     min_allowable_depth: 0.005, // min depth allowable, too large and runup accuracy is poor, too small and precision issues lead to model blowup (1/0)
 
     // breaking model parameters
@@ -170,7 +171,8 @@ var calc_constants = {
         "./examples/LA_River_Model_Large/",
         "./examples/Hermosa_Beach_CA_COULWAVE/",
         "./examples/Endicott_slide/",
-        "./examples/TracyArm_hotstart/"
+        "./examples/TracyArm_hotstart/",
+        "./examples/Portage_Lake_AK_rotated/"
       ],
 
     // plotting parameters
@@ -426,7 +428,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/LA_River_Model_Large/",
         "./examples/Hermosa_Beach_CA_COULWAVE/",
         "./examples/Endicott_slide/",
-        "./examples/TracyArm_hotstart/"
+        "./examples/TracyArm_hotstart/",
+        "./examples/Portage_Lake_AK_rotated/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

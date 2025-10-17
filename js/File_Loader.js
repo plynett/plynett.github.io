@@ -82,6 +82,66 @@ export async function loadDepthSurface(bathymetryContent, calc_constants) {
 }
 
 
+// load initial condition file
+export async function loadInitCondSurface(InitCondContent, calc_constants) {
+    let response;
+    let lines;
+    let filePath;
+    // Try to parse the uploaded content, if fails, then load server side file
+    try {
+
+        lines = InitCondContent.split('\n');
+
+        console.log("Initial Condition data loaded successfully from the uploaded file.");
+
+    } catch (error) {
+        console.log("Loading server side example initial condition file");
+        filePath = calc_constants.exampleDirs[calc_constants.run_example] + 'etaInitCond.txt';
+        try {
+            response = await fetch(filePath);
+        } catch (error) {
+            console.error("Could not find initial condition file at " + filePath);
+            return null;
+        }
+
+        if (!response.ok) {
+            console.error("Error fetching initial condition file:", response.statusText);
+            return null;
+        }
+
+        const fileContents = await response.text();
+
+        lines = fileContents.split('\n');
+        console.log("Server side initial condition data loaded successfully.");
+    }
+
+    const InitCond2D = Array.from({ length: calc_constants.WIDTH }, () => Array(calc_constants.HEIGHT));
+
+    // Parse the depth data.
+    for (let y = 0; y < calc_constants.HEIGHT; y++) {
+        // Split each line by spaces or tabs.
+        const InitCondValues = lines[y].split(/\s+/).filter(Boolean);
+
+        if (InitCondValues.length !== calc_constants.WIDTH) {
+            console.error("Initial Condition file at " + filePath + " is not in the correct format.");
+            return null;
+        }
+
+        for (let x = 0; x < calc_constants.WIDTH; x++) {
+            const parsedValue = parseFloat(InitCondValues[x]);
+            if (isNaN(parsedValue)) {
+                console.error(`Could not parse initial condition value at [${x}, ${y}] in initial condition file at ${filePath}`);
+                return null;
+            }
+            InitCond2D[x][y] = parsedValue;
+        }
+    }
+
+    console.log("Initial Condition data parsed successfully.");
+
+    return InitCond2D;
+}
+
 // load friction file
 export async function loadFrictionSurface(frictionContent, calc_constants) {
     let response;
