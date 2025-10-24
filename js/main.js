@@ -2731,6 +2731,15 @@ document.addEventListener('DOMContentLoaded', function () {
             case 'ArrowDown': // Down arrow key
                 calc_constants.shift_y -= shiftAmount;
                 break;
+            case 'p': // 'P' key for pause
+            case 'P':
+            case 'Pause': // Pause/Break key
+                if (calc_constants.simPause < 0) {
+                    calc_constants.simPause = 1;
+                } else {
+                    calc_constants.simPause = -1;
+                }
+                break;
         }
     });
     // end keyboard interaction

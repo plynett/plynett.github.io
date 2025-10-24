@@ -172,7 +172,9 @@ var calc_constants = {
         "./examples/Hermosa_Beach_CA_COULWAVE/",
         "./examples/Endicott_slide/",
         "./examples/TracyArm_hotstart/",
-        "./examples/Portage_Lake_AK_rotated/"
+        "./examples/Portage_Lake_AK_rotated/",
+        "./examples/Yakutat_slide/",
+        "./examples/Sebastian_Inlet_FL/"
       ],
 
     // plotting parameters
@@ -429,7 +431,9 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Hermosa_Beach_CA_COULWAVE/",
         "./examples/Endicott_slide/",
         "./examples/TracyArm_hotstart/",
-        "./examples/Portage_Lake_AK_rotated/"
+        "./examples/Portage_Lake_AK_rotated/",
+        "./examples/Yakutat_slide/",
+        "./examples/Sebastian_Inlet_FL/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation
