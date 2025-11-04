@@ -20,7 +20,7 @@ use_sat_image = 0  # Flag to indicate whether to use a satellite image (1 = yes,
 sat_image_file = "overlay.jpg"  # Satellite image file for the simulation (optional)
 output_folder = os.path.join(sim_directory, "output/") # Path to directory where the simulation will save its output files
 chromedriver_path = os.path.join(current_dir, "chromedriver-win64/chromedriver.exe")  # Path to the chromedriver executable is located
-run_headless = 1  # Flag to indicate whether to run the browser in headless (no browser window) mode (1 = yes, 0 = no)
+run_headless = 0  # Flag to indicate whether to run the browser in headless (no browser window) mode (1 = yes, 0 = no)
 
 # Save trigger parameters for automatically saving data, these will be added to json
 trigger_animation = 1  # automation trigger for animated gif when = 1

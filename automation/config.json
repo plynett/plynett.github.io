@@ -93,7 +93,7 @@
     "lon_LL": 0,
     "lat_UR": 0,
     "lon_UR": 0,
-    "render_step": 4,
+    "render_step": 10,
     "simPause": -1,
     "html_update": -1,
     "n_time_steps_means": 15175,
@@ -266,5 +266,7 @@
     "trigger_writeWaveHeight": 1,
     "trigger_resetMeans_time": 60.0,
     "trigger_resetWaveHeight_time": 120.0,
-    "trigger_writeWaveHeight_time": 180.0
+    "trigger_writeWaveHeight_time": 180.0,
+    "write_u": 0,
+    "write_v": 0
 }
