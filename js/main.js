@@ -1081,8 +1081,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
     var Pass2_ShaderCode = null;
     if (calc_constants.Accuracy_mode == 1) {
-        console.log("Using HLLEM Flux Solver in Pass2");
-        Pass2_ShaderCode = await fetchShader('/shaders/Pass2_HighOrder.wgsl');  
+        console.log("Using HLLC Flux Solver in Pass2");
+        Pass2_ShaderCode = await fetchShader('/shaders/Pass2_HighOrder_HLLC.wgsl');  
     } else {
         Pass2_ShaderCode = await fetchShader('/shaders/Pass2.wgsl');  
     }
