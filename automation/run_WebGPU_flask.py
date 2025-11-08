@@ -40,7 +40,7 @@ use_friction_file = 0  # Flag to indicate whether to use a 2D friction map file 
 friction_file = "friction.txt"  # Wave file for the simulation (optional)
 use_sat_image = 0  # Flag to indicate whether to use a satellite image (1 = yes, 0 = no)
 sat_image_file = "overlay.jpg"  # Satellite image file for the simulation (optional)
-run_headless = 1  # Flag to indicate whether to run the browser in headless (no browser window) mode (1 = yes, 0 = no)
+run_headless = 0  # Flag to indicate whether to run the browser in headless (no browser window) mode (1 = yes, 0 = no)
 
 # Save trigger parameters for automatically saving data, these will be added to json
 trigger_animation = 1  # automation trigger for animated gif when = 1
@@ -196,6 +196,12 @@ def mirror(subpath: str):
     if subpath.startswith("upload") or subpath.startswith("health"):
         return "Not found", 404
 
+    # >>> BEGIN: path normalization (fixes /transect_version/... double prefix) <<<
+    # If the page requests root-relative /transect_version/*, strip that prefix before forwarding.
+    if subpath.startswith("transect_version/"):
+        subpath = subpath[len("transect_version/"):]
+    # >>> END: path normalization <<<
+
     url = REMOTE_BASE + subpath
     try:
         r = requests.get(url, stream=True, timeout=20)
@@ -210,7 +216,6 @@ def mirror(subpath: str):
     headers = {}
     if content_type:
         headers["Content-Type"] = content_type
-    # Optionally pass-through cache headers, etc.
     return Response(body, status=status, headers=headers)
 
 def start_flask():

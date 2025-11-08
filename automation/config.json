@@ -93,7 +93,7 @@
     "lon_LL": 0,
     "lat_UR": 0,
     "lon_UR": 0,
-    "render_step": 10,
+    "render_step": 1,
     "simPause": -1,
     "html_update": -1,
     "n_time_steps_means": 15175,
