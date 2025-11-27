@@ -256,29 +256,50 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
 
     // Sponge Layers
-    // west boundary
-    if (globals.west_boundary_type == 1 && idx.x <= 2 + (globals.BoundaryWidth)) {
-        BCState = WestBoundarySponge(idx);
+    var state_sum   = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    var weight_sum  = 0.0;
+
+    // west sponge
+    if (globals.west_boundary_type == 1 && idx.x <= 2 + globals.BoundaryWidth) {
+        let s = f32(globals.BoundaryWidth + 2 - idx.x) / f32(globals.BoundaryWidth);
+        let state_w = WestBoundarySponge(idx);
+        state_sum  = state_sum + s * state_w;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
 
-    // east boundary
-    if (globals.east_boundary_type == 1 && idx.x >= globals.width - (globals.BoundaryWidth) - 1) {
-        BCState = EastBoundarySponge(idx, B_here);
+    // east sponge
+    if (globals.east_boundary_type == 1 && idx.x >= globals.width - globals.BoundaryWidth - 1) {
+        let s = f32(idx.x - (globals.width - globals.BoundaryWidth - 1)) / f32(globals.BoundaryWidth);
+        let state_e = EastBoundarySponge(idx, B_here);
+        state_sum  = state_sum + s * state_e;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
 
-    // south boundary
-    if (globals.south_boundary_type == 1 && idx.y <= 2 + (globals.BoundaryWidth)) {
-        BCState = SouthBoundarySponge(idx);
+    // south sponge
+    if (globals.south_boundary_type == 1 && idx.y <= 2 + globals.BoundaryWidth) {
+        let s = f32(globals.BoundaryWidth + 2 - idx.y) / f32(globals.BoundaryWidth);
+        let state_s = SouthBoundarySponge(idx);
+        state_sum  = state_sum + s * state_s;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
 
-    // north boundary
-    if (globals.north_boundary_type == 1 && idx.y >= globals.height - (globals.BoundaryWidth) - 1) {
-        BCState = NorthBoundarySponge(idx);
+    // north sponge
+    if (globals.north_boundary_type == 1 && idx.y >= globals.height - globals.BoundaryWidth - 1) {
+        let s = f32(idx.y - (globals.height - globals.BoundaryWidth - 1)) / f32(globals.BoundaryWidth);
+        let state_n = NorthBoundarySponge(idx);
+        state_sum  = state_sum + s * state_n;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
+
+    // apply sponge if any side is active
+    if (weight_sum > 0.0) {
+        BCState = state_sum / weight_sum;
+    }
+
 
     // Solid Walls
     // west boundary
