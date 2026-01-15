@@ -724,6 +724,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setInt32(132, calc_constants.east_boundary_type, true);           // i32
     Pass3_view.setInt32(136, calc_constants.south_boundary_type, true);           // i32
     Pass3_view.setInt32(140, calc_constants.north_boundary_type, true);       // i32
+    Pass3_view.setFloat32(144, calc_constants.vort_friction_factor, true);       // f32
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
