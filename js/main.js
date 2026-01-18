@@ -806,6 +806,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setFloat32(156, calc_constants.stage_200, true);           // f32 
     BoundaryPass_view.setFloat32(160, calc_constants.stage_500, true);           // f32 
     BoundaryPass_view.setFloat32(164, calc_constants.river_inflow_angle, true);           // f32 
+    BoundaryPass_view.setInt32(168, calc_constants.algochanges, true);           // i32
     
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);

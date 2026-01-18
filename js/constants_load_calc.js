@@ -12,6 +12,9 @@ for (let i = 0; i < 16; i++) {
 
 // set simulation parameters to default values
 var calc_constants = {
+    // debugging parameters
+    algochanges: 0, // set to 1 to test alternative algorithm for various parts of the code
+    
     // Computational domain dimensions
     WIDTH: 800,  // Width of the computational domain.
     HEIGHT: 600,  // Height of the computational domain.
