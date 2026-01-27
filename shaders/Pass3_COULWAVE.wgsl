@@ -35,6 +35,7 @@ struct Globals {
     east_boundary_type: i32,
     south_boundary_type: i32,
     north_boundary_type: i32,
+    vort_friction_factor: f32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -379,6 +380,19 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         E_src = (dE1dx + dE2dy);
     }
    
+    // vorticity-based momentum mixing / dissipation
+    var vorticity_dissipation = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    if (globals.vort_friction_factor > 0.0) {
+        let dPdxy = 0.25 * (textureLoad(txState, uprightIdx, 0).y - textureLoad(txState, upleftIdx, 0).y - textureLoad(txState, downrightIdx, 0).y + textureLoad(txState, downleftIdx, 0).y) * globals.one_over_dxdy;
+        let dPdyy = (textureLoad(txState, upIdx, 0).y - 2.0 * in_state_here.y + textureLoad(txState, downIdx, 0).y) * globals.one_over_d2y;
+        let dQdxx = (textureLoad(txState, rightIdx, 0).z - 2.0 * in_state_here.z + textureLoad(txState, leftIdx, 0).z) * globals.one_over_d2x;
+        let dQdxy = 0.25 * (textureLoad(txState, uprightIdx, 0).z - textureLoad(txState, upleftIdx, 0).z - textureLoad(txState, downrightIdx, 0).z + textureLoad(txState, downleftIdx, 0).z) * globals.one_over_dxdy;
+        let domegady = dPdyy - dQdxy;
+        let domegadx = dPdxy - dQdxx;
+        vorticity_dissipation.y = globals.vort_friction_factor  * domegady;
+        vorticity_dissipation.z = -globals.vort_friction_factor  * domegadx;
+    }
+
     let friction_here = max(globals.friction, textureLoad(txBottomFriction, idx, 0).x);
     var friction_ = FrictionCalc(in_state_here.y, in_state_here.z, h_here, friction_here);
 
@@ -471,7 +485,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let source_term = vec4<f32>(dhdt + overflow_dry + E_src, -globals.g * h_here * detadx - in_state_here.y * friction_ + breaking_x + (Psi1x + Psi2x) + press_x, -globals.g * h_here * detady - in_state_here.z * friction_ + breaking_y + (Psi1y + Psi2y) + press_y, hc_by_dx_dx + hc_by_dy_dy + 2.0 * hc_by_dx_dy + c_dissipation);
 
-    let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term;
+    let d_by_dt = (xflux_west - xflux_here) * globals.one_over_dx + (yflux_south - yflux_here) * globals.one_over_dy + source_term + vorticity_dissipation;
 
     var newState = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     let F_G_here = vec4<f32>(0.0, F_star, G_star, 0.0);

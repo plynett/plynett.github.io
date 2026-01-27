@@ -41,6 +41,7 @@ struct Globals {
     stage_200: f32,
     stage_500: f32,
     river_inflow_angle: f32,
+    algochanges: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -569,7 +570,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 BCState_Sed = zero;
             }
         }
-        else if (sum_dry == 1) {  // freeze end of single grid channel, with free surface gradient equal to zero
+        else if (sum_dry == 1 && globals.algochanges == 0) {  // freeze end of single grid channel, with free surface gradient equal to zero
             let wet_eta = (f32(dry_west)*eta_west + f32(dry_east)*eta_east + f32(dry_south)*eta_south + f32(dry_north)*eta_north) / f32(sum_dry);
             BCState = vec4<f32>(wet_eta, 0.0, 0.0, 0.0);
             BCState_Sed = zero;

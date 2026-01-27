@@ -724,6 +724,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setInt32(132, calc_constants.east_boundary_type, true);           // i32
     Pass3_view.setInt32(136, calc_constants.south_boundary_type, true);           // i32
     Pass3_view.setInt32(140, calc_constants.north_boundary_type, true);       // i32
+    Pass3_view.setFloat32(144, calc_constants.vort_friction_factor, true);       // f32
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
@@ -805,6 +806,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setFloat32(156, calc_constants.stage_200, true);           // f32 
     BoundaryPass_view.setFloat32(160, calc_constants.stage_500, true);           // f32 
     BoundaryPass_view.setFloat32(164, calc_constants.river_inflow_angle, true);           // f32 
+    BoundaryPass_view.setInt32(168, calc_constants.algochanges, true);           // i32
     
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
