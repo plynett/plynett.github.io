@@ -105,8 +105,9 @@ fn landslide_submerged(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom:
 
 fn depth_motion(xloc_in: f32, yloc_in: f32, bottom: f32, time: f32, dt: f32, bottom_initial: f32) -> vec4<f32> {
     
-    if (time > 1.00e5*dt) {
-        time = 1.00e5*dt;
+    var time_local = time;
+    if (time_local > 1.0e5*dt) {
+        time_local = 1.0e5*dt;
     }
 
     let change_timescale = globals.disturbance_change_timescale;
@@ -124,7 +125,7 @@ fn depth_motion(xloc_in: f32, yloc_in: f32, bottom: f32, time: f32, dt: f32, bot
     let vol_data = globals.disturbance_vol_data;
     let gamma_val = globals.disturbance_gamma_val;
 
-    let displacement = max_displacement*(1.0+tanh((time-time_shift)/(change_timescale)))/2.0;
+    let displacement = max_displacement*(1.0+tanh((time_local-time_shift)/(change_timescale)))/2.0;
     let traj_angle = min(final_traj,initial_traj + displacement/max_displacement*(final_traj-initial_traj)*traj_timefactor) * 3.1415 / 180.; 
     
     let angle = 3.1415-traj_angle;
@@ -150,7 +151,7 @@ fn depth_motion(xloc_in: f32, yloc_in: f32, bottom: f32, time: f32, dt: f32, bot
     let bottom_new = bottom_initial + d_bottom;
     var dhdt = (bottom_new - bottom) / dt;
 
-    if (time < 5.*dt) {
+    if (time_local < 5.*dt) {
         dhdt = 0.0;
     }
 
