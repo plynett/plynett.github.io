@@ -1092,10 +1092,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const Pass3A_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3A_COULWAVE.wgsl')
     const Pass3B_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3B_COULWAVE.wgsl')
     const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
-    var Pass3_ShaderCode_Bous = null;
+    var Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
     if (calc_constants.NLSW_or_Bous == 1) {
         console.log("Using Celeris equations in Boussinesq mode");
-        Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
     }
     else if (calc_constants.NLSW_or_Bous == 2) {
         console.log("Using COULWAVE equations in Boussinesq mode");
