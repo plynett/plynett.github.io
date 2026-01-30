@@ -105,6 +105,10 @@ fn landslide_submerged(xloc: f32, yloc: f32, thickness: f32, angle: f32, bottom:
 
 fn depth_motion(xloc_in: f32, yloc_in: f32, bottom: f32, time: f32, dt: f32, bottom_initial: f32) -> vec4<f32> {
     
+    if (time > 1.0e5*dt) {
+        dhdt = 1.0e5*dt;
+    }
+
     let change_timescale = globals.disturbance_change_timescale;
     let time_shift = globals.disturbance_time_shift;
     let max_displacement = globals.disturbance_max_distance;
