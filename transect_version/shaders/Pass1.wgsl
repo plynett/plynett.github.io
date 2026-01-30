@@ -137,7 +137,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
    // w = vec4<f32>(wzx.y, wwy.y, wzx.x, wwy.x);
     w = vec4<f32>(0.0, wwy.y, 0.0, wwy.x);
-    h = w - B;
+    h = vec4<f32>(0.0, wwy.y - B.y, 0.0, wwy.x - B.w);
     h = max(h, vec4<f32>(0.0, 0.0, 0.0, 0.0));
    // hu = vec4<f32>(huzx.y, huwy.y, huzx.x, huwy.x);
     hu = vec4<f32>(0.0, huwy.y, 0.0, huwy.x);

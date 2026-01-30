@@ -39,10 +39,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let bottom = textureLoad(txBottom, idx, 0).z;
     
-    let h = (h4.x + h4.y + h4.z + h4.w) / 4.0;
-    let u = (u4.x + u4.y + u4.z + u4.w) / 4.0;
+    let h = (h4.y + h4.w) / 2.0;
+    let u = (u4.y + u4.w) / 2.0;
    // let v = (v4.x + v4.y + v4.z + v4.w) / 4.0;
-    let c = (c4.x + c4.y + c4.z + c4.w) / 4.0;
+    let c = (c4.y + c4.w) / 2.0;
     let eta = h + bottom;
     let P = h*u;
    // let Q = h*v;
