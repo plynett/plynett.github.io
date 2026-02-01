@@ -269,6 +269,12 @@ var calc_constants = {
     shift_x: 0.0, // x shift of 2D plane
     shift_y: 0.0, // y shift of 2D plane
     forward: 1.0, // zoom in/out of 2D plane
+    cameraInit_user: 0, // flag to indicate user has initialized camera position
+    cameraInit_x: 0.0, // initial camera x position for 3D explorer
+    cameraInit_y: 0.0, // initial camera y position for 3D explorer
+    cameraInit_z: 0.0, // initial camera z position for 3D explorer
+    cameraInit_yaw: 0.0, // initial camera yaw for 3D explorer
+    cameraInit_pitch: 0.0, // initial camera pitch for 3D explorer
     full_screen: 0, // = 0 regular, = 1 in fullscreen
     canvas_width_ratio: 1.0, // for full screen asepct ratio correction
     canvas_height_ratio: 1.0, // for full screen asepct ratio correction

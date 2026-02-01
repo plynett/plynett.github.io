@@ -547,7 +547,33 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             0.5 * simWidth,
             0.5 * simHeight,
             0.0);
-    }            
+    }
+
+    // user override for initial camera position
+    if (calc_constants.cameraInit_user == 1) {
+        baseEye = vec3.fromValues(
+            calc_constants.cameraInit_x,
+            calc_constants.cameraInit_y,
+            calc_constants.cameraInit_z
+        );
+
+        const yaw   = calc_constants.cameraInit_yaw   * Math.PI / 180.0;
+        const pitch = calc_constants.cameraInit_pitch * Math.PI / 180.0;
+
+        const fwd = vec3.fromValues(
+            Math.cos(pitch) * Math.cos(yaw),
+            Math.cos(pitch) * Math.sin(yaw),
+            Math.sin(pitch)
+        );
+        vec3.normalize(fwd, fwd);
+
+        const lookDist = (calc_constants.cameraInit_lookDist && calc_constants.cameraInit_lookDist > 0.0)
+            ? calc_constants.cameraInit_lookDist
+            : 0.5 * simDim;   // reasonable default
+
+        baseTarget = vec3.create();
+        vec3.scaleAndAdd(baseTarget, baseEye, fwd, lookDist);
+    }
 
     const baseDir = vec3.create();
     vec3.subtract(baseDir, baseTarget, baseEye);
@@ -557,6 +583,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     if (calc_constants.river_sim == 1) { // river simulation
         initYaw =  Math.PI / 2.0; // river simulation yaw
     } 
+    
+    // if user provided yaw and pitch, you can also force them
+    if (calc_constants.cameraInit_user == 1) {
+        initYaw   = calc_constants.cameraInit_yaw   * Math.PI / 180.0;
+        initPitch = calc_constants.cameraInit_pitch * Math.PI / 180.0;
+    }
+
     calc_constants.rotationAngle_xz = initPitch * 180. / Math.PI;
     calc_constants.rotationAngle_xy = initYaw * 180. / Math.PI;
 
@@ -2096,6 +2129,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // ─────────────────────────────────────────────────────────────
             // 5. Final view-projection matrix
             const viewProj = mat4.mul(mat4.create(), P, mat4.mul(mat4.create(), V, model)); // view profection
+
+
+            // display current camera position, pitch, and yaw to the console
+            //console.log(`Camera position: x=${camState.position[0].toFixed(2)}, y=${camState.position[1].toFixed(2)}, z=${camState.position[2].toFixed(2)}`);
+            //console.log(`Camera pitch (xz)=${(camState.pitch * 180 / Math.PI).toFixed(2)}°, yaw (xy)=${(camState.yaw * 180 / Math.PI).toFixed(2)}°`);
+
 
             // skybox view matrix
             // Make a rotation‐only copy for the sky
