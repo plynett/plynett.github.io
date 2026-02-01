@@ -117,6 +117,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     });
     console.log("GPU Device acquired, starting resource creation...");
 
+    // Handle device lost and uncaptured error events
+    device.lost.then((info) => {
+    console.error("WebGPU device lost:", info);
+    });
+
+    device.addEventListener("uncapturederror", (e) => {
+    console.error("WebGPU uncaptured error:", e.error);
+    });
+
+
     // Get the WebGPU rendering context from the canvas.
     context = canvas.getContext('webgpu');
 
@@ -2254,8 +2264,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
         ExtractTimeSeries_view.setFloat32(24,  total_time_time_series, true);             // f32, total_time
         runComputeShader(device, commandEncoder, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture        
-        readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
+        await readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
 
+        
         // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations, only when not fullscreen
         if(calc_constants.full_screen == 0){
             const current_render = context.getCurrentTexture();    
