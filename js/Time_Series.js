@@ -107,7 +107,7 @@ export async function readToolTipTextureData(device, texture, frame_count_time_s
         calc_constants.countTimeSeries = calc_constants.countTimeSeries + 1;  // step up counter
     }
 
-    buffer.unmap(); // Don't forget to unmap the buffer once done
+    await buffer.unmap(); // Don't forget to unmap the buffer once done
 
     return;
 }
