@@ -63,6 +63,9 @@ export async function readTextureData(device, src_texture, channel) {
         }
     }
 
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
+
     return flatData; // or whatever processed form you prefer
 }
 
@@ -211,6 +214,9 @@ export async function saveRenderedImageAsJPEG(device, texture, width, height, ou
 
     // Make a copy of the buffer data immediately after mapping, to prevent "detached buffer" errors
     const bufferCopy = new Uint8ClampedArray(arrayBuffer.slice());
+    
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     // The buffer contains BGRA data, so we need to swap the red and blue channels for each pixel
     for (let i = 0; i < bufferCopy.length; i += 4) {
@@ -352,7 +358,9 @@ async function getFrameData(device, src_texture, width, height) {
 
     // Extract and process the buffer data
     const copyArrayBuffer = new Uint8Array(buffer.getMappedRange());
-    buffer.unmap();
+
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     // Format conversion from BGRA to RGBA (if necessary)
     const imageData = new Uint8ClampedArray(width * height * 4);
@@ -440,7 +448,9 @@ export async function saveTextureSlicesAsImages(device, texture, textureSize) {
         await buffer.mapAsync(GPUMapMode.READ);
         
         const arrayBuffer = new Uint8Array(buffer.getMappedRange()).slice();
-        buffer.unmap();
+
+        buffer.unmap(); // Don't forget to unmap the buffer once done
+        buffer.destroy();  // free up memory
 
         return arrayBuffer;
     }
@@ -506,7 +516,9 @@ export async function createAnimatedGifFromTexture(device, texture, textureSize)
         device.queue.submit([gpuCommands]);
         await buffer.mapAsync(GPUMapMode.READ);
         const arrayBuffer = new Uint8Array(buffer.getMappedRange()).slice();
-        buffer.unmap();
+
+        buffer.unmap(); // Don't forget to unmap the buffer once done
+        buffer.destroy();  // free up memory
 
         return arrayBuffer;
     }

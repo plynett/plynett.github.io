@@ -47,6 +47,7 @@ export async function readCornerPixelData(device, texture) {
     calc_constants.tooltipVal_friction = bufferCopy[3] / 255.0 / 20.; // Alpha
 
     buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     return bufferCopy;
 }
@@ -107,7 +108,8 @@ export async function readToolTipTextureData(device, texture, frame_count_time_s
         calc_constants.countTimeSeries = calc_constants.countTimeSeries + 1;  // step up counter
     }
 
-    await buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     return;
 }

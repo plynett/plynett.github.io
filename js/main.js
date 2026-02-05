@@ -3514,7 +3514,7 @@ async function updateChartData() {
         // Apply the new datasets to the chart
         timeseriesChart.data.datasets = newDatasets;
         calc_constants.chartDataUpdate = 0; // Reset the update flag
-    } else {
+    } else if (calc_constants.NumberOfTimeSeries > 0) {
         // If no new datasets but data might have been updated
         timeseriesChart.data.datasets.forEach((dataset, index) => {
             if(timeSeriesData[index]) { // Ensure there's corresponding data
@@ -3534,7 +3534,7 @@ async function updateChartData() {
     timeseriesChart.options.scales.x.ticks.stepSize = stepSize;
 
     // Update the chart to apply changes
-    await timeseriesChart.update();
+    timeseriesChart.update();
 }
 
 // Set an interval to update the chart every second (1000 milliseconds)

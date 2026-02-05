@@ -187,6 +187,11 @@ function addTextToLogContainer(text, container) {
     const entry = document.createElement('div');
     entry.textContent = text;
     container.appendChild(entry);
+
+    const maxEntries = 200; // <-- set desired cap here
+    while (container.childNodes.length > maxEntries) {
+        container.removeChild(container.firstChild);
+    }
 }
 
 
