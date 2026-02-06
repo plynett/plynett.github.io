@@ -84,6 +84,7 @@ function copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom) {
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 
     return paddedFlatData;
 }
@@ -126,6 +127,7 @@ function copyTransectWaveDataToTexture(calc_constants, waveData, device, txWaves
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 
 }
 
@@ -171,6 +173,7 @@ function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 }
 
 
@@ -215,6 +218,7 @@ function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 }
 
 
@@ -269,6 +273,7 @@ function copyInitialConditionDataToTexture(calc_constants, device, bathy2D, txSt
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 
 }
 
@@ -313,6 +318,7 @@ function copyConstantValueToTexture(calc_constants, device, txState, constantval
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 
 }
 
@@ -402,6 +408,7 @@ function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, ba
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 }
 
 function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, bathy2Dvec) {
@@ -489,6 +496,7 @@ function copyTridiagYDataToTexture(calc_constants, bathy2D, device, coefMaty, ba
         depthOrArrayLayers: 1
     });
     device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
 }
 
 // This function will copy the ImageBitmap data directly into the texture.
