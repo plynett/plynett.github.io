@@ -28,7 +28,7 @@ import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGr
 import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_BindGroup } from './Handler_ExtractTimeSeries.js';  // group bindings for storing single pixel / time series values
 import { create_Copytxf32_txf16_BindGroupLayout, create_Copytxf32_txf16_BindGroup } from './Handler_Copytxf32_txf16.js';  // group bindings for f32 to f16 copy shader
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid, createSkyboxPipeline, createModelPipeline, createDuckPipeline} from './Config_Pipelines.js';  // pipeline config for ALL shaders
-import { fetchShader, runComputeShader, runCopyTextures } from './Run_Compute_Shader.js';  // function to run shaders, works for all
+import { fetchShader, runComputeShader, runCopyTextures, runComputeShader_EncStack, runCopyTextures_EncStack} from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, displaySlideVolume, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
 import { mat4, vec3 } from 'https://cdn.jsdelivr.net/npm/gl-matrix/esm/index.js';
@@ -1656,26 +1656,36 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
 
+                // set time in uniform buffers for compute shaders here, so that command encoders can be stacked
+                PassBreaking_view.setFloat32(36, total_time - calc_constants.dt, true);   //f32 - update time, minus dt as we are here finding dissipation at the previous time level
+                BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
+                AddDisturbance_view.setFloat32(64, total_time ,true);             // f32   - stores time
+
+                // create command encoder for compute shaders and texture copy operations
+                var commandEncoderStack = device.createCommandEncoder();
+
                 // Pass0
-                runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runComputeShader_EncStack(device, commandEncoderStack, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                 // Pass1
-                runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runComputeShader_EncStack(device, commandEncoderStack, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                 // SedTrans_Pass1
                 if(calc_constants.useSedTransModel == 1){
-                    runComputeShader(device, commandEncoder, SedTrans_Pass1_uniformBuffer, SedTrans_Pass1_uniforms, SedTrans_Pass1_Pipeline, SedTrans_Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, SedTrans_Pass1_uniformBuffer, SedTrans_Pass1_uniforms, SedTrans_Pass1_Pipeline, SedTrans_Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 }
 
                 // Pass2
-                runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runComputeShader_EncStack(device, commandEncoderStack, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                 // Breaking and Dissipation Pass
                 if(calc_constants.useBreakingModel == 1) {
-                    PassBreaking_view.setFloat32(36, total_time - calc_constants.dt, true);   //f32 - update time, minus dt as we are here finding dissipation at the previous time level
-                    runComputeShader(device, commandEncoder, PassBreaking_uniformBuffer, PassBreaking_uniforms, PassBreaking_Pipeline, PassBreaking_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
+                    runComputeShader_EncStack(device, commandEncoderStack, PassBreaking_uniformBuffer, PassBreaking_uniforms, PassBreaking_Pipeline, PassBreaking_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Breaking, txBreaking)
                 }
+                
+                // break here to submit the command encoder stack
+                device.queue.submit([commandEncoderStack.finish()]);
 
                 // Pass3
                 if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
@@ -1691,35 +1701,41 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 calc_constants.pred_or_corrector = 1;  //set to predictor step
                 Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
+
+                //re-init command encoder for Pass3
+                commandEncoderStack = device.createCommandEncoder();
+
                 if (calc_constants.NLSW_or_Bous > 0) { //BOUS
-                    runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 }
                 else { //NLSW
-                    runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 }
                 // put DuDt from predictor into predicted gradients
-                runCopyTextures(device, commandEncoder, calc_constants, dU_by_dt, predictedGradients)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, dU_by_dt, predictedGradients)
 
                 // SedTrans Pass3
                 if(calc_constants.useSedTransModel == 1){
-                    runComputeShader(device, commandEncoder, SedTrans_Pass3_uniformBuffer, SedTrans_Pass3_uniforms, SedTrans_Pass3_Pipeline, SedTrans_Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                    runCopyTextures(device, commandEncoder, calc_constants, dU_by_dt_Sed, predictedGradients_Sed)
+                    runComputeShader_EncStack(device, commandEncoderStack, SedTrans_Pass3_uniformBuffer, SedTrans_Pass3_uniforms, SedTrans_Pass3_Pipeline, SedTrans_Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, dU_by_dt_Sed, predictedGradients_Sed)
                 }
 
                 // BoundaryPass
-                BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
-                runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runComputeShader_EncStack(device, commandEncoderStack, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 // updated texture is stored in txtemp_boundary, but back into current_stateUVstar.  Same with breaking values (mainly for periodic conditions)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_boundary, current_stateUVstar)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Breaking, txBreaking)
                 if(calc_constants.useSedTransModel == 1){
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
                 }   
 
                 if (calc_constants.NLSW_or_Bous == 2) {
                     // COULWAVE Model - need to update nonlinear tridaig coefficents before running tridiag solver
-                    runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                    runComputeShader_EncStack(device, commandEncoderStack, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                 }
+
+                // submit encoder stack for boundary pass and updates before tridiag
+                device.queue.submit([commandEncoderStack.finish()]);
 
                 //Tridiag Solver for Bous, or copy for NLSW
                 runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -1729,61 +1745,75 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 )
 
                 // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
+
+                // re-init command encoder for boundary pass after tridiag
+                commandEncoderStack = device.createCommandEncoder();
+
                 if (calc_constants.NLSW_or_Bous > 0) { //BOUS
-                    runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
                 }
                 // updated texture is stored in txtemp, but back into txNewState - this needs to be done for both NLSW and Bous.  Even though these are the same in NLSW, some passes use State, and these must be updated with bc's
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_boundary, txNewState)
 
                 // Shift back FG textures - only have to do this for Bous, and only after predictor step
-                runCopyTextures(device, commandEncoder, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
-                runCopyTextures(device, commandEncoder, calc_constants, predictedF_G_star, F_G_star_oldGradients)
-
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, F_G_star_oldGradients, F_G_star_oldOldGradients)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, predictedF_G_star, F_G_star_oldGradients)
 
                 // add prescriptive depth change
                 if(calc_constants.disturbanceType == 5) {
-                    AddDisturbance_view.setFloat32(64, total_time ,true);             // f32   - stores time
 
-                    runComputeShader(device, commandEncoder, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom) 
-                    runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update neardry
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
-                    runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                    runComputeShader_EncStack(device, commandEncoderStack, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom) 
+                    runComputeShader_EncStack(device, commandEncoderStack, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update neardry
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom)
+                    runComputeShader_EncStack(device, commandEncoderStack, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                         
                     // copy the initial bathy into a seperate texture
                     if (frame_count == 0) {
-                        runCopyTextures(device, commandEncoder, calc_constants, txBottom, txBottomInitial)
+                        runCopyTextures_EncStack(commandEncoderStack, calc_constants, txBottom, txBottomInitial)
                     }
+
                 }
+
+                // submit encoder stack 
+                device.queue.submit([commandEncoderStack.finish()]);
 
                 if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
                 {
+                    // set buffers here so that command encoder stack can be maximized for corrector step
+                    PassBreaking_view.setFloat32(36, total_time, true);
+                    
+                    // re-init command encoder for corrector step
+                    commandEncoderStack = device.createCommandEncoder();
+                    
                     // put txNewState into txState for the corrector equation, so gradients use the predicted values
-                    runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txNewState, txState)
                     if(calc_constants.useSedTransModel == 1){
-                        runCopyTextures(device, commandEncoder, calc_constants, txNewState_Sed, txState_Sed)
+                        runCopyTextures_EncStack(commandEncoderStack, calc_constants, txNewState_Sed, txState_Sed)
                     }                       
 
                     // Pass0
-                    runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                     // Pass1
-                    runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                     // SedTrans_Pass1
                     if(calc_constants.useSedTransModel == 1){
-                        runComputeShader(device, commandEncoder, SedTrans_Pass1_uniformBuffer, SedTrans_Pass1_uniforms, SedTrans_Pass1_Pipeline, SedTrans_Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader_EncStack(device, commandEncoderStack, SedTrans_Pass1_uniformBuffer, SedTrans_Pass1_uniforms, SedTrans_Pass1_Pipeline, SedTrans_Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     }
 
                     // Pass2
-                    runComputeShader(device, commandEncoder, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, Pass2_uniformBuffer, Pass2_uniforms, Pass2_Pipeline, Pass2_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
 
                     // Breaking and Dissipation Pass
                     if(calc_constants.useBreakingModel == 1) {
-                        PassBreaking_view.setFloat32(36, total_time, true);   //f32 - update time
-                        runComputeShader(device, commandEncoder, PassBreaking_uniformBuffer, PassBreaking_uniforms, PassBreaking_Pipeline, PassBreaking_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
+                        runComputeShader_EncStack(device, commandEncoderStack, PassBreaking_uniformBuffer, PassBreaking_uniforms, PassBreaking_Pipeline, PassBreaking_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Breaking, txBreaking)
                     }
+                    
+                    // submit encoder stack for corrector step before breaking and Pass3
+                    device.queue.submit([commandEncoderStack.finish()]);
 
                     // Pass3
                     if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
@@ -1799,31 +1829,37 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                     calc_constants.pred_or_corrector = 2;
                     Pass3_view.setUint32(56, calc_constants.pred_or_corrector, true);       // f32
+
+                    // re-init command encoder for Pass3 corrector step
+                    commandEncoderStack = device.createCommandEncoder();
                     if (calc_constants.NLSW_or_Bous > 0) { //BOUS
-                        runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader_EncStack(device, commandEncoderStack, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_Bous, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     }
                     else { //NLSW
-                        runComputeShader(device, commandEncoder, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader_EncStack(device, commandEncoderStack, Pass3_uniformBuffer, Pass3_uniforms, Pass3_Pipeline_NLSW, Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     }
 
                     // SedTrans Pass3
                     if(calc_constants.useSedTransModel == 1){
-                        runComputeShader(device, commandEncoder, SedTrans_Pass3_uniformBuffer, SedTrans_Pass3_uniforms, SedTrans_Pass3_Pipeline, SedTrans_Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader_EncStack(device, commandEncoderStack, SedTrans_Pass3_uniformBuffer, SedTrans_Pass3_uniforms, SedTrans_Pass3_Pipeline, SedTrans_Pass3_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     }
 
                     // BoundaryPass
-                    runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader_EncStack(device, commandEncoderStack, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     // updated texture is stored in txtemp, but back into current_stateUVstar
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, current_stateUVstar)
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_boundary, current_stateUVstar)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Breaking, txBreaking)
                     if(calc_constants.useSedTransModel == 1){
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
+                        runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
                     }                    
 
                     if (calc_constants.NLSW_or_Bous == 2) {
                         // COULWAVE Model - need to update nonlinear tridaig coefficents before running tridiag solver
-                        runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runComputeShader_EncStack(device, commandEncoderStack, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                     }
+
+                    // submit encoder stack for corrector step before tridiag
+                    device.queue.submit([commandEncoderStack.finish()]);
 
                     //Tridiag Solver for Bous, or copy for NLSW
                     runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -1832,56 +1868,77 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                             runComputeShader, runCopyTextures
                     )
 
+                    // re-init command encoder for boundary pass after tridiag in corrector step
+                    commandEncoderStack = device.createCommandEncoder();
+
                     // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
                     if (calc_constants.NLSW_or_Bous > 0) { //BOUS
-                        runComputeShader(device, commandEncoder, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader_EncStack(device, commandEncoderStack, BoundaryPass_uniformBuffer, BoundaryPass_uniforms, BoundaryPass_Pipeline, BoundaryPass_BindGroup_NewState, calc_constants.DispatchX, calc_constants.DispatchY);
                     }
                     // updated texture is stored in txtemp, but back into txNewState - this needs to be done for both NLSW and Bous.  Even though these are the same in NLSW, some passes use State, and these must be updated with bc's
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary, txNewState)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_boundary, txNewState)
+
+                    // submit encoder stack for boundary pass after tridiag in corrector step
+                    device.queue.submit([commandEncoderStack.finish()]);
                 }
+
+                // setup variables and re-set buffers as needed here, above the encoder stack
+                calc_constants.n_time_steps_means += 1;
+                CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
+
+                calc_constants.n_time_steps_waveheight += 1;
+                CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
+
+                // re-init command encoder for copy operations after corrector step
+                commandEncoderStack = device.createCommandEncoder();
 
                 // Update Bottom from Sed Transport
                 if(calc_constants.useSedTransModel == 1){
-                    runComputeShader(device, commandEncoder, SedTrans_UpdateBottom_uniformBuffer, SedTrans_UpdateBottom_uniforms, SedTrans_UpdateBottom_Pipeline, SedTrans_UpdateBottom_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Botttom, txBottom)
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_SedTrans_Change, txBotChange_Sed)
-                    runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
+                    runComputeShader_EncStack(device, commandEncoderStack, SedTrans_UpdateBottom_uniformBuffer, SedTrans_UpdateBottom_uniforms, SedTrans_UpdateBottom_Pipeline, SedTrans_UpdateBottom_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_SedTrans_Botttom, txBottom)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_SedTrans_Change, txBotChange_Sed)
+                    runComputeShader_EncStack(device, commandEncoderStack, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom)
                     if (calc_constants.NLSW_or_Bous == 1) { // only need to update neardry and tridiagonal coefficients for Celeris Boussinesq equations
                      //   console.log('Updating neardry & tridiag coef sediment transport depth change')
-                        runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runComputeShader_EncStack(device, commandEncoderStack, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                     }
                 }
 
                 // shift gradient textures
-                runCopyTextures(device, commandEncoder, calc_constants, oldGradients, oldOldGradients)
-                runCopyTextures(device, commandEncoder, calc_constants, predictedGradients, oldGradients)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, oldGradients, oldOldGradients)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, predictedGradients, oldGradients)
 
                 // Copy future_ocean_texture back to ocean_texture
-                runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
-                runCopyTextures(device, commandEncoder, calc_constants, current_stateUVstar, txstateUVstar)
-
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txNewState, txState)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, current_stateUVstar, txstateUVstar)
+                
                 // shift/Copy SedTrans
                 if(calc_constants.useSedTransModel == 1){
-                    runCopyTextures(device, commandEncoder, calc_constants, oldGradients_Sed, oldOldGradients_Sed)
-                    runCopyTextures(device, commandEncoder, calc_constants, predictedGradients_Sed, oldGradients_Sed)
-                    runCopyTextures(device, commandEncoder, calc_constants, txNewState_Sed, txState_Sed)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, oldGradients_Sed, oldOldGradients_Sed)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, predictedGradients_Sed, oldGradients_Sed)
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txNewState_Sed, txState_Sed)
                 }
 
                 //  Update Statistics - means and wave height
-                calc_constants.n_time_steps_means += 1;
+                //calc_constants.n_time_steps_means += 1;  // moved above
                 // update Pass1 cell side textures as these are used for the velocities outputs - can probably remove the Pass1 call in the predictor step, but do not want to break anything right now
-                runComputeShader(device, commandEncoder, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32
-                runComputeShader(device, commandEncoder, CalcMeans_uniformBuffer, CalcMeans_uniforms, CalcMeans_Pipeline, CalcMeans_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means, txMeans)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Speed, txMeans_Speed)
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_Means_Momflux, txMeans_Momflux)
+                runComputeShader_EncStack(device, commandEncoderStack, Pass1_uniformBuffer, Pass1_uniforms, Pass1_Pipeline, Pass1_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                //CalcMeans_view.setInt32(0, calc_constants.n_time_steps_means, true);          // i32 moved above
+                runComputeShader_EncStack(device, commandEncoderStack, CalcMeans_uniformBuffer, CalcMeans_uniforms, CalcMeans_Pipeline, CalcMeans_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                
+                // Stack command encoder for copy operations
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Means, txMeans)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Means_Speed, txMeans_Speed)
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_Means_Momflux, txMeans_Momflux)
 
-                calc_constants.n_time_steps_waveheight += 1;
-                CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32
-                runComputeShader(device, commandEncoder, CalcWaveHeight_uniformBuffer, CalcWaveHeight_uniforms, CalcWaveHeight_Pipeline, CalcWaveHeight_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                runCopyTextures(device, commandEncoder, calc_constants, txtemp_WaveHeight, txWaveHeight)
+                //calc_constants.n_time_steps_waveheight += 1;  // moved above
+                //CalcWaveHeight_view.setInt32(0, calc_constants.n_time_steps_waveheight, true);          // i32 moved above
+                runComputeShader_EncStack(device, commandEncoderStack, CalcWaveHeight_uniformBuffer, CalcWaveHeight_uniforms, CalcWaveHeight_Pipeline, CalcWaveHeight_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_WaveHeight, txWaveHeight)
+                
+                // submit encoder stack for copy operations after corrector step
+                device.queue.submit([commandEncoderStack.finish()]);
 
             }
         }
