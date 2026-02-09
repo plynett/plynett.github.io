@@ -27,51 +27,64 @@ export function runTridiagSolver(
     runComputeShader,
     runCopyTextures
 ) {
-    
+
     if (calc_constants.NLSW_or_Bous == 0) {
-        runCopyTextures(device, commandEncoder, calc_constants, current_stateUVstar, txNewState)
+        // NLSW: simple copy, uses a local encoder
+        let encoder = device.createCommandEncoder();
+        runCopyTextures(device, encoder, calc_constants, current_stateUVstar, txNewState);
+        device.queue.submit([encoder.finish()]);
     }
     else
     {
         //Tridiag
         // X-Solve
 
-        // Copy tridaig coef into newcoef for first loop
-        runCopyTextures(device, commandEncoder, calc_constants, coefMatx, newcoef_x)
+        // Copy tridiag coef into newcoef for first loop
+        let encoder = device.createCommandEncoder();
+        runCopyTextures(device, encoder, calc_constants, coefMatx, newcoef_x);
+        device.queue.submit([encoder.finish()]);
+
         for (let p = 0; p < calc_constants.Px; p++) {
 
             let s = 1 << p;
 
             TridiagX_view.setInt32(8, p, true);             // i32, holds "p"
-            TridiagX_view.setInt32(12, s, true);            // i32, hols "s"
+            TridiagX_view.setInt32(12, s, true);            // i32, holds "s"
 
-            // Dispatch the shader computation.
-            runComputeShader(device, commandEncoder, TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-            // Copy reduced tridaig coef into newcoef for next loop
-            runCopyTextures(device, commandEncoder, calc_constants, txtemp_PCRx, newcoef_x)
+            // Batch compute + copy into a single encoder per iteration
+            encoder = device.createCommandEncoder();
+            runComputeShader(device, encoder, TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+            runCopyTextures(device, encoder, calc_constants, txtemp_PCRx, newcoef_x);
+            device.queue.submit([encoder.finish()]);
         }
 
-        // After all the iterations, copy the new state into current state.
-        runCopyTextures(device, commandEncoder, calc_constants, txtemp2_PCRx, txNewState)
+        // Finalize X-solve and start Y-solve setup
+        encoder = device.createCommandEncoder();
+        runCopyTextures(device, encoder, calc_constants, txtemp2_PCRx, txNewState);
 
         // Y-Solve
 
-        // Copy tridaig coef into newcoef for first loop
-        runCopyTextures(device, commandEncoder, calc_constants, coefMaty, newcoef_y)
+        // Copy tridiag coef into newcoef for first loop
+        runCopyTextures(device, encoder, calc_constants, coefMaty, newcoef_y);
+        device.queue.submit([encoder.finish()]);
+
         for (let p = 0; p < calc_constants.Py; p++) {
 
             let s = 1 << p;
 
             TridiagY_view.setInt32(8, p, true);             // i32, holds "p"
-            TridiagY_view.setInt32(12, s, true);            // i32, hols "s"
+            TridiagY_view.setInt32(12, s, true);            // i32, holds "s"
 
-            // Dispatch the shader computation.
-            runComputeShader(device, commandEncoder, TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-            // Copy reduced tridaig coef into newcoef for next loop
-            runCopyTextures(device, commandEncoder, calc_constants, txtemp_PCRy, newcoef_y)
+            // Batch compute + copy into a single encoder per iteration
+            encoder = device.createCommandEncoder();
+            runComputeShader(device, encoder, TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+            runCopyTextures(device, encoder, calc_constants, txtemp_PCRy, newcoef_y);
+            device.queue.submit([encoder.finish()]);
         }
 
-        // After all the iterations, copy the new state into current state.
-        runCopyTextures(device, commandEncoder, calc_constants, txtemp2_PCRy, txNewState)
+        // Finalize Y-solve
+        encoder = device.createCommandEncoder();
+        runCopyTextures(device, encoder, calc_constants, txtemp2_PCRy, txNewState);
+        device.queue.submit([encoder.finish()]);
     }
 }

@@ -1400,6 +1400,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             }
 
         }
+        // Encoder for pre-loop GPU operations (mouse clicks, disturbances, etc.)
+        var commandEncoder = device.createCommandEncoder();
+
         // copy the initial bathy into a seperate texture
         if (frame_count == 0) {
             runCopyTextures(device, commandEncoder, calc_constants, txBottom, txBottomInitial)
@@ -1643,8 +1646,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
 
-         // loop through the compute shaders "render_step" times.  
-        var commandEncoder;  // init the encoder
+         // Submit pre-loop GPU operations
+        device.queue.submit([commandEncoder.finish()]);
+
+         // loop through the compute shaders "render_step" times.
         if (calc_constants.simPause < 0) {// do not run compute loop when > 0, when the simulation is paused {
             for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {  // loop through the compute shaders "render_step" time
 
@@ -1655,6 +1660,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
+
+                // === PREDICTOR PRE-TRIDIAG BATCH ===
+                commandEncoder = device.createCommandEncoder();
 
                 // Pass0
                 runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -1681,12 +1689,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
                     runComputeShader(device, commandEncoder, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     runComputeShader(device, commandEncoder, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                    copy2DDataTo3DTexture(device, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
-                    copy2DDataTo3DTexture(device, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
-                    copy2DDataTo3DTexture(device, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
-                    copy2DDataTo3DTexture(device, txCW_STgrad, txCW_groupings, 3, calc_constants.WIDTH, calc_constants.HEIGHT);
-                    copy2DDataTo3DTexture(device, txCW_Eterms, txCW_groupings, 4, calc_constants.WIDTH, calc_constants.HEIGHT);
-                    copy2DDataTo3DTexture(device, txCW_FGterms, txCW_groupings, 5, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, commandEncoder, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, commandEncoder, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, commandEncoder, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, commandEncoder, txCW_STgrad, txCW_groupings, 3, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, commandEncoder, txCW_Eterms, txCW_groupings, 4, calc_constants.WIDTH, calc_constants.HEIGHT);
+                    copy2DDataTo3DTexture(device, commandEncoder, txCW_FGterms, txCW_groupings, 5, calc_constants.WIDTH, calc_constants.HEIGHT);
                 }
 
                 calc_constants.pred_or_corrector = 1;  //set to predictor step
@@ -1714,12 +1722,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
                 if(calc_constants.useSedTransModel == 1){
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
-                }   
+                }
 
                 if (calc_constants.NLSW_or_Bous == 2) {
                     // COULWAVE Model - need to update nonlinear tridaig coefficents before running tridiag solver
                     runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                 }
+
+                // Submit predictor pre-tridiag batch
+                device.queue.submit([commandEncoder.finish()]);
 
                 //Tridiag Solver for Bous, or copy for NLSW
                 runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -1727,6 +1738,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
                     runComputeShader, runCopyTextures
                 )
+
+                // === POST-TRIDIAG PREDICTOR BATCH ===
+                commandEncoder = device.createCommandEncoder();
 
                 // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
                 if (calc_constants.NLSW_or_Bous > 0) { //BOUS
@@ -1745,11 +1759,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     AddDisturbance_view.setFloat32(64, total_time ,true);             // f32   - stores time
 
                     runComputeShader(device, commandEncoder, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom) 
+                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                     runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update neardry
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
                     runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                        
+
                     // copy the initial bathy into a seperate texture
                     if (frame_count == 0) {
                         runCopyTextures(device, commandEncoder, calc_constants, txBottom, txBottomInitial)
@@ -1758,11 +1772,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 if (calc_constants.timeScheme == 2)  // only called when using Predictor+Corrector method.  Adding corrector allows for a time step twice as large (also adds twice the computation) and provides a more accurate solution
                 {
+                    // === CORRECTOR PRE-TRIDIAG (continues in same encoder as post-tridiag predictor) ===
+
                     // put txNewState into txState for the corrector equation, so gradients use the predicted values
                     runCopyTextures(device, commandEncoder, calc_constants, txNewState, txState)
                     if(calc_constants.useSedTransModel == 1){
                         runCopyTextures(device, commandEncoder, calc_constants, txNewState_Sed, txState_Sed)
-                    }                       
+                    }
 
                     // Pass0
                     runComputeShader(device, commandEncoder, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -1789,12 +1805,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
                         runComputeShader(device, commandEncoder, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                         runComputeShader(device, commandEncoder, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                        copy2DDataTo3DTexture(device, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
-                        copy2DDataTo3DTexture(device, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
-                        copy2DDataTo3DTexture(device, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
-                        copy2DDataTo3DTexture(device, txCW_STgrad, txCW_groupings, 3, calc_constants.WIDTH, calc_constants.HEIGHT);
-                        copy2DDataTo3DTexture(device, txCW_Eterms, txCW_groupings, 4, calc_constants.WIDTH, calc_constants.HEIGHT);
-                        copy2DDataTo3DTexture(device, txCW_FGterms, txCW_groupings, 5, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, commandEncoder, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, commandEncoder, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, commandEncoder, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, commandEncoder, txCW_STgrad, txCW_groupings, 3, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, commandEncoder, txCW_Eterms, txCW_groupings, 4, calc_constants.WIDTH, calc_constants.HEIGHT);
+                        copy2DDataTo3DTexture(device, commandEncoder, txCW_FGterms, txCW_groupings, 5, calc_constants.WIDTH, calc_constants.HEIGHT);
                     }
 
                     calc_constants.pred_or_corrector = 2;
@@ -1818,12 +1834,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     runCopyTextures(device, commandEncoder, calc_constants, txtemp_Breaking, txBreaking)
                     if(calc_constants.useSedTransModel == 1){
                         runCopyTextures(device, commandEncoder, calc_constants, txtemp_boundary_Sed, txNewState_Sed)
-                    }                    
+                    }
 
                     if (calc_constants.NLSW_or_Bous == 2) {
                         // COULWAVE Model - need to update nonlinear tridaig coefficents before running tridiag solver
                         runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                     }
+
+                    // Submit corrector pre-tridiag batch
+                    device.queue.submit([commandEncoder.finish()]);
 
                     //Tridiag Solver for Bous, or copy for NLSW
                     runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
@@ -1831,6 +1850,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                             TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
                             runComputeShader, runCopyTextures
                     )
+
+                    // === POST-TRIDIAG CORRECTOR BATCH ===
+                    commandEncoder = device.createCommandEncoder();
 
                     // after tridiag, we re-eval bc's on eta. P, Q  [this is not needed for NLSW, since U*=P and V*=Q, and these bc's have already been enforced]
                     if (calc_constants.NLSW_or_Bous > 0) { //BOUS
@@ -1883,11 +1905,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 runComputeShader(device, commandEncoder, CalcWaveHeight_uniformBuffer, CalcWaveHeight_uniforms, CalcWaveHeight_Pipeline, CalcWaveHeight_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                 runCopyTextures(device, commandEncoder, calc_constants, txtemp_WaveHeight, txWaveHeight)
 
+                // === SUBMIT END-OF-STEP BATCH ===
+                device.queue.submit([commandEncoder.finish()]);
+
             }
         }
 
         // copy eta and bottom data to the f16 texture for filtered rendering
+        commandEncoder = device.createCommandEncoder();
         runComputeShader(device, commandEncoder, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+        device.queue.submit([commandEncoder.finish()]);
              
         // Define the settings for the render pass.
         Render_view.setFloat32(116, total_time, true);             // f32  
@@ -2263,8 +2290,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
         ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
         ExtractTimeSeries_view.setFloat32(24,  total_time_time_series, true);             // f32, total_time
-        runComputeShader(device, commandEncoder, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture        
-        readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
+        commandEncoder = device.createCommandEncoder();
+        runComputeShader(device, commandEncoder, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture
+        device.queue.submit([commandEncoder.finish()]);
+        await readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
 
         
         // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations, only when not fullscreen
@@ -2544,6 +2573,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             
         }
         
+        // Periodically flush GPU work to allow the browser to reclaim internal tracking resources.
+        // Without this, billions of submissions over long runs can exhaust GPU process memory.
+        await device.queue.onSubmittedWorkDone();
+
         requestAnimationFrame(frame);  // Call the next frame, restarts the function
 
     }

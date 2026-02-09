@@ -484,12 +484,9 @@ function copyImageBitmapToTexture(device, imageBitmap, texture, depth = -1) {
 
 
 // This function will copy the 2D data directly into the 3D texture.
-export function copy2DDataTo3DTexture(device, src2D, dst3D, dstLayer, width, height) {
-  // 1) create an encoder to record GPU commands
-  const encoder = device.createCommandEncoder();
-
-  // 2) record the texture‐to‐texture copy
-  encoder.copyTextureToTexture(
+export function copy2DDataTo3DTexture(device, commandEncoder, src2D, dst3D, dstLayer, width, height) {
+  // Record the texture‐to‐texture copy in the provided command encoder
+  commandEncoder.copyTextureToTexture(
     // source descriptor
     {
       texture:  src2D,
@@ -509,10 +506,6 @@ export function copy2DDataTo3DTexture(device, src2D, dst3D, dstLayer, width, hei
       depthOrArrayLayers: 1,
     }
   );
-
-  // 3) finish and submit
-  const commandBuffer = encoder.finish();
-  device.queue.submit([commandBuffer]);
 }
 
 

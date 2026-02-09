@@ -6,16 +6,12 @@ export async function readTextureData(device, src_texture, channel) {
     const channelsPerPixel = 4; // For RGBA data
     const actualBytesPerRow = calc_constants.WIDTH * bytesPerChannel * channelsPerPixel; // 4 channels and 4 bytes per float
     const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
-    const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
+    const bufferSize = calc_constants.HEIGHT * requiredBytesPerRow;
 
     const buffer = device.createBuffer({
-        size: paddedFlatData.byteLength,
+        size: bufferSize,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-        mappedAtCreation: true
     });
-
-    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
-    buffer.unmap();
 
     // Create a command encoder and copy the texture to the buffer.
     const commandEncoder = device.createCommandEncoder();
@@ -175,16 +171,10 @@ export async function saveRenderedImageAsJPEG(device, texture, width, height, ou
     const bytesPerRow = width * 4; // for RGBA, there are 4 channels per pixel
     const totalBytes = height * bytesPerRow; // total bytes needed for the whole image
 
-    const FlatData = new Uint8ClampedArray(totalBytes); // this array will contain the image data
-
     const buffer = device.createBuffer({
-        size: FlatData.byteLength,
+        size: totalBytes,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-        mappedAtCreation: true
     });
-
-    new Uint8ClampedArray(buffer.getMappedRange()).set(FlatData);
-    buffer.unmap();
 
     // We need to ensure the texture format is compatible with our readback, RGBA8 is assumed here.
     const copyEncoder = device.createCommandEncoder();
@@ -214,7 +204,7 @@ export async function saveRenderedImageAsJPEG(device, texture, width, height, ou
 
     // Make a copy of the buffer data immediately after mapping, to prevent "detached buffer" errors
     const bufferCopy = new Uint8ClampedArray(arrayBuffer.slice());
-    
+
     buffer.unmap(); // Don't forget to unmap the buffer once done
     buffer.destroy();  // free up memory
 
@@ -260,16 +250,10 @@ export async function TexturetoImageData(device, texture, width, height) {
     const bytesPerRow = width * 4; // for RGBA, there are 4 channels per pixel
     const totalBytes = height * bytesPerRow; // total bytes needed for the whole image
 
-    const FlatData = new Uint8ClampedArray(totalBytes); // this array will contain the image data
-
     const buffer = device.createBuffer({
-        size: FlatData.byteLength,
+        size: totalBytes,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-        mappedAtCreation: true
     });
-
-    new Uint8ClampedArray(buffer.getMappedRange()).set(FlatData);
-    buffer.unmap();
 
     // We need to ensure the texture format is compatible with our readback, RGBA8 is assumed here.
     const copyEncoder = device.createCommandEncoder();
@@ -299,6 +283,9 @@ export async function TexturetoImageData(device, texture, width, height) {
 
     // Make a copy of the buffer data immediately after mapping, to prevent "detached buffer" errors
     const bufferCopy = new Uint8ClampedArray(arrayBuffer.slice());
+
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     // The buffer contains BGRA data, so we need to swap the red and blue channels for each pixel
     for (let i = 0; i < bufferCopy.length; i += 4) {
