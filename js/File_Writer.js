@@ -1,73 +1,65 @@
 //File_Writer.js
 import { calc_constants } from './constants_load_calc.js';
 export async function readTextureData(device, src_texture, channel) {
-    // Create a buffer to hold the data read from the texture.
-    const bytesPerChannel = 4; // Since each channel is a 32-bit float
-    const channelsPerPixel = 4; // For RGBA data
-    const actualBytesPerRow = calc_constants.WIDTH * bytesPerChannel * channelsPerPixel; // 4 channels and 4 bytes per float
+    // Keep behavior identical, minimize allocations, and release handles promptly.
+
+    const width = calc_constants.WIDTH;
+    const height = calc_constants.HEIGHT;
+
+    // Constants are unchanged, just avoid extra intermediate arrays.
+    const bytesPerChannel = 4;       // 32-bit float
+    const channelsPerPixel = 4;      // RGBA
+    const actualBytesPerRow = width * bytesPerChannel * channelsPerPixel;
     const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
-    const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
+
+    // Buffer size in bytes, no need to allocate and upload a zeroed Float32Array first.
+    const bufferSize = height * requiredBytesPerRow;
 
     const buffer = device.createBuffer({
-        size: paddedFlatData.byteLength,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-        mappedAtCreation: true
+        size: bufferSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
     });
 
-    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
-    buffer.unmap();
-
-    // Create a command encoder and copy the texture to the buffer.
+    // Encode copy.
     const commandEncoder = device.createCommandEncoder();
     commandEncoder.copyTextureToBuffer(
-        {
-            texture: src_texture,
-        },
-        {
-            buffer: buffer,
-            bytesPerRow: requiredBytesPerRow,
-            rowsPerImage: calc_constants.HEIGHT,
-        },
-        {
-            width: calc_constants.WIDTH,
-            height: calc_constants.HEIGHT,
-            depthOrArrayLayers: 1
-        },
+        { texture: src_texture },
+        { buffer, bytesPerRow: requiredBytesPerRow, rowsPerImage: height },
+        { width, height, depthOrArrayLayers: 1 }
     );
 
-    // Submit the commands and wait for them to complete.
-    const queue = device.queue;
-    queue.submit([commandEncoder.finish()]);
+    // Submit and drop transient handles as early as possible.
+    device.queue.submit([commandEncoder.finish()]);
+
     await buffer.mapAsync(GPUMapMode.READ);
 
-    // Get an array buffer view of the buffer data.
-    const arrayBuffer = buffer.getMappedRange();
+    // Views only, no copying.
+    const mapped = buffer.getMappedRange();
+    const bufferData = new Float32Array(mapped);
 
-    // You could then convert the data as needed before saving, e.g., creating a Float32Array view on the data.
-    const Buffer_data = new Float32Array(arrayBuffer);
+    // Output allocation is necessary for return value.
+    const flatData = new Float32Array(width * height);
 
-    // Initialize the 1D array
-    let flatData = new Float32Array(calc_constants.WIDTH * calc_constants.HEIGHT);
+    // Precompute loop invariants.
+    const floatsPerRow = requiredBytesPerRow >> 2; // /4
+    const chanOffset = channel - 1;
 
-    // Extract data from Buffer_data into the 2D array, row by row, taking into account the padding and the 4 channels per pixel
-    for (let y = 0; y < calc_constants.HEIGHT; y++) {
-        for (let x = 0; x < calc_constants.WIDTH; x++) {
+    for (let y = 0; y < height; y++) {
+        const rowBasePadded = y * floatsPerRow;
+        const rowBaseReal = y * width;
 
-            const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
-            const realIndex = y * calc_constants.WIDTH + x; // Adjust the index for padding
-
-            flatData[realIndex] = Buffer_data[paddedIndex + channel - 1]; // red
-    //        data[x][y] = paddedFlatData[paddedIndex + 1];  // green
-    //        data[x][y] = paddedFlatData[paddedIndex + 2];  // blue
-    //        data[x][y] = paddedFlatData[paddedIndex + 3];  // alpha
+        for (let x = 0; x < width; x++) {
+            // Same indexing logic as original: padded row stride, 4 floats per pixel.
+            flatData[rowBaseReal + x] = bufferData[rowBasePadded + (x << 2) + chanOffset];
         }
     }
 
-    buffer.unmap(); // Don't forget to unmap the buffer once done
-    buffer.destroy();  // free up memory
+    buffer.unmap();
+    buffer.destroy();
 
-    return flatData; // or whatever processed form you prefer
+    return flatData;
 }
+
 
 // geotiff writer
 export async function downloadGeoTiffData(device, texture, channel,dx,dy) {

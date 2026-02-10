@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Celeris-WebGPU (Headless)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #webgpuCanvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      touch-action: none;
+    }
+
+    /* Keep required containers in the DOM but hide them to reduce UI overhead. */
+    #simstatus-container,
+    #constants-container,
+    #log-container,
+    #timeseriesChart,
+    #headless-inputs {
+      display: none;
+    }
+
+    #tooltip {
+      position: absolute;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="simstatus-container"></div>
+  <div id="constants-container"></div>
+  <div id="log-container"></div>
+
+  <canvas id="webgpuCanvas"></canvas>
+  <div id="tooltip"></div>
+
+  <canvas id="timeseriesChart"></canvas>
+
+  <div id="headless-inputs">
+    <input type="file" id="configFile" accept="application/json" />
+    <input type="file" id="bathymetryFile" accept="application/txt" />
+    <input type="file" id="waveFile" accept="application/txt" />
+    <input type="file" id="etaInitialConditionFile" accept="application/txt" />
+    <input type="file" id="frictionmapFile" accept="application/txt" />
+    <input type="file" id="hardbottomFile" accept="application/txt" />
+    <input type="file" id="satimageFile" accept="image/jpeg, image/png, image/bmp, image/gif" />
+    <input type="file" id="modelFile" accept="application/json" />
+
+    <button id="start-simulation-btn">Start Simulation</button>
+
+    <select id="run_example-select" name="run_exampleValue">
+      <option value="0">Ventura Harbor (CA), wind waves</option>
+      <option value="27">Hermosa Beach (CA), wind waves</option>
+      <option value="37">Hermosa Beach (CA), High-Order mode</option>
+      <option value="25">Balboa Pier (CA), wind waves</option>
+      <option value="20">Newport Jetties (CA), wind waves</option>
+      <option value="33">Oceanside (CA), wind waves</option>
+      <option value="26">Blacks Beach (CA), wind waves</option>
+      <option value="18">Scripps Pier (CA), wind waves</option>
+      <option value="19">Scripps Canyon (CA), wind waves</option>
+      <option value="28">Morro Rock (CA), wind waves</option>
+      <option value="1">Santa Cruz Harbor (CA), wind waves</option>
+      <option value="23">Mavericks (CA), wind waves</option>
+      <option value="7">Pillar Point Harbor (CA), wind waves</option>
+      <option value="29">Pacifica (CA), wind waves</option>
+      <option value="11">Newport (OR), wind waves</option>
+      <option value="21">Waimea Bay (HI), wind waves</option>
+      <option value="24">Ipan Reef (Guam), wind waves</option>
+      <option value="5">FRF Duck (NC), wind waves</option>
+      <option value="42">Sebastian Inlet (FL), wind waves</option>
+      <option value="9">Miami Beach (FL), wind waves</option>
+      <option value="10">Miami Inlet (FL), wind waves</option>
+      <option value="12">NSS, wind waves (small test)</option>
+      <option value="15">San Francisco (CA), wind waves</option>
+      <option value="16">Waimanalo (HI), wind waves</option>
+      <option value="17">Hilo (HI), wind waves</option>
+      <option value="22">Newport Beach (CA), wind waves</option>
+      <option value="30">Benguela Current (South Africa), wind waves</option>
+      <option value="31">Benguela Current (South Africa), High-Order mode</option>
+      <option value="32">Santa Cruz Harbor (CA), wind waves (large domain)</option>
+      <option value="34">Santa Cruz Harbor (CA), High-Order mode (large domain)</option>
+      <option value="35">Waimanalo (HI), wind waves (large domain)</option>
+      <option value="36">Waimanalo (HI), High-Order mode (large domain)</option>
+      <option value="38">Scripps Canyon (CA), High-Order mode</option>
+      <option value="39">San Francisco (CA), High-Order mode</option>
+      <option value="40">Oceanside (CA), High-Order mode</option>
+      <option value="41">Ipan Reef (Guam), High-Order mode</option>
+      <option value="43">Pacifica (CA), High-Order mode</option>
+      <option value="44">Scripps Canyon (CA), High-Order mode (large domain)</option>
+      <option value="45">Miami Beach (FL), High-Order mode</option>
+      <option value="46">Miami Inlet (FL), High-Order mode</option>
+    </select>
+
+    <button id="run-example-simulation-btn">Run Example Simulation</button>
+  </div>
+
+  <!-- Using gif to create animated gif (optional but kept for feature parity) -->
+  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+  <!-- Using Chart.js for time series plots (required by main.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Wave solution control script - everything runs from this -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
