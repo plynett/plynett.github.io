@@ -771,7 +771,8 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
         let rotated = vec2<f32>(centered.x * c - centered.y * s,  centered.x * s + centered.y * c) / speed_clamped + vec2<f32>(0.5, 0.5);
 
         // 8. sample your arrow layer — sampler must use repeat wrapping
-        let layer = 9;
+        var layer = 9;
+        if (photorealistic == 1) {layer = 10;} // filled arrows (layer = 10) when using photo-realstic, fr better view
         let rotated_clamped = clamp(rotated, vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0));
         let arrow = textureSample(txSamplePNGs, textureSampler_linear, rotated_clamped, i32(layer));
 

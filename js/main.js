@@ -461,6 +461,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     imageUrl = '/textures/arrow.png'; 
     imData = await loadImageBitmap(imageUrl);    
     copyImageBitmapToTexture(device, imData, txSamplePNGs, 9)
+    // filled arrow texture
+    imageUrl = '/textures/arrow_filled.png'; 
+    imData = await loadImageBitmap(imageUrl);    
+    copyImageBitmapToTexture(device, imData, txSamplePNGs, 10)
 
     // Model textures
     // red_brick texture
