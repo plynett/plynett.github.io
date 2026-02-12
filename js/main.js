@@ -2504,42 +2504,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             calc_constants.trigger_writeWaveHeight = 0;  // reset
 
             // write complete file
-            const text_complete = "Simulation Completed";
-            const blob_complete = new Blob([text_complete], { type: "text/plain" });
-          
-            // Create a temporary URL for the Blob
-            const url_complete = URL.createObjectURL(blob_complete);
-          
-            // Create a temporary anchor element and trigger the download
-            const a_complete = document.createElement("a");
-            a_complete.href = url_complete;
-            a_complete.download = "completed.txt";
-            document.body.appendChild(a_complete);
-            a_complete.click();
-          
-            // Cleanup: remove the anchor and revoke the Blob URL
-            document.body.removeChild(a_complete);
-            URL.revokeObjectURL(url_complete);
+            await saveSingleValueToFile("Simulation Completed", "completed.txt");
         }
 
         // when in trigger mode, write current time to file
-        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % 100 * calc_constants.render_step == 0) { 
-            const text_current_time = String(total_time); // Convert the float to a string
-            const blob_current_time = new Blob([text_current_time], { type: "text/plain" });
-            
-            // Create a temporary URL for the Blob
-            const url_current_time = URL.createObjectURL(blob_current_time);
-            
-            // Create a temporary anchor element and trigger the download
-            const a_current_time = document.createElement("a");
-            a_current_time.href = url_current_time;
-            a_current_time.download = "current_time.txt";
-            document.body.appendChild(a_current_time);
-            a_current_time.click();
-            
-            // Cleanup: remove the anchor and revoke the Blob URL
-            document.body.removeChild(a_current_time);
-            URL.revokeObjectURL(url_current_time);            
+        if(calc_constants.trigger_writeWaveHeight > 0 && frame_count % (100 * calc_constants.render_step) == 0) {
+            await saveSingleValueToFile(total_time, "current_time.txt");
         }
 
         // write surface data stack to file

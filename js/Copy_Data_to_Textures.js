@@ -135,47 +135,24 @@ function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
 
 
 function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
-    // copy time series lcations into txTimeSeries_Locations
+    // copy time series locations into txTimeSeries_Locations
+    const numSeries = calc_constants.maxNumberOfTimeSeries;
+    const data = new Float32Array(numSeries * 4);  // 4 channels per texel
 
-    // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
-    // awesomely, the copy function requires that the buffer has a row size (in bytes) that is a multiple of 256
-    // this will generally not be the case, so the 1D array that will go into the buffer must be padded so that there is the 256 multiple
-
-    const actualBytesPerRow = calc_constants.maxNumberOfTimeSeries * 4 * 4; // 4 channels and 4 bytes per float
-    const requiredBytesPerRow = actualBytesPerRow; 
-    const paddedFlatData = new Float32Array(requiredBytesPerRow);
-
-    for (let x = 0; x < calc_constants.maxNumberOfTimeSeries; x++) {
-
-        const paddedIndex = x * 4; 
-
-        paddedFlatData[paddedIndex] = Math.round(calc_constants.locationOfTimeSeries[x].xts / calc_constants.dx);
-        paddedFlatData[paddedIndex + 1] = Math.round(calc_constants.locationOfTimeSeries[x].yts / calc_constants.dy);
-        paddedFlatData[paddedIndex + 2] = 0.0;
-        paddedFlatData[paddedIndex + 3] = 0.0;
+    for (let x = 0; x < numSeries; x++) {
+        const i = x * 4;
+        data[i]     = Math.round(calc_constants.locationOfTimeSeries[x].xts / calc_constants.dx);
+        data[i + 1] = Math.round(calc_constants.locationOfTimeSeries[x].yts / calc_constants.dy);
+        data[i + 2] = 0.0;
+        data[i + 3] = 0.0;
     }
 
-    const buffer = device.createBuffer({
-        size: paddedFlatData.byteLength,
-        usage: GPUBufferUsage.COPY_SRC,
-        mappedAtCreation: true
-    });
-    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
-    buffer.unmap();
-    const commandEncoder = device.createCommandEncoder();
-    commandEncoder.copyBufferToTexture({
-        buffer: buffer,
-        bytesPerRow: requiredBytesPerRow,
-        rowsPerImage: 1,
-    }, {
-        texture: txTimeSeries_Locations
-    }, {
-        width: calc_constants.maxNumberOfTimeSeries,
-        height: 1,
-        depthOrArrayLayers: 1
-    });
-    device.queue.submit([commandEncoder.finish()]);
-    buffer.destroy();
+    device.queue.writeTexture(
+        { texture: txTimeSeries_Locations },
+        data,
+        { bytesPerRow: numSeries * 4 * 4 },
+        { width: numSeries, height: 1, depthOrArrayLayers: 1 }
+    );
 }
 
 
