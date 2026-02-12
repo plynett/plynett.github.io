@@ -157,8 +157,7 @@ function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
 
     const buffer = device.createBuffer({
         size: paddedFlatData.byteLength,
-        usage: GPUBufferUsage.COPY_SRC,
-        mappedAtCreation: true
+        usage: GPUBufferUsage.COPY_SRC
     });
     new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
     buffer.unmap();
