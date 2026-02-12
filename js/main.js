@@ -290,7 +290,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     txDraw = create_2D_Image_Texture(device, canvas.width, canvas.height, allTextures);  // used for creating text & shapes on an HTML5 canvas
     txGoogleMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
     txOverlayMap = create_2D_Texture(device, calc_constants.GMapImageWidth, calc_constants.GMapImageHeight, allTextures);  // used to store the loaded Google Maps image
-    const txSamplePNGs = create_3D_Image_Texture(device, 1024, 1024, 10, allTextures); // will store all textures to be sampled for photo-realism
+    const txSamplePNGs = create_3D_Image_Texture(device, 1024, 1024, 11, allTextures); // will store all textures to be sampled for photo-realism
     const txModelPNGs = create_2D_Image_Texture(device, 1024, 1024, allTextures); // will store all textures to be sampled for photo-realism
     let skybox_image_size = 500; // size of each face of the cube map
     const txCube_Skybox = create_3D_Image_Texture(device, skybox_image_size, skybox_image_size, 6, allTextures); // will store all textures to be sampled for photo-realism
@@ -3600,3 +3600,4 @@ async function updateChartData() {
 
 // Set an interval to update the chart every second (1000 milliseconds)
 setInterval(updateChartData, 1000);
+
