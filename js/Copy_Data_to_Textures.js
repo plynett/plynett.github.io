@@ -134,48 +134,56 @@ function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
 }
 
 
+// Copies calc_constants.locationOfTimeSeries[] (x,y indices) into txTimeSeries_Locations.
 function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
-    // copy time series lcations into txTimeSeries_Locations
+  const n = calc_constants.maxNumberOfTimeSeries | 0;
 
-    // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
-    // awesomely, the copy function requires that the buffer has a row size (in bytes) that is a multiple of 256
-    // this will generally not be the case, so the 1D array that will go into the buffer must be padded so that there is the 256 multiple
+  // RGBA32F per “pixel”: 4 floats = 16 bytes.
+  // due to the way js / webGPU works, we will need to structure our input data into a 1D array, and then place into a buffer, to be copied to a texture
+  // awesomely, the copy function requires that the buffer has a row size (in bytes) that is a multiple of 256
+  // this will generally not be the case, so the 1D array that will go into the buffer must be padded so that there is the 256 multiple
 
-    const actualBytesPerRow = calc_constants.maxNumberOfTimeSeries * 4 * 4; // 4 channels and 4 bytes per float
-    const requiredBytesPerRow = actualBytesPerRow; 
-    const paddedFlatData = new Float32Array(requiredBytesPerRow);
+  const bytesPerPixel = 16;
+  const actualBytesPerRow = n * bytesPerPixel;
 
-    for (let x = 0; x < calc_constants.maxNumberOfTimeSeries; x++) {
+  // WebGPU requires bytesPerRow to be a multiple of 256 for buffer->texture copies.
+  const bytesPerRow = ((actualBytesPerRow + 255) & ~255) >>> 0;
 
-        const paddedIndex = x * 4; 
+  // Float count for one row at padded bytesPerRow.
+  const rowFloats = bytesPerRow >>> 2;
+  const data = new Float32Array(rowFloats); // zero initialized; padding stays 0
 
-        paddedFlatData[paddedIndex] = Math.round(calc_constants.locationOfTimeSeries[x].xts / calc_constants.dx);
-        paddedFlatData[paddedIndex + 1] = Math.round(calc_constants.locationOfTimeSeries[x].yts / calc_constants.dy);
-        paddedFlatData[paddedIndex + 2] = 0.0;
-        paddedFlatData[paddedIndex + 3] = 0.0;
-    }
+  const invDx = 1.0 / calc_constants.dx;
+  const invDy = 1.0 / calc_constants.dy;
+  const locs = calc_constants.locationOfTimeSeries;
 
-    const buffer = device.createBuffer({
-        size: paddedFlatData.byteLength,
-        usage: GPUBufferUsage.COPY_SRC
-    });
-    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
-    buffer.unmap();
-    const commandEncoder = device.createCommandEncoder();
-    commandEncoder.copyBufferToTexture({
-        buffer: buffer,
-        bytesPerRow: requiredBytesPerRow,
-        rowsPerImage: 1,
-    }, {
-        texture: txTimeSeries_Locations
-    }, {
-        width: calc_constants.maxNumberOfTimeSeries,
-        height: 1,
-        depthOrArrayLayers: 1
-    });
-    device.queue.submit([commandEncoder.finish()]);
-    buffer.destroy();
+  for (let i = 0; i < n; i++) {
+    const o = i << 2; // i * 4
+    const p = locs[i];
+    data[o]     = Math.round(p.xts * invDx);
+    data[o + 1] = Math.round(p.yts * invDy);
+    // data[o + 2] and data[o + 3] remain 0
+  }
+
+  const buffer = device.createBuffer({
+    size: data.byteLength,
+    usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+  });
+
+  // No mapping. Writes from CPU to GPU staging buffer directly.
+  device.queue.writeBuffer(buffer, 0, data.buffer, data.byteOffset, data.byteLength);
+
+  const encoder = device.createCommandEncoder();
+  encoder.copyBufferToTexture(
+    { buffer, bytesPerRow, rowsPerImage: 1 },
+    { texture: txTimeSeries_Locations },
+    { width: n, height: 1, depthOrArrayLayers: 1 }
+  );
+
+  device.queue.submit([encoder.finish()]);
+  buffer.destroy();
 }
+
 
 
 function copyInitialConditionDataToTexture(calc_constants, device, initialState, txState, writeStateFlag) {
