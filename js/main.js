@@ -1217,7 +1217,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const SkyboxPipeline = createSkyboxPipeline(device, Skybox_vertexShaderCode, Skybox_fragmentShaderCode, swapChainFormat, SkyboxBindGroupLayout);
     //const DuckPipeline = createDuckPipeline(device, Duck_vertexShaderCode, Duck_fragmentShaderCode, swapChainFormat, DuckBindGroupLayout);
     const ModelPipeline = createModelPipeline(device, Model_vertexShaderCode, Model_fragmentShaderCode, swapChainFormat, ModelBindGroupLayout);
-    var RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout);
+    
+    const RenderPipeline_quad = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
+    const RenderPipeline_vertexgrid = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
+    var RenderPipeline = RenderPipeline_quad;
+
     const Copytxf32_txf16_Pipeline = createComputePipeline(device, Copytxf32_txf16_ShaderCode, Copytxf32_txf16_BindGroupLayout, allComputePipelines);
 
     console.log("Pipelines set up.");
@@ -1956,19 +1960,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         {
             // turn back on colorbar
             calc_constants.CB_show = 1;
-            Render_view.setInt32(84, calc_constants.CB_show, true);          // i32  
             
             // Render QUAD
-            RenderPipeline = createRenderPipeline(device, vertexShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
+            Render_view.setInt32(84, calc_constants.CB_show, true);          // i32
+            RenderPipeline = RenderPipeline_quad;
         }
         else if (calc_constants.viewType == 2)
         {  
             // turn off colorbar
             calc_constants.CB_show = 0;
-            Render_view.setInt32(84, calc_constants.CB_show, true);          // i32  
 
             // Render Vertex grid
-            RenderPipeline = createRenderPipeline_vertexgrid(device, vertex3DShaderCode, fragmentShaderCode, swapChainFormat, RenderBindGroupLayout, 'depth24plus');
+            Render_view.setInt32(84, calc_constants.CB_show, true);          // i32
+            RenderPipeline = RenderPipeline_vertexgrid;
         }
 
         // make sure depthTexture matches the current canvas / window size
