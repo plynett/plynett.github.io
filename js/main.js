@@ -1410,12 +1410,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
         // copy the initial bathy into a seperate texture
         if (frame_count == 0) {
-            runCopyTextures(device, commandEncoder, calc_constants, txBottom, txBottomInitial)
+            runCopyTextures(device, calc_constants, txBottom, txBottomInitial)
         }
         
         // store baseline wave height map
         if (calc_constants.save_baseline == 1) {
-            runCopyTextures(device, commandEncoder, calc_constants, txWaveHeight, txBaseline_WaveHeight)
+            runCopyTextures(device, calc_constants, txWaveHeight, txBaseline_WaveHeight)
             calc_constants.save_baseline = 0;
         }
 
@@ -1470,7 +1470,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             SedTrans_UpdateBottom_view.setFloat32(32, calc_constants.sedC1_n, true);           // f32            
 
             if(calc_constants.clearConc == 1){  // remove all passive tracer sources when changing overlay
-                runCopyTextures(device, commandEncoder, calc_constants, txzeros, txContSource)
+                runCopyTextures(device, calc_constants, txzeros, txContSource)
             }
 
             // make sure periodic conditions are always a pair
@@ -1592,31 +1592,31 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32  
                 calc_constants.changeSeaLevel_delta = 0.0; // once the change is added once, set to zero
 
-                runComputeShader(device, commandEncoder, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth/friction based on mouse click
+                runComputeShader(device, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth/friction based on mouse click
                 if(calc_constants.whichPanelisOpen == 3){
                     if(calc_constants.surfaceToChange == 1){  // when changing bath/topo
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottom)
-                       // runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottomInitial) // not sure if I should do this - cant change depth with prescribed motion slide
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txstateUVstar)
-                        runComputeShader(device, commandEncoder, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_bottom, txBottom)
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick, txBottom)
+                       // runCopyTextures(device, calc_constants, txtemp_MouseClick, txBottomInitial) // not sure if I should do this - cant change depth with prescribed motion slide
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick2, txstateUVstar)
+                        runComputeShader(device, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runCopyTextures(device, calc_constants, txtemp_bottom, txBottom)
                         if (calc_constants.NLSW_or_Bous >= 1) { // only update for Celeris Boussinesq equations
                             console.log('Updating neardry & tridiag coef due to change in depth')
-                            runComputeShader(device, commandEncoder, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                            runComputeShader(device, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
                         }
                     } else if(calc_constants.surfaceToChange == 2){  //when changing friction
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txBottomFriction)
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick, txBottomFriction)
 
                     } else if(calc_constants.surfaceToChange == 3){  //when changing passive tracer
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txContSource)
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick, txContSource)
 
                     } else if(calc_constants.surfaceToChange == 4){  //water surface elevation
-                        runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txstateUVstar)
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick, txstateUVstar)
                     }
                 } else if(calc_constants.whichPanelisOpen == 2){
                     console.log('Updating Design Components')
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick, txDesignComponents)
-                    runCopyTextures(device, commandEncoder, calc_constants, txtemp_MouseClick2, txBottomFriction)
+                    runCopyTextures(device, calc_constants, txtemp_MouseClick, txDesignComponents)
+                    runCopyTextures(device, calc_constants, txtemp_MouseClick2, txBottomFriction)
                 }
             }
             else if (calc_constants.click_update == 2 && calc_constants.viewType == 2)
@@ -1644,8 +1644,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             AddDisturbance_view.setFloat32(44, calc_constants.disturbanceDip, true);             // f32  
             AddDisturbance_view.setFloat32(48, calc_constants.disturbanceRake, true);             // f32  
 
-            runComputeShader(device, commandEncoder, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
-            runCopyTextures(device, commandEncoder, calc_constants, txtemp_AddDisturbance, txstateUVstar)
+            runComputeShader(device, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
+            runCopyTextures(device, calc_constants, txtemp_AddDisturbance, txstateUVstar)
 
             calc_constants.add_Disturbance = -1;
         }
@@ -1653,6 +1653,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
          // loop through the compute shaders "render_step" times.  
         var commandEncoder;  // init the encoder
+        var commandEncoderStack;  // init the encoder for stacking
         if (calc_constants.simPause < 0) {// do not run compute loop when > 0, when the simulation is paused {
             for (let frame_c = 0; frame_c < calc_constants.render_step; frame_c++) {  // loop through the compute shaders "render_step" time
 
@@ -1670,7 +1671,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 AddDisturbance_view.setFloat32(64, total_time ,true);             // f32   - stores time
 
                 // create command encoder for compute shaders and texture copy operations
-                var commandEncoderStack = device.createCommandEncoder();
+                commandEncoderStack = device.createCommandEncoder();
 
                 // Pass0
                 runComputeShader_EncStack(device, commandEncoderStack, Pass0_uniformBuffer, Pass0_uniforms, Pass0_Pipeline, Pass0_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -1697,8 +1698,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                 // Pass3
                 if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
-                    runComputeShader(device, commandEncoder, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                    runComputeShader(device, commandEncoder, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader(device, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                    runComputeShader(device, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                     copy2DDataTo3DTexture(device, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
                     copy2DDataTo3DTexture(device, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
                     copy2DDataTo3DTexture(device, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -1825,8 +1826,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
                     // Pass3
                     if (calc_constants.NLSW_or_Bous == 2) {  // grouping passes for COULWAVE model
-                        runComputeShader(device, commandEncoder, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
-                        runComputeShader(device, commandEncoder, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader(device, Pass3A_Coulwave_uniformBuffer, Pass3A_Coulwave_uniforms, Pass3A_Coulwave_Pipeline, Pass3A_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+                        runComputeShader(device, Pass3B_Coulwave_uniformBuffer, Pass3B_Coulwave_uniforms, Pass3B_Coulwave_Pipeline, Pass3B_Coulwave_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
                         copy2DDataTo3DTexture(device, txCW_uvhuhv, txCW_groupings, 0, calc_constants.WIDTH, calc_constants.HEIGHT);
                         copy2DDataTo3DTexture(device, txCW_zalpha, txCW_groupings, 1, calc_constants.WIDTH, calc_constants.HEIGHT);
                         copy2DDataTo3DTexture(device, txCW_STval, txCW_groupings, 2, calc_constants.WIDTH, calc_constants.HEIGHT);
@@ -1952,7 +1953,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
         // copy eta and bottom data to the f16 texture for filtered rendering
-        runComputeShader(device, commandEncoder, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
+        runComputeShader(device, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
              
         // Define the settings for the render pass.
         Render_view.setFloat32(116, total_time, true);             // f32  
@@ -2328,7 +2329,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
         ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
         ExtractTimeSeries_view.setFloat32(24,  total_time_time_series, true);             // f32, total_time
-        runComputeShader(device, commandEncoder, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture        
+        runComputeShader(device, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture        
         readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
 
         

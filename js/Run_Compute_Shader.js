@@ -1,9 +1,9 @@
 // Run_Compute_Shader.js
 
-export function runComputeShader(device, commandEncoder, uniformBuffer, uniforms, computePipeline, computeBindGroup, dispatchX, dispatchY) {
+export function runComputeShader(device, uniformBuffer, uniforms, computePipeline, computeBindGroup, dispatchX, dispatchY) {
 
     // Create a new command encoder for recording GPU commands.
-    commandEncoder = device.createCommandEncoder();
+    const commandEncoder = device.createCommandEncoder();
 
     // set uniforms buffer
     device.queue.writeBuffer(uniformBuffer, 0, uniforms);
@@ -35,10 +35,10 @@ export async function fetchShader(url) {
     return await response.text();
 }
 
-export function runCopyTextures(device, commandEncoder, calc_constants, src_texture, dst_texture) {
+export function runCopyTextures(device, calc_constants, src_texture, dst_texture) {
 
     // Create a new command encoder for recording GPU commands.
-    commandEncoder = device.createCommandEncoder();
+    const commandEncoder = device.createCommandEncoder();
 
     // copy the textures
     commandEncoder.copyTextureToTexture(
