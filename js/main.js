@@ -170,6 +170,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const Model_uniformBuffer = createUniformBuffer(device);
     const Copytxf32_txf16_uniformBuffer = createUniformBuffer(device);
 
+    // create buffer for all file writes
+    const requiredBytesPerRow_2Dbuffer = Math.ceil((calc_constants.WIDTH * 4 * 4) / 256) * 256;
+    const bufferSize_2Dbuffer = calc_constants.HEIGHT * requiredBytesPerRow_2Dbuffer;
+
+    const readbackBuffer = device.createBuffer({
+        size: bufferSize_2Dbuffer,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
     // Create a sampler for texture sampling. This defines how the texture will be sampled (e.g., nearest-neighbor sampling).  Used only for render pipeline
     const textureSampler = device.createSampler({
         magFilter: 'nearest',
@@ -2426,61 +2435,61 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         if(calc_constants.write_individual_surface == 1){
             if(calc_constants.which_surface_to_write == 0){  // free surface elevation
                 let filename = 'current_eta.bin';
-                downloadTextureData(device, txNewState, 1, filename);  // last number is the channel 1 = .r, 2 = .g, etc.
+                downloadTextureData(device, txNewState, 1, filename, readbackBuffer);  // last number is the channel 1 = .r, 2 = .g, etc.
              //   downloadGeoTiffData(device, txNewState, 1, calc_constants.dx, calc_constants.dy);  // current implemntation does not allow writing of float32, only uint8
              //  can update to write an RGB geotiff, but that doesnt seem too useful
 
             } else if(calc_constants.which_surface_to_write == 1){  // HU
                 let filename = 'current_HU.bin';
-                downloadTextureData(device, txNewState, 2, filename);  
+                downloadTextureData(device, txNewState, 2, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 2){  // HV
                 let filename = 'current_HV.bin';
-                downloadTextureData(device, txNewState, 3, filename);  
+                downloadTextureData(device, txNewState, 3, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 3){  // eddy viscosity
                 let filename = 'current_eddyvisc.bin';
-                downloadTextureData(device, txBreaking, 2, filename);  
+                downloadTextureData(device, txBreaking, 2, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 4){  // foam
                 let filename = 'current_tracer.bin';
-                downloadTextureData(device, txNewState, 4, filename);  
+                downloadTextureData(device, txNewState, 4, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 5){  // Bathymetry/Topography
                 let filename = 'current_bathytopo.bin';
-                downloadTextureData(device, txBottom, 3, filename);  
+                downloadTextureData(device, txBottom, 3, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 6){  // Bottom Friction Map 
                 let filename = 'current_friction.bin';
-                downloadTextureData(device, txBottomFriction, 1, filename);  
+                downloadTextureData(device, txBottomFriction, 1, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 7){  // Design Component Map
                 let filename = 'current_designcomponents.bin';
-                downloadTextureData(device, txDesignComponents, 1, filename);  
+                downloadTextureData(device, txDesignComponents, 1, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 8){  // RMS Wave Height
                 let filename = 'current_Hrms.bin';
-                downloadTextureData(device, txWaveHeight, 4, filename);  
+                downloadTextureData(device, txWaveHeight, 4, filename,readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 9){  // Significant Wave Height
                 let filename = 'current_Hs.bin';
-                downloadTextureData(device, txWaveHeight, 3, filename);  
+                downloadTextureData(device, txWaveHeight, 3, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 10){  // Max Free Surface Elev 
                 let filename = 'current_FSmax.bin';
-                downloadTextureData(device, txMeans_Speed, 4, filename); 
+                downloadTextureData(device, txMeans_Speed, 4, filename, readbackBuffer); 
 
             } else if(calc_constants.which_surface_to_write == 11){  // Mean Free Surface Elev 
                 let filename = 'current_FSmean.bin';
-                downloadTextureData(device, txMeans, 1, filename);  
+                downloadTextureData(device, txMeans, 1, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 12){  // Mean Fluid Flux [E-W]
                 let filename = 'current_Umean.bin';
-                downloadTextureData(device, txMeans, 2, filename);  
+                downloadTextureData(device, txMeans, 2, filename, readbackBuffer);  
 
             } else if(calc_constants.which_surface_to_write == 13){  // Mean Fluid Flux [N-S]
                 let filename = 'current_Vmean.bin';
-                downloadTextureData(device, txMeans, 3, filename);  
+                downloadTextureData(device, txMeans, 3, filename, readbackBuffer);  
             }   
 
             calc_constants.write_individual_surface = 0;  // reset
@@ -2533,7 +2542,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             ];
             
             for (const {tx, ch, filename} of files) {
-                await downloadTextureData(device, tx, ch, filename);
+                await downloadTextureData(device, tx, ch, filename, readbackBuffer);
                 // give the browser a breather before the next one
                 await sleep(calc_constants.fileWritePause);
             }
@@ -2600,7 +2609,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 try {
                     frame_count_output = frame_count_output + 1;
                     console.log('Writing 2D surface data to file at time (s) ', total_time, ' with increment(s) ', dt_since_last_write);
-                    await writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking,txModelVelocities);
+                    await writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking,txModelVelocities,readbackBuffer);
                     dt_since_last_write = 0.0; // reset time counter
                 } catch (error) {
                     console.error("Failed to write surface data:", error);
