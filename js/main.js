@@ -1960,8 +1960,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             }
         }
-        // flush accumulated driver tracking state after compute loop
-        await device.queue.onSubmittedWorkDone();
+        if (calc_constants.algochanges == 1) {
+            // flush accumulated driver tracking state after compute loop
+            await device.queue.onSubmittedWorkDone();
+        }
 
         // copy eta and bottom data to the f16 texture for filtered rendering
         runComputeShader(device, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
