@@ -1960,6 +1960,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             }
         }
+        // flush accumulated driver tracking state after compute loop
+        await device.queue.onSubmittedWorkDone();
 
         // copy eta and bottom data to the f16 texture for filtered rendering
         runComputeShader(device, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -2359,8 +2361,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
         // determine elapsed time
         const now = new Date();
-        calc_constants.elapsedTime = (now - startTime) / 1000;
-        calc_constants.elapsedTime_update = (now - startTime_update) / 1000;
+        calc_constants.elapsedTime = (now - startTime) / 1000.0;
+        calc_constants.elapsedTime_update = (now - startTime_update) / 1000.0;
 
         // Call the function to display the constants in the index.html page
         calc_constants.clearConc = 0; // reset back to default value - no easier place to set this back.
