@@ -119,7 +119,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Handle device lost and uncaptured error events
     device.lost.then((info) => {
-    console.error("WebGPU device lost:", info);
+    console.error(`WebGPU device lost: reason="${info.reason}", message="${info.message}"`);
     });
 
     device.addEventListener("uncapturederror", (e) => {
@@ -1364,6 +1364,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     var startTime = new Date();  // This captures the current time, or the time at the start of rendering
     var startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
+    var lastGpuSyncTime = Date.now();  // Tracks last time we awaited onSubmittedWorkDone to flush GPU driver state
 
     async function frame() {
 
@@ -1778,14 +1779,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 runCopyTextures_EncStack(commandEncoderStack, calc_constants, predictedF_G_star, F_G_star_oldGradients)
 
                 // add prescriptive depth change
-                if(calc_constants.disturbanceType == 5) {
+                // The depth_motion shader clamps time at 1e5*dt, so the slide is fully settled
+                // by 2e5*dt.  Skip the three per-step GPU dispatches after that point to avoid
+                // accumulating unnecessary GPU work over the remainder of a long simulation.
+                if(calc_constants.disturbanceType == 5 && total_time <= 2.0e5 * calc_constants.dt) {
 
                     runComputeShader_EncStack(device, commandEncoderStack, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
-                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom) 
+                    runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom)
                     runComputeShader_EncStack(device, commandEncoderStack, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update neardry
                     runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom)
                     runComputeShader_EncStack(device, commandEncoderStack, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
-                        
+
                     // copy the initial bathy into a seperate texture
                     if (frame_count == 0) {
                         runCopyTextures_EncStack(commandEncoderStack, calc_constants, txBottom, txBottomInitial)
@@ -1958,6 +1962,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 // submit encoder stack for copy operations after corrector step
                 device.queue.submit([commandEncoderStack.finish()]);
 
+            }
+        }
+
+        // Periodically flush the GPU driver's internal state to prevent resource tracking exhaustion
+        // over very long simulation runs (24+ hours).  Awaiting onSubmittedWorkDone() forces Dawn to
+        // advance its completed-work serial, drain staging ring-buffer entries, and signal the driver
+        // to compact internal fence/command-buffer accounting.  Calling this every ~60 wall-clock
+        // seconds has negligible performance impact while addressing accumulation-based device loss.
+        if (calc_constants.simPause < 0) {
+            const now = Date.now();
+            if (now - lastGpuSyncTime > 60000) {
+                await device.queue.onSubmittedWorkDone();
+                lastGpuSyncTime = now;
             }
         }
 
