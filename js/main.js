@@ -119,7 +119,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Handle device lost and uncaptured error events
     device.lost.then((info) => {
-    console.error("WebGPU device lost:", info);
+    console.error(`WebGPU device lost: reason="${info.reason}", message="${info.message}"`);
     });
 
     device.addEventListener("uncapturederror", (e) => {
@@ -1365,7 +1365,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     var startTime = new Date();  // This captures the current time, or the time at the start of rendering
     var startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
 
+    var nowFlush = Date.now();
+    var lastGpuSyncTime = Date.now();
+
     async function frame() {
+
+        // flush the GPU command queue every 10 minutes to prevent memory issues and potential GPU connection loss
+        nowFlush = Date.now();
+        if (nowFlush - lastGpuSyncTime > 600000) {   // once per 10 minutes
+            console.log("Flushing GPU queue / clearing internal GPU resources");
+            await device.queue.onSubmittedWorkDone();
+            lastGpuSyncTime = nowFlush;
+        }
 
         // render step find logic, trying to find a render step that both maximizes the usage of the GPU
         // but does not over work it.  The need for this logic is that if the GPU is too overworked, which
@@ -1778,7 +1789,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 runCopyTextures_EncStack(commandEncoderStack, calc_constants, predictedF_G_star, F_G_star_oldGradients)
 
                 // add prescriptive depth change
-                if(calc_constants.disturbanceType == 5) {
+                if(calc_constants.disturbanceType == 5 && total_time <= 1.0e5 * calc_constants.dt) { // only add disturbance for first 100,000 time steps, to save some work
 
                     runComputeShader_EncStack(device, commandEncoderStack, AddDisturbance_uniformBuffer, AddDisturbance_uniforms, AddDisturbance_Pipeline, AddDisturbance_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // add impulse
                     runCopyTextures_EncStack(commandEncoderStack, calc_constants, txtemp_bottom, txBottom) 
@@ -1959,10 +1970,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 device.queue.submit([commandEncoderStack.finish()]);
 
             }
-        }
-        if (calc_constants.algochanges == 1) {
-            // flush accumulated driver tracking state after compute loop
-            await device.queue.onSubmittedWorkDone();
         }
 
         // copy eta and bottom data to the f16 texture for filtered rendering
