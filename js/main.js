@@ -1290,19 +1290,6 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
     }
     
-    // Handle the last row separately to ensure it's included
-    if (gridHeight > 1) {
-        let lastY = gridHeight - 2;
-        // Repeat the last vertex of the second-to-last row (degenerate triangle)
-        vertices.push(1, 1 - 2 * lastY / (gridHeight - 1));
-        // Define the last row vertices
-        for (let x = 0; x < gridWidth; x++) {
-            // Top vertex of the current column (from the second-to-last row)
-            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * lastY / (gridHeight - 1));
-            // Bottom vertex of the current column (last row)
-            vertices.push(-1 + 2 * x / (gridWidth - 1), -1);
-        }
-    }
 
     const gridVertices = new Float32Array(vertices);
     const gridVertexBuffer = device.createBuffer({
