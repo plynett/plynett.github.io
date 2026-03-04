@@ -1267,43 +1267,24 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Define a simple grid as just a single quad (two triangles)
     const gridWidth = calc_constants.WIDTH;  // Number of vertices along the width
     const gridHeight = calc_constants.HEIGHT; // Number of vertices along the height
-    let numVertices = 2*gridHeight*gridWidth;
     let vertices = [];
 
     // Generate vertices for the grid
     for (let y = 0; y < gridHeight - 1; y++) {
-        // Start of new strip (except for the first row)
         if (y > 0) {
-            // Repeat the first vertex of this row (degenerate triangle)
             vertices.push(-1, 1 - 2 * y / (gridHeight - 1));
         }
         for (let x = 0; x < gridWidth; x++) {
-            // Top vertex of the current column
-            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * y / (gridHeight - 1));
-            // Bottom vertex of the current column
+            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * y       / (gridHeight - 1));
             vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * (y + 1) / (gridHeight - 1));
         }
-        // End of strip (except for the last row)
         if (y < gridHeight - 2) {
-            // Repeat the last vertex of this row (degenerate triangle)
             vertices.push(1, 1 - 2 * (y + 1) / (gridHeight - 1));
         }
     }
-    
-    // Handle the last row separately to ensure it's included
-    if (gridHeight > 1) {
-        let lastY = gridHeight - 2;
-        // Repeat the last vertex of the second-to-last row (degenerate triangle)
-        vertices.push(1, 1 - 2 * lastY / (gridHeight - 1));
-        // Define the last row vertices
-        for (let x = 0; x < gridWidth; x++) {
-            // Top vertex of the current column (from the second-to-last row)
-            vertices.push(-1 + 2 * x / (gridWidth - 1), 1 - 2 * lastY / (gridHeight - 1));
-            // Bottom vertex of the current column (last row)
-            vertices.push(-1 + 2 * x / (gridWidth - 1), -1);
-        }
-    }
 
+    // Correct vertex count: 2*gridWidth vertices per strip, plus 2 degenerate vertices per interior strip join
+    const numVertices = vertices.length / 2;
     const gridVertices = new Float32Array(vertices);
     const gridVertexBuffer = device.createBuffer({
         size: gridVertices.byteLength,
