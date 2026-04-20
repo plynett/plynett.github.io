@@ -178,7 +178,18 @@ var calc_constants = {
         "./examples/TracyArm_hotstart/",
         "./examples/Portage_Lake_AK_rotated/",
         "./examples/Yakutat_slide/",
-        "./examples/Sebastian_Inlet_FL/"
+        "./examples/Sebastian_Inlet_FL/",
+        "./examples/MC_Duck_H1_T08_Normal/",
+        "./examples/MC_Duck_H2_T15_Normal/",
+        "./examples/MC_Duck_H2_T15_NE/",
+        "./examples/MC_Lejuene_H1_T08_Normal/",
+        "./examples/MC_Lejuene_H1_T08_NE/",
+        "./examples/MC_Lejuene_H2_T15_Normal/",
+        "./examples/MC_Pendelton_H2_T15_Normal/",
+        "./examples/MC_Pendelton_H2_T15_SW/", 
+        "./examples/MC_Newport_H3_T18_Normal/", 
+        "./examples/MC_Newport_H3_T18_SW/",
+        "./examples/MC_PyramidRock_H2_T15_Normal/"
       ],
 
     // plotting parameters
@@ -410,8 +421,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Greenland/",
         "./examples/Half_Moon_Bay/",
         "./examples/Hania_Greece/",
-        "./examples/Miami_Beach_FL/",
-        "./examples/Miami_FL/",
+        "./examples/Miami_Beach_FL/", 
+        "./examples/Miami_FL/",  //10
         "./examples/Newport_OR/",
         "./examples/POLALB/",
         "./examples/SantaBarbara/",
@@ -420,8 +431,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/SF_Bay_tides/",
         "./examples/OSU_Seaside/",
         "./examples/Scripps_Pier/",
-        "./examples/Scripps_Canyon/",
-        "./examples/Newport_Jetties_CA/",
+        "./examples/Scripps_Canyon/",  
+        "./examples/Newport_Jetties_CA/",  //20
         "./examples/Waimea_Bay/",
         "./examples/Tyndall_FL/",
         "./examples/Mavericks/",
@@ -430,8 +441,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Blacks_Beach_CA/",
         "./examples/Hermosa_Beach_CA/",
         "./examples/Morro_Rock_CA/",
-        "./examples/Pacifica_CA/",
-        "./examples/Toy_Config/",
+        "./examples/Pacifica_CA/", 
+        "./examples/Toy_Config/",  //30
         "./examples/Harrison_Lake/",
         "./examples/LA_River_Model/",
         "./examples/Oceanside_CA/",
@@ -441,9 +452,20 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/Hermosa_Beach_CA_COULWAVE/",
         "./examples/Endicott_slide/",
         "./examples/TracyArm_hotstart/",
-        "./examples/Portage_Lake_AK_rotated/",
-        "./examples/Yakutat_slide/",
-        "./examples/Sebastian_Inlet_FL/"
+        "./examples/Portage_Lake_AK_rotated/",  //40
+        "./examples/Yakutat_slide/", 
+        "./examples/Sebastian_Inlet_FL/",
+        "./examples/MC_Duck_H1_T08_Normal/",
+        "./examples/MC_Duck_H2_T15_Normal/",
+        "./examples/MC_Duck_H2_T15_NE/",
+        "./examples/MC_Lejuene_H1_T08_Normal/",
+        "./examples/MC_Lejuene_H1_T08_NE/",
+        "./examples/MC_Lejuene_H2_T15_Normal/",
+        "./examples/MC_Pendelton_H2_T15_Normal/",
+        "./examples/MC_Pendelton_H2_T15_SW/",  //50
+        "./examples/MC_Newport_H3_T18_Normal/", 
+        "./examples/MC_Newport_H3_T18_SW/",
+        "./examples/MC_PyramidRock_H2_T15_Normal/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation
