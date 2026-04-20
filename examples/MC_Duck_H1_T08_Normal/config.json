@@ -91,7 +91,7 @@
     "disturbance_expo": 0,
     "disturbance_vol_data": 0,
     "disturbance_gamma_val": 0,
-    "run_example": -1,
+    "run_example": 43,
     "exampleDirs": [
         "./examples/Ventura/",
         "./examples/Santa_Cruz/",
@@ -135,7 +135,18 @@
         "./examples/TracyArm_hotstart/",
         "./examples/Portage_Lake_AK_rotated/",
         "./examples/Yakutat_slide/",
-        "./examples/Sebastian_Inlet_FL/"
+        "./examples/Sebastian_Inlet_FL/",
+        "./examples/MC_Duck_H1_T08_Normal/",
+        "./examples/MC_Duck_H2_T15_Normal/",
+        "./examples/MC_Duck_H2_T15_NE/",
+        "./examples/MC_Lejuene_H1_T08_Normal/",
+        "./examples/MC_Lejuene_H1_T08_NE/",
+        "./examples/MC_Lejuene_H2_T15_Normal/",
+        "./examples/MC_Pendelton_H2_T15_Normal/",
+        "./examples/MC_Pendelton_H2_T15_SW/",
+        "./examples/MC_Newport_H3_T18_Normal/", 
+        "./examples/MC_Newport_H3_T18_SW/",
+        "./examples/MC_PyramidRock_H2_T15_Normal/"
     ],
     "colorVal_max": 1,
     "colorVal_min": -1,
