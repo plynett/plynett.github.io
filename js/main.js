@@ -49,6 +49,8 @@ let txSatMap = null;
 let txDraw = null;
 let context = null;
 let adapter = null;
+// CODEX: Tracks whether the iOS/mobile pseudo-fullscreen fallback is active.
+let pseudoFullscreenActive = false;
 
 // Initialize a global set to track texture, pipeline objects
 const allTextures = new Set();
@@ -2063,8 +2065,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             // ─────────────────────────────────────────────────────────────
             // 1. Canvas dimensions
-            const window_width  = calc_constants.full_screen ? window.innerWidth  : canvas.width;
-            const window_height = calc_constants.full_screen ? window.innerHeight : canvas.height;
+            // const window_width  = calc_constants.full_screen ? window.innerWidth  : canvas.width;
+            // const window_height = calc_constants.full_screen ? window.innerHeight : canvas.height;
+            // CODEX: Pseudo-fullscreen uses explicit canvas dimensions from visualViewport instead of window size.
+            const window_width  = (calc_constants.full_screen && !pseudoFullscreenActive) ? window.innerWidth  : canvas.width;
+            const window_height = (calc_constants.full_screen && !pseudoFullscreenActive) ? window.innerHeight : canvas.height;
 
             // ─────────────────────────────────────────────────────────────
             // 2. Perspective projection
@@ -2744,6 +2749,11 @@ document.addEventListener('DOMContentLoaded', function () {
     var lastMouseY_right = 0;
     var lastMouseX_left = 0;
     var lastMouseY_left = 0;
+    // CODEX: Touch-only Explorer gesture state for two-finger pan and pinch zoom.
+    const activeExplorerTouches = new Map();
+    var lastTouchMidX = 0;
+    var lastTouchMidY = 0;
+    var lastTouchDistance = 0;
 
     // Helper function to handle click or mouse move while button is pressed
     function handleMouseEvent(event) {
@@ -2758,6 +2768,22 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Canvas clicked/moved at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
     }
 
+    // CODEX: Compute midpoint and distance for active two-finger Explorer gestures.
+    function getExplorerTouchGesture() {
+        const touches = Array.from(activeExplorerTouches.values());
+        if (touches.length < 2) {
+            return null;
+        }
+        const firstTouch = touches[0];
+        const secondTouch = touches[1];
+        const midX = 0.5 * (firstTouch.x + secondTouch.x);
+        const midY = 0.5 * (firstTouch.y + secondTouch.y);
+        const deltaX = firstTouch.x - secondTouch.x;
+        const deltaY = firstTouch.y - secondTouch.y;
+        const distance = Math.max(1.0, Math.hypot(deltaX, deltaY));
+        return { midX, midY, distance };
+    }
+
     // Event listener for mousedown - start of the hold
     canvas.addEventListener('pointerdown', function (event) {
         // edit for touch screens
@@ -2769,9 +2795,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // 3) existing logic:
 
-        if (event.button === 0 && calc_constants.viewType == 1) { // Left mouse button, Design mode
+        // CODEX: Touch in Explorer mode uses mobile gestures instead of mouse-button semantics.
+        if (event.pointerType === 'touch' && calc_constants.viewType == 2) {
+            activeExplorerTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            if (activeExplorerTouches.size >= 2) {
+                const touchGesture = getExplorerTouchGesture();
+                if (touchGesture) {
+                    leftMouseIsDown = false;
+                    rightMouseIsDown = false;
+                    lastTouchMidX = touchGesture.midX;
+                    lastTouchMidY = touchGesture.midY;
+                    lastTouchDistance = touchGesture.distance;
+                }
+            } else {
+                rightMouseIsDown = true;
+                lastMouseX_right = event.clientX;
+                lastMouseY_right = event.clientY;
+            }
+            calc_constants.click_update = 2;
+        // if (event.button === 0 && calc_constants.viewType == 1) { // Left mouse button, Design mode
+        } else if (event.button === 0 && calc_constants.viewType == 1) { // Left mouse button, Design mode
             leftMouseIsDown = true;
             handleMouseEvent(event);  // Handle the initial click
+        // } else if (event.button === 0 && calc_constants.viewType == 2) { // Left mouse button, Explorer mode
+        //     leftMouseIsDown = true;
+        //     lastMouseX_left = event.clientX;
+        //     lastMouseY_left = event.clientY;
+        //     calc_constants.click_update = 2;
+        // CODEX: On Mac trackpads, Ctrl + left-drag provides a rotation fallback when right-drag is awkward.
+        } else if (event.button === 0 && event.ctrlKey && calc_constants.viewType == 2) {
+            rightMouseIsDown = true;
+            lastMouseX_right = event.clientX;
+            lastMouseY_right = event.clientY;
+            calc_constants.click_update = 2;
         } else if (event.button === 0 && calc_constants.viewType == 2) { // Left mouse button, Explorer mode
             leftMouseIsDown = true;
             lastMouseX_left = event.clientX;
@@ -2795,6 +2851,38 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Event listener for mousemove - if mouse is down, it's equivalent to multiple clicks
     canvas.addEventListener('pointermove', function (event) {
+        // CODEX: iPhone/iPad Explorer gestures: one finger rotates, two fingers pan and pinch-zoom.
+        if (event.pointerType === 'touch' && calc_constants.viewType == 2 && activeExplorerTouches.has(event.pointerId)) {
+            activeExplorerTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            if (activeExplorerTouches.size >= 2) {
+                const touchGesture = getExplorerTouchGesture();
+                if (touchGesture) {
+                    const deltaX = touchGesture.midX - lastTouchMidX;
+                    const deltaY = touchGesture.midY - lastTouchMidY;
+                    const motion_inc = 0.0001 * calc_constants.forward;
+                    calc_constants.shift_x += deltaX * motion_inc;
+                    calc_constants.shift_y -= deltaY * motion_inc * calc_constants.WIDTH / calc_constants.HEIGHT;
+                    calc_constants.forward *= lastTouchDistance / touchGesture.distance;
+                    calc_constants.forward = Math.max(0.001, Math.min(100, calc_constants.forward));
+                    lastTouchMidX = touchGesture.midX;
+                    lastTouchMidY = touchGesture.midY;
+                    lastTouchDistance = touchGesture.distance;
+                    calc_constants.click_update = 2;
+                }
+            } else {
+                const deltaX = event.clientX - lastMouseX_right;
+                calc_constants.rotationAngle_xy -= deltaX * 0.1;
+
+                const deltaY = event.clientY - lastMouseY_right
+                calc_constants.rotationAngle_xz -= deltaY * 0.1;
+
+                lastMouseX_right = event.clientX;
+                lastMouseY_right = event.clientY;
+                calc_constants.click_update = 2;
+            }
+            return;
+        }
+
         if (leftMouseIsDown && calc_constants.viewType == 1) {
             handleMouseEvent(event);
         } else if (leftMouseIsDown && calc_constants.viewType == 2) {
@@ -2826,8 +2914,32 @@ document.addEventListener('DOMContentLoaded', function () {
         // release capture so the pointer is freed, edit for touch screens
         canvas.releasePointerCapture(event.pointerId);
 
-        if (event.button === 0) { // Left mouse button
+        // CODEX: End or downgrade active Explorer touch gestures without touching desktop mouse state.
+        if (event.pointerType === 'touch' && calc_constants.viewType == 2) {
+            activeExplorerTouches.delete(event.pointerId);
+            if (activeExplorerTouches.size == 1) {
+                const remainingTouch = Array.from(activeExplorerTouches.values())[0];
+                rightMouseIsDown = true;
+                leftMouseIsDown = false;
+                lastMouseX_right = remainingTouch.x;
+                lastMouseY_right = remainingTouch.y;
+                calc_constants.click_update = 2;
+            } else {
+                leftMouseIsDown = false;
+                rightMouseIsDown = false;
+                calc_constants.click_update = 0;
+            }
+            return;
+        }
+
+        // if (event.button === 0) { // Left mouse button
+        // CODEX: Touch rotation also uses this cleanup path, even when pointerup is not reported as a mouse button.
+        if (event.pointerType === 'touch' || event.button === 0) { // Left mouse button or touch
+            // leftMouseIsDown = false;
+            // calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
+            // CODEX: Ctrl + left-drag rotation uses rightMouseIsDown, so left-button release clears both drag modes.
             leftMouseIsDown = false;
+            rightMouseIsDown = false;
             calc_constants.click_update = 0;  // Optionally, reset the click_update here if needed
         } else if (event.button === 2) { // Right mouse button
             rightMouseIsDown = false;
@@ -2844,6 +2956,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // also handle pointercancel just in case the browser forcibly cancels:
     canvas.addEventListener('pointercancel', function(event) {
         canvas.releasePointerCapture(event.pointerId);
+        // CODEX: Keep touch gesture bookkeeping in sync with browser-cancelled touch pointers.
+        activeExplorerTouches.delete(event.pointerId);
         leftMouseIsDown = rightMouseIsDown = false;
         calc_constants.click_update = 0;
     });
@@ -2858,30 +2972,55 @@ document.addEventListener('DOMContentLoaded', function () {
     // Event listener for keydown - to handle arrow keys for shifting
     document.addEventListener('keydown', function (event) {
         const shiftAmount = 0.001; // Change this value to shift by more or less  
-        calc_constants.click_update = 2;
-        switch (event.key) {
-            case 'a': // 'A' key for left
-            case 'A':
+        // calc_constants.click_update = 2;
+        // CODEX: Ignore keyboard shortcuts while the user is editing form controls.
+        const eventTargetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
+        if (eventTargetTag === 'input' || eventTargetTag === 'select' || eventTargetTag === 'textarea' || event.target?.isContentEditable) {
+            return;
+        }
+
+        // CODEX: Explorer navigation keys should only affect the 3D Explorer view.
+        const isExplorerNavigationKey = ['KeyA', 'KeyD', 'KeyW', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.code);
+        if (isExplorerNavigationKey && calc_constants.viewType != 2) {
+            return;
+        }
+        if (isExplorerNavigationKey && event.cancelable) {
+            event.preventDefault();
+        }
+        if (isExplorerNavigationKey) {
+            calc_constants.click_update = 2;
+        }
+
+        // switch (event.key) {
+        // CODEX: Use physical key codes so WASD navigation is layout-stable across platforms.
+        switch (event.code) {
+            // case 'a': // 'A' key for left
+            // case 'A':
+            case 'KeyA':
             case 'ArrowLeft': // Left arrow key
                 calc_constants.shift_x -= shiftAmount;
                 break;
-            case 'd': // 'D' key for right
-            case 'D':
+            // case 'd': // 'D' key for right
+            // case 'D':
+            case 'KeyD':
             case 'ArrowRight': // Right arrow key
                 calc_constants.shift_x += shiftAmount;
                 break;
-            case 'w': // 'W' key for up
-            case 'W':
+            // case 'w': // 'W' key for up
+            // case 'W':
+            case 'KeyW':
             case 'ArrowUp': // Up arrow key
                 calc_constants.shift_y += shiftAmount;
                 break;
-            case 's': // 'S' key for down
-            case 'S':
+            // case 's': // 'S' key for down
+            // case 'S':
+            case 'KeyS':
             case 'ArrowDown': // Down arrow key
                 calc_constants.shift_y -= shiftAmount;
                 break;
-            case 'p': // 'P' key for pause
-            case 'P':
+            // case 'p': // 'P' key for pause
+            // case 'P':
+            case 'KeyP':
             case 'Pause': // Pause/Break key
                 if (calc_constants.simPause < 0) {
                     calc_constants.simPause = 1;
@@ -3193,18 +3332,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // to make the canvas go full screen
     const fullscreenButton = document.getElementById('fullscreen-button');
+    // CODEX: Preserve inline styles so iOS pseudo-fullscreen can be reversed cleanly.
+    var pseudoFullscreenSavedStyle = null;
     // Function to adjust canvas size
     function resizeCanvas() {
         
         let grid_ratio = calc_constants.dx / calc_constants.dy;
-        if (document.fullscreenElement) {
-            const window_width = window.innerWidth;
-            const window_height = window.innerHeight;
+        // if (document.fullscreenElement) {
+        //     const window_width = window.innerWidth;
+        //     const window_height = window.innerHeight;
+        // CODEX: Treat pseudo-fullscreen like fullscreen for canvas sizing, using visualViewport when available.
+        if (document.fullscreenElement || pseudoFullscreenActive) {
+            const viewport = pseudoFullscreenActive && window.visualViewport ? window.visualViewport : window;
+            const window_width = Math.round(viewport.width || window.innerWidth);
+            const window_height = Math.round(viewport.height || window.innerHeight);
 
             // canvas_width_ratio and height will be updated at render time
             
             canvas.width = window_width;
             canvas.height = window_height;
+            if (pseudoFullscreenActive) {
+                canvas.style.width = `${window_width}px`;
+                canvas.style.height = `${window_height}px`;
+            }
         } else {
             // Set canvas size back to normal when exiting full screen
             if (grid_ratio >= 1.0) {
@@ -3248,14 +3398,119 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // CODEX: iOS fallback for browsers that cannot put the canvas into true fullscreen.
+    function enterPseudoFullscreen() {
+        if (pseudoFullscreenActive) {
+            return;
+        }
+        pseudoFullscreenSavedStyle = {
+            position: canvas.style.position,
+            left: canvas.style.left,
+            top: canvas.style.top,
+            width: canvas.style.width,
+            height: canvas.style.height,
+            zIndex: canvas.style.zIndex,
+            marginTop: canvas.style.marginTop,
+            marginBottom: canvas.style.marginBottom,
+            backgroundColor: canvas.style.backgroundColor,
+            bodyOverflow: document.body.style.overflow,
+            buttonPosition: fullscreenButton.style.position,
+            buttonRight: fullscreenButton.style.right,
+            buttonBottom: fullscreenButton.style.bottom,
+            buttonZIndex: fullscreenButton.style.zIndex,
+            buttonText: fullscreenButton.textContent,
+        };
+        pseudoFullscreenActive = true;
+        canvas.classList.add('fullscreen');
+        canvas.style.position = 'fixed';
+        canvas.style.left = '0px';
+        canvas.style.top = '0px';
+        canvas.style.zIndex = '9999';
+        canvas.style.marginTop = '0px';
+        canvas.style.marginBottom = '0px';
+        canvas.style.backgroundColor = 'black';
+        // CODEX: Keep the existing fullscreen button reachable as the pseudo-fullscreen exit control.
+        fullscreenButton.style.position = 'fixed';
+        fullscreenButton.style.right = '12px';
+        fullscreenButton.style.bottom = '12px';
+        fullscreenButton.style.zIndex = '10000';
+        fullscreenButton.textContent = 'Exit Full Screen';
+        document.body.style.overflow = 'hidden';
+        resizeCanvas();
+        updateCalcConstants('viewType', 2);
+        calc_constants.click_update = 2;
+        calc_constants.full_screen = 1;
+        updateZoomListener();
+        console.log("Entered pseudo-fullscreen mode");
+    }
+
+    // CODEX: Restore layout after the iOS pseudo-fullscreen fallback.
+    function exitPseudoFullscreen() {
+        if (!pseudoFullscreenActive) {
+            return;
+        }
+        pseudoFullscreenActive = false;
+        canvas.classList.remove('fullscreen');
+        if (pseudoFullscreenSavedStyle) {
+            canvas.style.position = pseudoFullscreenSavedStyle.position;
+            canvas.style.left = pseudoFullscreenSavedStyle.left;
+            canvas.style.top = pseudoFullscreenSavedStyle.top;
+            canvas.style.width = pseudoFullscreenSavedStyle.width;
+            canvas.style.height = pseudoFullscreenSavedStyle.height;
+            canvas.style.zIndex = pseudoFullscreenSavedStyle.zIndex;
+            canvas.style.marginTop = pseudoFullscreenSavedStyle.marginTop;
+            canvas.style.marginBottom = pseudoFullscreenSavedStyle.marginBottom;
+            canvas.style.backgroundColor = pseudoFullscreenSavedStyle.backgroundColor;
+            fullscreenButton.style.position = pseudoFullscreenSavedStyle.buttonPosition;
+            fullscreenButton.style.right = pseudoFullscreenSavedStyle.buttonRight;
+            fullscreenButton.style.bottom = pseudoFullscreenSavedStyle.buttonBottom;
+            fullscreenButton.style.zIndex = pseudoFullscreenSavedStyle.buttonZIndex;
+            fullscreenButton.textContent = pseudoFullscreenSavedStyle.buttonText;
+            document.body.style.overflow = pseudoFullscreenSavedStyle.bodyOverflow;
+        }
+        resizeCanvas();
+        updateCalcConstants('viewType', 1);
+        calc_constants.click_update = 1;
+        calc_constants.full_screen = 0;
+        updateAllUIElements();
+        updateZoomListener();
+        console.log("Exited pseudo-fullscreen mode");
+    }
+
+    // fullscreenButton.addEventListener('click', function () {
+    //     if (!document.fullscreenElement) {
+    //         canvas.requestFullscreen().then(() => {
+    //             canvas.classList.add('fullscreen'); // Add the full-screen class for styling
+    //             resizeCanvas(); // Resize the canvas to full screen dimensions
+    //         }).catch(err => {
+    //             console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+    //         });
+    //     } else {
+    //         document.exitFullscreen().then(() => {
+    //             canvas.classList.remove('fullscreen'); // Remove the full-screen class
+    //             resizeCanvas(); // Resize the canvas back to normal dimensions
+    //             
+    //         }).catch(err => {
+    //             console.log(`Error attempting to disable full-screen mode: ${err.message}`);
+    //         });
+    //     }
+    // });
+    // CODEX: Keep desktop fullscreen unchanged, but fall back to pseudo-fullscreen when unsupported or rejected.
     fullscreenButton.addEventListener('click', function () {
-        if (!document.fullscreenElement) {
-            canvas.requestFullscreen().then(() => {
-                canvas.classList.add('fullscreen'); // Add the full-screen class for styling
-                resizeCanvas(); // Resize the canvas to full screen dimensions
-            }).catch(err => {
-                console.log(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
+        if (pseudoFullscreenActive) {
+            exitPseudoFullscreen();
+        } else if (!document.fullscreenElement) {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen().then(() => {
+                    canvas.classList.add('fullscreen'); // Add the full-screen class for styling
+                    resizeCanvas(); // Resize the canvas to full screen dimensions
+                }).catch(err => {
+                    console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+                    enterPseudoFullscreen();
+                });
+            } else {
+                enterPseudoFullscreen();
+            }
         } else {
             document.exitFullscreen().then(() => {
                 canvas.classList.remove('fullscreen'); // Remove the full-screen class
@@ -3268,7 +3523,18 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Handle resize events when in full screen
-    window.addEventListener('resize', resizeCanvas);
+    // window.addEventListener('resize', resizeCanvas);
+    // CODEX: Debounce mobile viewport changes so iPhone/iPad browser chrome does not thrash canvas resizing.
+    var resizeCanvasTimer = null;
+    function scheduleResizeCanvas() {
+        clearTimeout(resizeCanvasTimer);
+        resizeCanvasTimer = setTimeout(resizeCanvas, 80);
+    }
+    window.addEventListener('resize', scheduleResizeCanvas);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', scheduleResizeCanvas);
+        window.visualViewport.addEventListener('scroll', scheduleResizeCanvas);
+    }
 
     // Listen for fullscreen change events
     document.addEventListener('fullscreenchange', function () {
@@ -3347,8 +3613,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // add remove scroll wheel functionality
-    document.getElementById('viewType-select').addEventListener('change', function () {
+    // document.getElementById('viewType-select').addEventListener('change', function () {
+    //     updateZoomListener(); // Ensure the listener state matches the new viewType
+    // });
+    // CODEX: Blur the view selector after changing modes so Explorer WASD shortcuts reach the document handler.
+    document.getElementById('viewType-select').addEventListener('change', function (event) {
         updateZoomListener(); // Ensure the listener state matches the new viewType
+        event.target.blur();
     });
 
 
