@@ -866,7 +866,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
+    // const TridiagX_BindGroup = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, newcoef_x, txNewState, current_stateUVstar, txtemp_PCRx, txtemp2_PCRx, txBottom);
+    // CODEX: PCR ping-pong bind groups avoid full-texture coefficient copy-back between iterations.
+    const TridiagX_BindGroup_BaseToA = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, coefMatx, txNewState, current_stateUVstar, newcoef_x, txtemp2_PCRx, txBottom);
     const TridiagX_BindGroup = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, newcoef_x, txNewState, current_stateUVstar, txtemp_PCRx, txtemp2_PCRx, txBottom);
+    const TridiagX_BindGroup_BToA = create_Tridiag_BindGroup(device, TridiagX_uniformBuffer, txtemp_PCRx, txNewState, current_stateUVstar, newcoef_x, txtemp2_PCRx, txBottom);
     const TridiagX_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let TridiagX_view = new DataView(TridiagX_uniforms);
     TridiagX_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -878,7 +882,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // TridiagY - Bindings & Uniforms Config
     const TridiagY_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
+    // const TridiagY_BindGroup = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, newcoef_y, txNewState, current_stateUVstar, txtemp_PCRy, txtemp2_PCRy, txBottom);
+    // CODEX: PCR ping-pong bind groups avoid full-texture coefficient copy-back between iterations.
+    const TridiagY_BindGroup_BaseToA = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, coefMaty, txNewState, current_stateUVstar, newcoef_y, txtemp2_PCRy, txBottom);
     const TridiagY_BindGroup = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, newcoef_y, txNewState, current_stateUVstar, txtemp_PCRy, txtemp2_PCRy, txBottom);
+    const TridiagY_BindGroup_BToA = create_Tridiag_BindGroup(device, TridiagY_uniformBuffer, txtemp_PCRy, txNewState, current_stateUVstar, newcoef_y, txtemp2_PCRy, txBottom);
     const TridiagY_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let TridiagY_view = new DataView(TridiagY_uniforms);
     TridiagY_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -1748,9 +1756,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 device.queue.submit([commandEncoderStack.finish()]);
 
                 //Tridiag Solver for Bous, or copy for NLSW
+                // runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
+                //     TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
+                //     TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
+                //     runComputeShader, runCopyTextures
+                // )
+                // CODEX: Pass PCR ping-pong bind groups so the solver can hand off coefficient textures without copy-back.
                 runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
-                    TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
-                    TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
+                    TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_BindGroup_BaseToA, TridiagX_BindGroup_BToA, TridiagX_view,
+                    TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_BindGroup_BaseToA, TridiagY_BindGroup_BToA, TridiagY_view,
                     runComputeShader, runCopyTextures
                 )
 
@@ -1872,9 +1886,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     device.queue.submit([commandEncoderStack.finish()]);
 
                     //Tridiag Solver for Bous, or copy for NLSW
+                    // runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
+                    //         TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
+                    //         TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
+                    //         runComputeShader, runCopyTextures
+                    // )
+                    // CODEX: Pass PCR ping-pong bind groups so the solver can hand off coefficient textures without copy-back.
                     runTridiagSolver(device, commandEncoder, calc_constants, current_stateUVstar, txNewState, coefMatx, coefMaty, newcoef_x, newcoef_y, txtemp_PCRx, txtemp_PCRy, txtemp2_PCRx, txtemp2_PCRy,
-                            TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_view,
-                            TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_view,
+                            TridiagX_uniformBuffer, TridiagX_uniforms, TridiagX_Pipeline, TridiagX_BindGroup, TridiagX_BindGroup_BaseToA, TridiagX_BindGroup_BToA, TridiagX_view,
+                            TridiagY_uniformBuffer, TridiagY_uniforms, TridiagY_Pipeline, TridiagY_BindGroup, TridiagY_BindGroup_BaseToA, TridiagY_BindGroup_BToA, TridiagY_view,
                             runComputeShader, runCopyTextures
                     )
 

@@ -21,7 +21,8 @@ struct Globals {
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
-    let CurrentState = textureLoad(current_state, idx, 0);
+    // CODEX: CurrentState is only needed on the final PCR pass now.
+    // let CurrentState = textureLoad(current_state, idx, 0);
     
     let s = (globals.s);
     let width = (globals.width);
@@ -92,16 +93,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let cOut = -r * cIn * cInRight;
     var dOut = r * (dIn - aIn * dInLeft - cIn * dInRight);
     
-    if(globals.p == globals.Py - 1) {  // for COULWAVE need to convert velocity back to flux
+    // if(globals.p == globals.Py - 1) {  // for COULWAVE need to convert velocity back to flux
+    //     let H_loc = max(globals.delta, CurrentState.r - textureLoad(txBottom, idx, 0).z);
+    //     dOut = dOut * H_loc;
+    // }
+
+    // CODEX: Only the final PCR pass converts velocity back to flux and writes solved y-momentum.
+    if(globals.p == globals.Py - 1) {
+        let CurrentState = textureLoad(current_state, idx, 0);
         let H_loc = max(globals.delta, CurrentState.r - textureLoad(txBottom, idx, 0).z);
         dOut = dOut * H_loc;
+        let txtemp2_out = vec4<f32>(CurrentState.r, CurrentState.g, dOut, CurrentState.a);
+        textureStore(txtemp2, idx, txtemp2_out);
     }
 
     let txtemp_out = vec4<f32>(aOut, 1.0, cOut, dOut);
-    let txtemp2_out = vec4<f32>(CurrentState.r, CurrentState.g, dOut, CurrentState.a);
+    // let txtemp2_out = vec4<f32>(CurrentState.r, CurrentState.g, dOut, CurrentState.a);
 
     textureStore(txtemp, idx,  txtemp_out);
-    textureStore(txtemp2, idx, txtemp2_out);
+    // textureStore(txtemp2, idx, txtemp2_out);
 
 
 

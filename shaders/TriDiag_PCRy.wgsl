@@ -3,6 +3,8 @@ struct Globals {
     height: i32,
     p: i32,
     s: i32,
+    // CODEX: Total PCR iteration count; JS already writes this uniform after s.
+    P: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -17,7 +19,8 @@ struct Globals {
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = vec2<i32>(i32(id.x), i32(id.y));
-    let CurrentState = textureLoad(current_state, idx, 0);
+    // CODEX: CurrentState is only needed on the final PCR pass now.
+    // let CurrentState = textureLoad(current_state, idx, 0);
     
     let s = (globals.s);
     let width = (globals.width);
@@ -89,10 +92,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let dOut = r * (dIn - aIn * dInLeft - cIn * dInRight);
     
     let txtemp_out = vec4<f32>(aOut, 1.0, cOut, dOut);
-    let txtemp2_out = vec4<f32>(CurrentState.r, CurrentState.g, dOut, CurrentState.a);
+    // let txtemp2_out = vec4<f32>(CurrentState.r, CurrentState.g, dOut, CurrentState.a);
 
     textureStore(txtemp, idx,  txtemp_out);
-    textureStore(txtemp2, idx, txtemp2_out);
+    // textureStore(txtemp2, idx, txtemp2_out);
+
+    // CODEX: Only the final PCR pass writes the solved y-momentum back to the state staging texture.
+    if (globals.p == globals.P - 1) {
+        let CurrentState = textureLoad(current_state, idx, 0);
+        let txtemp2_out = vec4<f32>(CurrentState.r, CurrentState.g, dOut, CurrentState.a);
+        textureStore(txtemp2, idx, txtemp2_out);
+    }
 
 
 
