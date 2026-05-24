@@ -2858,12 +2858,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 const touchGesture = getExplorerTouchGesture();
                 if (touchGesture) {
                     const deltaX = touchGesture.midX - lastTouchMidX;
-                    const deltaY = touchGesture.midY - lastTouchMidY;
+                    // const deltaY = touchGesture.midY - lastTouchMidY;
                     const motion_inc = 0.0001 * calc_constants.forward;
+                    // CODEX: Two-finger horizontal drag strafes left/right; pinch maps to shift_y like W/S and up/down keys.
+                    const pinchDelta = touchGesture.distance - lastTouchDistance;
                     calc_constants.shift_x += deltaX * motion_inc;
-                    calc_constants.shift_y -= deltaY * motion_inc * calc_constants.WIDTH / calc_constants.HEIGHT;
-                    calc_constants.forward *= lastTouchDistance / touchGesture.distance;
-                    calc_constants.forward = Math.max(0.001, Math.min(100, calc_constants.forward));
+                    calc_constants.shift_y += pinchDelta * 0.0001;
+                    // calc_constants.shift_y -= deltaY * motion_inc * calc_constants.WIDTH / calc_constants.HEIGHT;
+                    // calc_constants.forward *= lastTouchDistance / touchGesture.distance;
+                    // calc_constants.forward = Math.max(0.001, Math.min(100, calc_constants.forward));
                     lastTouchMidX = touchGesture.midX;
                     lastTouchMidY = touchGesture.midY;
                     lastTouchDistance = touchGesture.distance;

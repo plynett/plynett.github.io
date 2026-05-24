@@ -50,7 +50,7 @@ Most DOM event listeners are registered in this file:
 - Explorer keyboard navigation uses physical `W/A/S/D` key codes and arrow keys only while `viewType == 2`, and keyboard shortcuts are ignored while focus is in form fields. The view-mode selector blurs after changes so choosing non-fullscreen Explorer mode does not trap WASD focus.
 - Explorer pointer controls use left-drag for pan and right-drag for rotation; `Ctrl + left-drag` is also accepted as a Mac-friendly rotation fallback.
 - In Explorer mode, one-finger touch drag rotates the camera using the same yaw/pitch path as right-drag.
-- In Explorer mode on touch devices, two-finger drag pans and pinch changes the same `forward` zoom/dolly value used by mouse wheel zoom.
+- In Explorer mode on touch devices, two-finger horizontal drag strafes left/right, and pinch maps to the same forward/back `shift_y` movement used by `W/S` and up/down keys.
 - Fullscreen entry falls back to an inline pseudo-fullscreen canvas layout when the browser rejects or lacks `requestFullscreen`; the fullscreen button remains visible as the exit control, and mobile viewport resize events are debounced.
 - Time-series location management.
 - File input handlers.
