@@ -404,16 +404,37 @@ function constructGoogleMapsUrl(lat_LL, lon_LL, lat_UR, lon_UR, zoomLevel, maxWi
 // Step 2: Fetch Image from Google Maps.
 async function fetchMapImage(url) {
     // Fetch the image from the URL.
+    // const response = await fetch(url);
+    // const imageBlob = await response.blob();
+
+    // CODEX: Fail fast when Google Maps returns an HTTP error or non-image payload.
     const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Google Maps Static API request failed with HTTP ${response.status}`);
+    }
+
     const imageBlob = await response.blob();
+    if (!imageBlob.type.startsWith('image/')) {
+        throw new Error(`Google Maps Static API returned non-image content: ${imageBlob.type || 'unknown content type'}`);
+    }
 
     // Create an image element.
+    // const image = new Image();
+    // image.src = URL.createObjectURL(imageBlob);
+
+    // CODEX: Decode failure should reject so initialization can continue without Google Maps.
     const image = new Image();
     image.src = URL.createObjectURL(imageBlob);
 
     // Ensure the image is loaded.
-    await new Promise((resolve) => {
+    // await new Promise((resolve) => {
+    //     image.onload = resolve;
+    // });
+
+    // CODEX: Reject failed image decoding instead of leaving overlay initialization incomplete.
+    await new Promise((resolve, reject) => {
         image.onload = resolve;
+        image.onerror = () => reject(new Error('Unable to decode Google Maps Static API image response'));
     });
 
     return image;

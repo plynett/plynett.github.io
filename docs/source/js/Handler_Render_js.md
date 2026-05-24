@@ -34,4 +34,4 @@ Creates the render bind-group layout and bind group used by the 2D and 3D visual
 
 ## Change Notes
 
-Some `main.js` overlay-refresh call sites appear to use an older argument order or omit newer arguments. Audit every `createRenderBindGroup()` call before changing this handler.
+`main.js` creates this bind group at startup and may rebuild it when the overlay selector switches back to a loaded Google Maps or satellite image. All call sites must pass the full argument list, including `txDesignComponents`, `textureSampler_linear`, and `txRenderVarsf16`; missing trailing arguments can stop the render loop during an overlay toggle.

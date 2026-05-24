@@ -397,9 +397,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             calc_constants.IsGMMapLoaded = 1;
             calc_constants.IsOverlayMapLoaded = 1;
         }
-        catch {
-            console.log('Unable to load Google Maps overlay')
-            calc_constants.GoogleMapOverlay == 0
+        // catch {
+        //     console.log('Unable to load Google Maps overlay')
+        //     calc_constants.GoogleMapOverlay == 0
+        // }
+        // CODEX: Treat Google Maps overlay failures as non-fatal so local/example overlays can still load.
+        catch (error) {
+            console.warn('Unable to load Google Maps overlay; continuing without it.', error);
+            calc_constants.GoogleMapOverlay = 0;
+            calc_constants.IsGMMapLoaded = 0;
+            calc_constants.IsOverlayMapLoaded = 0;
         }
     }    
     
@@ -1518,7 +1525,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     calc_constants.GMoffsetY = transforms.offsetY;
             
                     txOverlayMap = txGoogleMap;
-                    RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+                    // RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+                    // CODEX: Rebuild the render bind group with the current full argument list when switching overlays.
+                    RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, txBottomInitial, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs, textureSampler_linear, txRenderVarsf16);
    
                     console.log('Updating Overlay with Google Maps Image')
                     calc_constants.IsOverlayMapLoaded = 1;
@@ -1529,7 +1538,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     calc_constants.GMoffsetY = 1.0;  // y-direction offset for sat image
                     
                     txOverlayMap = txSatMap;
-                    RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+                    // RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, erosion_Sed, depostion_Sed, txBotChange_Sed, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs);
+                    // CODEX: Rebuild the render bind group with the current full argument list when switching overlays.
+                    RenderBindGroup = createRenderBindGroup(device, Render_uniformBuffer, txNewState, txBottom, txMeans, txWaveHeight, txBaseline_WaveHeight, txBottomFriction, txNewState_Sed, txBottomInitial, txBotChange_Sed, txDesignComponents, txOverlayMap, txDraw, textureSampler, txTimeSeries_Locations, txBreaking, txSamplePNGs, textureSampler_linear, txRenderVarsf16);
    
                     console.log('Updating Overlay with Sat Image')
                     calc_constants.IsOverlayMapLoaded = 1;

@@ -24,6 +24,8 @@ Each returns numeric grid data for later packing by `Copy_Data_to_Textures.js`.
 
 Overlay helpers load local overlay images or construct a Google Static Maps request from scenario coordinates. The Google map code computes Mercator-style scale/offset values used by the render shader to align image pixels with model coordinates.
 
+Google Static Maps fetches fail fast on HTTP errors, non-image payloads, or image decode failures. This lets the initialization path catch the problem and continue without a Google overlay, which is important for localhost runs where the API key may reject the origin.
+
 ## Image Helpers
 
 The module also loads:

@@ -17,6 +17,7 @@ The initialization path loads config, bathymetry, waves, optional overlays, opti
 - Creates uniform buffers for simulation, render, tridiagonal, and specialized pass constants.
 - Allocates simulation textures, diagnostics textures, sediment textures, COULWAVE textures, render textures, and time-series textures.
 - Copies CPU-loaded data into GPU textures.
+- Attempts Google Maps overlay loading as an optional startup step; failures reset overlay flags and do not block local/example overlay loading.
 - Fetches WGSL shader source and creates compute/render pipelines.
 - Creates all bind groups through the `Handler_*.js` modules.
 - Starts the animation frame loop.
@@ -58,6 +59,8 @@ The UI does not directly mutate GPU textures. It changes `calc_constants` and se
 - Handler argument order is critical because `main.js` passes textures positionally.
 - The PCR tridiagonal solver depends on the paired `BaseToA`, `AToB`, and `BToA` bind groups created here for both x and y directions.
 - The render bind group is shared by 2D and 3D rendering.
+- Google Maps overlay loading is optional. A failed Static Maps fetch should leave `GoogleMapOverlay`, `IsGMMapLoaded`, and `IsOverlayMapLoaded` cleared so the model can continue and local overlays can still be considered.
+- Overlay UI changes rebuild the render bind group when switching back to a loaded Google Maps or satellite overlay; those calls must keep the same full argument order as the initial render bind group creation.
 - COULWAVE mode requires multiple 2D temporary textures to be copied into layers of `txCW_groupings`.
 - Sediment update can modify `txBottom`, so it must be followed by near-dry refresh and, for dispersive modes, tridiagonal coefficient refresh.
 
