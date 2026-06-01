@@ -721,8 +721,8 @@
                     <!-- Updates go to calc_constants.incident_wave_type-->
                     <label for="incident_wave_type-select">Incident Wave Type: </label>
                     <select id="incident_wave_type-select" name="incident_wave_typeValue">
-                        <option value="0">*Sine Wave (single harmonic)</option>
-                        <option value="1">*TMA Spectrum</option>
+                        <option value="0">Sine Wave (single harmonic)</option>
+                        <option value="1">TMA Spectrum</option>
                         <option value="2">*Transient Pulse (4 waves)</option>
                         <option value="3">*Solitary Wave</option>
                         <option value="-1">Custom Spectrum from loaded file</option>
@@ -748,7 +748,7 @@
                     <br />
 
                     <!-- Updates go to calc_constants.incident_wave_direction-->
-                    <label for="incident_wave_direction-input">Wave Direction (deg CCW from E [-180 to 180]):</label>
+                    <label for="incident_wave_direction-input">Wave Direction (deg, 0=from west, 90=from south, 180=from east, -90/270=from north):</label>
                     <br />
                     <input type="number" id="incident_wave_direction-input" name="incident_wave_direction">
                     <button id="incident_wave_direction-button" type="button">Update</button>

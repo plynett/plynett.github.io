@@ -11,6 +11,7 @@ The central file is `main.js`. Most other modules either feed it data, create a 
 - `Config_Pipelines.js`: compute and render pipeline creation.
 - `Create_Textures.js`: WebGPU texture and buffer allocation helpers.
 - `Copy_Data_to_Textures.js`: CPU-side packing of bathymetry, waves, initial state, and tridiagonal coefficients into GPU textures.
+- `Wave_Generator.js`: UI-selected sine and TMA boundary-wave row generation before upload to `txWaves`.
 - `Run_Compute_Shader.js`: generic compute dispatch and texture-copy helpers.
 - `Run_Tridiag_Solver.js`: PCR-based implicit solver orchestration.
 

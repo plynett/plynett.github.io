@@ -40,8 +40,11 @@ Boundary and forcing:
 - `west_boundary_type`, `east_boundary_type`, `south_boundary_type`, `north_boundary_type`
 - `BoundaryWidth`
 - `incident_wave_type`
+- `incident_wave_H`, `incident_wave_T`, `incident_wave_direction`
 - `numberOfWaves`
 - river stage/discharge fields for flood scenarios
+
+For `incident_wave_type == 0`, `main.js` treats the UI values as a single sine-wave component, converts height to amplitude with `H / 2`, converts direction from degrees to radians, sets `numberOfWaves` to 1, and reuploads `txWaves`. For `incident_wave_type == 1`, `Wave_Generator.js` builds a cached TMA directional spectrum from the same height, period, and direction controls, sets `numberOfWaves` to the generated component count, and reuploads `txWaves`.
 
 Sediment:
 

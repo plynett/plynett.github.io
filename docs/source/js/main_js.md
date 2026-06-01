@@ -44,6 +44,7 @@ Most DOM event listeners are registered in this file:
 
 - Scenario selection and start/restart controls.
 - Config panel edits.
+- Incident-wave UI edits. Sine-wave forcing regenerates `txWaves` as one `[amplitude, period, directionRadians, phaseRadians]` row from the UI height, period, and direction controls. TMA forcing generates directional spectrum rows through `Wave_Generator.js` and uploads them through the same texture path.
 - Mouse-based bathymetry/friction/source/free-surface edits.
 - Design-component placement.
 - Explorer/camera controls for 3D view.
@@ -62,6 +63,7 @@ The UI does not directly mutate GPU textures. It changes `calc_constants` and se
 
 - Shader selection is driven by `Accuracy_mode` and `NLSW_or_Bous`.
 - Handler argument order is critical because `main.js` passes textures positionally.
+- `txWaves` is normally loaded from `waves.txt`, but UI-selected sine and TMA forcing reuse the same texture contract. Sine sets `numberOfWaves` to 1, converts UI height to amplitude with `H / 2`, and converts UI direction from degrees to radians. TMA generates a cached spectrum from the incident-wave controls, updates `numberOfWaves`, and reuploads the wave texture without resetting wave-height diagnostics.
 - The PCR tridiagonal solver depends on the paired `BaseToA`, `AToB`, and `BToA` bind groups created here for both x and y directions.
 - The render bind group is shared by 2D and 3D rendering.
 - Loaded JSON box models use the same model pipeline in both render modes: Explorer draws them with the perspective camera, while Design draws them after the 2D quad with a top-down clip-space projection so they appear as footprints. In Design mode, the model draw is scissored around overlay areas: above the bottom colorbar when the colorbar is visible, and out of the two upper logo corners when `ShowLogos == 0`. The colorbar scissor is skipped for the free-surface Ocean/photo-realistic display where the colorbar is not shown.

@@ -5,6 +5,8 @@ import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileS
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+// Added by Codex: Boundary-wave generators keep UI-created spectra outside the main orchestrator.
+import { GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY, buildSineWaveData, buildTmaWaveData } from './Wave_Generator.js';
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { createSkyboxBindGroupLayout, createSkyboxBindGroup} from './Handler_Skybox.js';  // group bindings for skybox shaders
@@ -144,6 +146,42 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // load the simulation parameters, the 2D depth surface, and the wave data.  "Ordered" as the sequence of how these files are loaded is important
     let { bathy2D, waveData } = await OrderedFunctions(configContent, bathymetryContent, waveContent);
+
+    // Added by Codex: Start UI boundary wave regeneration support.
+    // Added by Codex: Preserve the loaded waves.txt data so UI-generated boundary waves can be toggled without losing the custom spectrum.
+    const loadedBoundaryNumberOfWaves = calc_constants.numberOfWaves;
+    const loadedBoundaryWaveData = waveData.map(row => row.slice());
+
+    // Added by Codex: Build boundary forcing rows in the same [amplitude, period, directionRadians, phaseRadians] format used by waves.txt.
+    function buildBoundaryWaveDataFromControls() {
+        if (calc_constants.incident_wave_type == 0) {
+            // const waveHeight = Number.isFinite(calc_constants.incident_wave_H) ? calc_constants.incident_wave_H : 0.0;
+            // const wavePeriod = calc_constants.incident_wave_T > 0.0 ? calc_constants.incident_wave_T : 10.0;
+            // const waveDirection = Number.isFinite(calc_constants.incident_wave_direction) ? calc_constants.incident_wave_direction * Math.PI / 180.0 : 0.0;
+            // return { numberOfWaves: 1, waveData: [[0.5 * waveHeight, wavePeriod, waveDirection, 0.0]] };
+            // Added by Codex: Reuse the shared generator contract for sine and spectral boundary waves.
+            return buildSineWaveData(calc_constants);
+        }
+
+        if (calc_constants.incident_wave_type == 1) {
+            // // Added by Codex: TMA generation will use this same return contract; until then, keep the loaded spectrum active.
+            // return { numberOfWaves: loadedBoundaryNumberOfWaves, waveData: loadedBoundaryWaveData };
+            // Added by Codex: Generate TMA components from the incident-wave UI controls.
+            return buildTmaWaveData(calc_constants);
+        }
+
+        return { numberOfWaves: loadedBoundaryNumberOfWaves, waveData: loadedBoundaryWaveData };
+    }
+
+    // Added by Codex: Re-upload boundary wave rows whenever UI-selected forcing changes the component set.
+    function refreshBoundaryWaveTexture(txWaves) {
+        const boundaryWaves = buildBoundaryWaveDataFromControls();
+        if (boundaryWaves.numberOfWaves > 0) {
+            calc_constants.numberOfWaves = boundaryWaves.numberOfWaves;
+            copyWaveDataToTexture(calc_constants, boundaryWaves.waveData, device, txWaves);
+        }
+    }
+    // Added by Codex: End UI boundary wave regeneration support.
 
     // Create buffers for storing uniform data. This buffer will be used to send parameter data to shaders.
     const Pass0_uniformBuffer = createUniformBuffer(device);
@@ -309,7 +347,10 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let depthTexture = create_Depth_Texture(device, canvas.width, canvas.height, allTextures); // initial depth texture for Explorer mode
     const txRenderVarsf16 = create_2D_F16Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, 3, allTextures);  // used to store the f16 render variables for the render pipeline
 
-    const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
+    // const txWaves = create_1D_Texture(device, calc_constants.numberOfWaves, allTextures);  // stores spectrum wave input
+    // Added by Codex: Generated TMA spectra need more texture rows than a one-row sine waves.txt file.
+    const txWaves = create_1D_Texture(device, Math.max(calc_constants.numberOfWaves, GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY), allTextures);  // stores spectrum wave input
+    // Added by Codex: End generated boundary wave texture capacity.
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
     const txTimeSeries_Data = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
 
@@ -317,9 +358,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let bathy2Dvec = copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
 
     // fill in the wave data texture
-    if (calc_constants.numberOfWaves > 0) {
-        copyWaveDataToTexture(calc_constants, waveData, device, txWaves);
-    }
+    // if (calc_constants.numberOfWaves > 0) {
+    //     copyWaveDataToTexture(calc_constants, waveData, device, txWaves);
+    // }
+    // Added by Codex: Use one upload path for loaded spectra and UI-generated single-component sine waves.
+    refreshBoundaryWaveTexture(txWaves);
+    // Added by Codex: End startup boundary wave texture refresh.
 
     // fill in the time series location texture
     copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations)  
@@ -1498,10 +1542,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             }
             if(calc_constants.south_boundary_type == 3 || calc_constants.north_boundary_type == 3){
                 calc_constants.south_boundary_type = 3;
-                calc_constants.north_boundary_type = 3; 
+                calc_constants.north_boundary_type = 3;
             }
+            // Added by Codex: Keep txWaves synchronized with the incident-wave UI before updating boundary uniforms.
+            refreshBoundaryWaveTexture(txWaves);
             BoundaryPass_view.setFloat32(8, calc_constants.dt, true);             // f32
             BoundaryPass_view.setFloat32(40, calc_constants.seaLevel, true);           // f32
+            // Added by Codex: The sine-wave UI changes numberOfWaves, so this uniform must be refreshed with the wave texture.
+            BoundaryPass_view.setInt32(52, calc_constants.numberOfWaves, true);             // i32
+            // Added by Codex: End UI boundary wave texture refresh.
             BoundaryPass_view.setInt32(56, calc_constants.west_boundary_type, true);       // f32
             BoundaryPass_view.setInt32(60, calc_constants.east_boundary_type, true);           // f32
             BoundaryPass_view.setInt32(64, calc_constants.south_boundary_type, true);           // f32
