@@ -2054,10 +2054,97 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // Render QUAD
             RenderPass.setVertexBuffer(0, quadVertexBuffer);
             // Issue draw command to draw
-            RenderPass.draw(4);  // Draw the quad 
+            RenderPass.draw(4);  // Draw the quad
+
+            // CODEX: Draw loaded JSON box models as top-down footprints in Design mode.
+            const designModelViewProj = mat4.fromValues(
+                2.0 / simWidth, 0.0, 0.0, 0.0,
+                0.0, 2.0 / simHeight, 0.0, 0.0,
+                0.0, 0.0, 0.0, 0.0,
+                -1.0, -1.0, 0.0, 1.0
+            );
+            RenderPass.setPipeline(ModelPipeline);
+
+            // CODEX: Previous single-colorbar scissor path retained while adding logo protection.
+            // const designColorbarVisible = calc_constants.CB_show == 1 && !(calc_constants.surfaceToPlot == 0 && calc_constants.colorMap_choice == 0);
+            // if (designColorbarVisible) {
+            //     const designColorbarProtectedHeight = Math.min(
+            //         canvas.height - 1,
+            //         Math.ceil(((calc_constants.CB_ystart + 20) / calc_constants.HEIGHT * grid_ratio + 0.5 * calc_constants.CB_xbuffer_uv) * canvas.height)
+            //     );
+            //     RenderPass.setScissorRect(0, 0, canvas.width, canvas.height - designColorbarProtectedHeight);
+            // }
+            // for (const obj of model_properties) {
+            //     const mv = obj.uniformView;
+            //     for (let i = 0; i < 16; ++i) {
+            //         mv.setFloat32(4 * i,         designModelViewProj[i], true);
+            //         mv.setFloat32(4 * (16 + i),  obj.modelMatrix[i],     true);
+            //     }
+            //     mv.setFloat32(128, 0.5 * simWidth, true);
+            //     mv.setFloat32(132, 0.5 * simHeight, true);
+            //     mv.setFloat32(136, simDim, true);
+            //     device.queue.writeBuffer(obj.uniformBuffer, 0, obj.uniforms);
+            //     RenderPass.setBindGroup(0, obj.bindGroup);
+            //     RenderPass.setVertexBuffer(0, boxVB);
+            //     RenderPass.setIndexBuffer(boxIB, 'uint32');
+            //     RenderPass.drawIndexed(boxIndices.length);
+            // }
+            // if (designColorbarVisible) {
+            //     RenderPass.setScissorRect(0, 0, canvas.width, canvas.height);
+            // }
+
+            // CODEX: Draw Design-mode model footprints only inside regions not reserved for overlays.
+            const drawDesignModelFootprints = () => {
+                for (const obj of model_properties) {
+                    const mv = obj.uniformView;
+                    for (let i = 0; i < 16; ++i) {
+                        mv.setFloat32(4 * i,         designModelViewProj[i], true);
+                        mv.setFloat32(4 * (16 + i),  obj.modelMatrix[i],     true);
+                    }
+                    mv.setFloat32(128, 0.5 * simWidth, true);
+                    mv.setFloat32(132, 0.5 * simHeight, true);
+                    mv.setFloat32(136, simDim, true);
+                    device.queue.writeBuffer(obj.uniformBuffer, 0, obj.uniforms);
+                    RenderPass.setBindGroup(0, obj.bindGroup);
+                    RenderPass.setVertexBuffer(0, boxVB);
+                    RenderPass.setIndexBuffer(boxIB, 'uint32');
+                    RenderPass.drawIndexed(boxIndices.length);
+                }
+            };
+
+            // CODEX: Protect the bottom colorbar except in the Ocean/photo-realistic free-surface view.
+            const designColorbarVisible = calc_constants.CB_show == 1 && !(calc_constants.surfaceToPlot == 0 && calc_constants.colorMap_choice == 0);
+            const designColorbarProtectedHeight = designColorbarVisible
+                ? Math.min(
+                    canvas.height - 1,
+                    Math.ceil(((calc_constants.CB_ystart + 20) / calc_constants.HEIGHT * grid_ratio + 0.5 * calc_constants.CB_xbuffer_uv) * canvas.height)
+                )
+                : 0;
+
+            // CODEX: In this UI, ShowLogos == 0 is the selected "Yes" value.
+            const designLogosVisible = calc_constants.ShowLogos == 0;
+            const designLogoProtectedHeight = designLogosVisible
+                ? Math.min(canvas.height - designColorbarProtectedHeight, Math.ceil(Math.max(logo_left.height, logo_right.height)))
+                : 0;
+            const drawDesignModelsInRect = (x, y, width, height) => {
+                if (width <= 0 || height <= 0) {
+                    return;
+                }
+                RenderPass.setScissorRect(x, y, width, height);
+                drawDesignModelFootprints();
+            };
+
+            if (designLogosVisible) {
+                drawDesignModelsInRect(Math.ceil(logo_left.width), 0, Math.floor(canvas.width - logo_left.width - logo_right.width), designLogoProtectedHeight);
+                drawDesignModelsInRect(0, designLogoProtectedHeight, canvas.width, canvas.height - designLogoProtectedHeight - designColorbarProtectedHeight);
+            } else {
+                drawDesignModelsInRect(0, 0, canvas.width, canvas.height - designColorbarProtectedHeight);
+            }
+            // CODEX: Restore full-canvas drawing after the Design-mode model footprint overlay.
+            RenderPass.setScissorRect(0, 0, canvas.width, canvas.height);
         }
         else if (calc_constants.viewType == 2)  // 3D / drone / walk-through perspective !
-        {  
+        {
           // ──────────────────────────────────────────────────────────────────────────────
             // ──────────────────────────────────────────────────────────────────────────────
             // FULL "Perspective + Model" setup

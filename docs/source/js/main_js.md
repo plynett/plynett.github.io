@@ -64,6 +64,7 @@ The UI does not directly mutate GPU textures. It changes `calc_constants` and se
 - Handler argument order is critical because `main.js` passes textures positionally.
 - The PCR tridiagonal solver depends on the paired `BaseToA`, `AToB`, and `BToA` bind groups created here for both x and y directions.
 - The render bind group is shared by 2D and 3D rendering.
+- Loaded JSON box models use the same model pipeline in both render modes: Explorer draws them with the perspective camera, while Design draws them after the 2D quad with a top-down clip-space projection so they appear as footprints. In Design mode, the model draw is scissored around overlay areas: above the bottom colorbar when the colorbar is visible, and out of the two upper logo corners when `ShowLogos == 0`. The colorbar scissor is skipped for the free-surface Ocean/photo-realistic display where the colorbar is not shown.
 - Google Maps overlay loading is optional. A failed Static Maps fetch should leave `GoogleMapOverlay`, `IsGMMapLoaded`, and `IsOverlayMapLoaded` cleared so the model can continue and local overlays can still be considered.
 - Overlay UI changes rebuild the render bind group when switching back to a loaded Google Maps or satellite overlay; those calls must keep the same full argument order as the initial render bind group creation.
 - COULWAVE mode requires multiple 2D temporary textures to be copied into layers of `txCW_groupings`.
