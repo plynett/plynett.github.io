@@ -15,6 +15,15 @@ struct Globals {
     designcomponent_Radius: f32,
     designcomponent_Friction: f32,
     changeSeaLevel_delta: f32,
+    // CODEX: Linear-structure bathy/topo edit parameters.
+    designcomponent_CrestElev: f32,
+    designcomponent_CrestWidth: f32,
+    designcomponent_SideSlope: f32,
+    designcomponent_StartX: f32,
+    designcomponent_StartY: f32,
+    designcomponent_EndX: f32,
+    designcomponent_EndY: f32,
+    designcomponent_AddLinearStructure: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -57,6 +66,40 @@ fn calc_dH(f: f32, H: f32, B_val: f32) -> f32 {
     return dH;
 }
 
+// CODEX: Distance from a sample point to the finite linear-structure centerline, giving rounded end caps.
+fn calc_segment_distance(xloc: f32, yloc: f32, xstart: f32, ystart: f32, xend: f32, yend: f32) -> f32 {
+    let vx = xend - xstart;
+    let vy = yend - ystart;
+    let wx = xloc - xstart;
+    let wy = yloc - ystart;
+    let segment_len2 = vx * vx + vy * vy;
+    var t = 0.0;
+    if (segment_len2 > 1.0e-6) {
+        t = clamp((wx * vx + wy * vy) / segment_len2, 0.0, 1.0);
+    }
+    let closest_x = xstart + t * vx;
+    let closest_y = ystart + t * vy;
+    return calc_radial_distance(xloc, yloc, closest_x, closest_y);
+}
+
+// CODEX: Trapezoidal/capsule linear-structure target elevation, continuous through rounded endpoints.
+fn calc_linear_structure_elevation(xloc: f32, yloc: f32) -> f32 {
+    if (globals.designcomponent_CrestWidth <= 0.0 || globals.designcomponent_SideSlope <= 0.0) {
+        return -1.0e9;
+    }
+    let r = calc_segment_distance(
+        xloc,
+        yloc,
+        globals.designcomponent_StartX,
+        globals.designcomponent_StartY,
+        globals.designcomponent_EndX,
+        globals.designcomponent_EndY
+    );
+    let crest_half_width = 0.5 * globals.designcomponent_CrestWidth;
+    let side_distance = max(0.0, r - crest_half_width);
+    return globals.designcomponent_CrestElev - globals.designcomponent_SideSlope * side_distance;
+}
+
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -81,9 +124,19 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             min_val = textureLoad(txBottom, idx, 0).z;
         }
     } else if (globals.whichPanelisOpen == 2){  // design components editors
-        B_here = textureLoad(txDesignComponents, idx, 0);
-        B_here2 = textureLoad(txBottomFriction, idx, 0);
-        min_val = 0.0;
+        // B_here = textureLoad(txDesignComponents, idx, 0);
+        // B_here2 = textureLoad(txBottomFriction, idx, 0);
+        // min_val = 0.0;
+        // CODEX: Linear structures share this panel but edit bathy/topo instead of design-component IDs.
+        if (globals.designcomponent_AddLinearStructure == 1) {
+            B_here = textureLoad(txBottom, idx, 0);
+            B_here2 = textureLoad(txState, idx, 0);
+            min_val = -globals.base_depth;
+        } else {
+            B_here = textureLoad(txDesignComponents, idx, 0);
+            B_here2 = textureLoad(txBottomFriction, idx, 0);
+            min_val = 0.0;
+        }
     }
     let k = 4.0 / globals.changeRadius;  // will give a guassian that has a visual width of changeRadius
     let H = globals.changeAmplitude;
@@ -143,21 +196,48 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             B_here.x = max(min_val,B_here.x + dH);
         }
     } else if (globals.whichPanelisOpen == 2){
-        var r = calc_radial_distance(xloc,yloc,xo,yo);
-        var dH = 0.0;
-        var f = 0.0;
-        if(r <= 0.5 * globals.designcomponent_Radius) {
-            f = 1.0;
-        }
-        dH = (f32(globals.designcomponentToAdd) - B_here.x)*f;
-        B_here.x = max(min_val,B_here.x + dH);
+        // var r = calc_radial_distance(xloc,yloc,xo,yo);
+        // var dH = 0.0;
+        // var f = 0.0;
+        // if(r <= 0.5 * globals.designcomponent_Radius) {
+        //     f = 1.0;
+        // }
+        // dH = (f32(globals.designcomponentToAdd) - B_here.x)*f;
+        // B_here.x = max(min_val,B_here.x + dH);
+        //
+        // // change friction to match
+        // let k_friction = 4.0 / globals.designcomponent_Radius;
+        // f = calc_radial_function(xloc,yloc,xo,yo,k_friction);
+        //
+        // dH = (globals.designcomponent_Friction - B_here2.x)*f;
+        // B_here2.x = max(min_val,B_here2.x + dH);
+        // CODEX: Add a linear structure to bathy/topo using a rounded capsule footprint and trapezoidal cross-section.
+        if (globals.designcomponent_AddLinearStructure == 1) {
+            var target_elev = calc_linear_structure_elevation(xloc, yloc);
+            B_here.z = max(B_here.z, max(min_val, target_elev));
 
-        // change friction to match
-        let k_friction = 4.0 / globals.designcomponent_Radius; 
-        f = calc_radial_function(xloc,yloc,xo,yo,k_friction);
-        
-        dH = (globals.designcomponent_Friction - B_here2.x)*f;
-        B_here2.x = max(min_val,B_here2.x + dH);
+            target_elev = calc_linear_structure_elevation(xloc, yloc + 0.5 * globals.dy);
+            B_here.x = max(B_here.x, max(min_val, target_elev));
+
+            target_elev = calc_linear_structure_elevation(xloc + 0.5 * globals.dx, yloc);
+            B_here.y = max(B_here.y, max(min_val, target_elev));
+        } else {
+            var r = calc_radial_distance(xloc,yloc,xo,yo);
+            var dH = 0.0;
+            var f = 0.0;
+            if(r <= 0.5 * globals.designcomponent_Radius) {
+                f = 1.0;
+            }
+            dH = (f32(globals.designcomponentToAdd) - B_here.x)*f;
+            B_here.x = max(min_val,B_here.x + dH);
+
+            // change friction to match
+            let k_friction = 4.0 / globals.designcomponent_Radius;
+            f = calc_radial_function(xloc,yloc,xo,yo,k_friction);
+
+            dH = (globals.designcomponent_Friction - B_here2.x)*f;
+            B_here2.x = max(min_val,B_here2.x + dH);
+        }
 
     }
 

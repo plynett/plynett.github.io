@@ -56,6 +56,15 @@ struct Globals {
     arrow_scale: f32,
     arrow_density: f32,
     disturbanceType: f32,
+    // CODEX: Linear-structure preview state uploaded from calc_constants by main.js.
+    designcomponent_StartX: f32,
+    designcomponent_StartY: f32,
+    designcomponent_EndX: f32,
+    designcomponent_EndY: f32,
+    designcomponent_StartDefined: i32,
+    designcomponent_EndDefined: i32,
+    designcomponent_PreviewOn: i32,
+    designcomponent_RenderPad: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -789,6 +798,57 @@ fn fs_main(@location(1) uv: vec2<f32>) -> FragmentOutput {
     } else if (globals.showBreaking == 2 && globals.surfaceToPlot != 11) {
         let tracer = textureSample(txRenderVarsf16, textureSampler_linear, uv, 0).a;
         color_rgb = color_rgb + vec3<f32>(tracer, 0., 0.);
+    }
+
+    // CODEX: Add linear-structure start/end dots and segment preview using the time-series marker coordinate mapping.
+    if (globals.designcomponent_PreviewOn == 1) {
+        let linear_current_uv = vec2<f32>(
+            uv.x / grid_ratio_y,
+            uv.y * f32(globals.HEIGHT) / f32(globals.WIDTH) / grid_ratio_x
+        );
+        let linear_start_grid = vec2<f32>(
+            globals.designcomponent_StartX / globals.dx,
+            globals.designcomponent_StartY / globals.dy
+        );
+        let linear_end_grid = vec2<f32>(
+            globals.designcomponent_EndX / globals.dx,
+            globals.designcomponent_EndY / globals.dy
+        );
+        let linear_start_uv = vec2<f32>(
+            (linear_start_grid.x / f32(globals.WIDTH)) / grid_ratio_y,
+            (linear_start_grid.y / f32(globals.HEIGHT)) * f32(globals.HEIGHT) / f32(globals.WIDTH) / grid_ratio_x
+        );
+        let linear_end_uv = vec2<f32>(
+            (linear_end_grid.x / f32(globals.WIDTH)) / grid_ratio_y,
+            (linear_end_grid.y / f32(globals.HEIGHT)) * f32(globals.HEIGHT) / f32(globals.WIDTH) / grid_ratio_x
+        );
+
+        if (globals.designcomponent_StartDefined == 1 && globals.designcomponent_EndDefined == 1) {
+            let linear_segment = linear_end_uv - linear_start_uv;
+            let linear_segment_len2 = dot(linear_segment, linear_segment);
+            if (linear_segment_len2 > 0.00000001) {
+                let linear_projection = clamp(dot(linear_current_uv - linear_start_uv, linear_segment) / linear_segment_len2, 0.0, 1.0);
+                let linear_closest = linear_start_uv + linear_projection * linear_segment;
+                let linear_line_dist = length(linear_current_uv - linear_closest);
+                if (linear_line_dist <= 0.0035) {
+                    color_rgb = vec3<f32>(0., 0., 0.);
+                }
+            }
+        }
+
+        if (globals.designcomponent_StartDefined == 1) {
+            let linear_start_dist = length(linear_current_uv - linear_start_uv);
+            if (linear_start_dist <= 0.0075) {
+                color_rgb = vec3<f32>(0., 0., 0.);
+            }
+        }
+
+        if (globals.designcomponent_EndDefined == 1) {
+            let linear_end_dist = length(linear_current_uv - linear_end_uv);
+            if (linear_end_dist <= 0.0075) {
+                color_rgb = vec3<f32>(0., 0., 0.);
+            }
+        }
     }
 
     // Add dots for time series

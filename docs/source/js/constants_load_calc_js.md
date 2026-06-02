@@ -13,7 +13,9 @@ This module owns the default simulation configuration and the derived constants 
 
 ## Configuration Role
 
-The config object includes grid size, numerical settings, physics options, boundary types, wave forcing, sediment parameters, design-component constants, render settings, and export options. Example scenario configs override the defaults by key.
+The config object includes grid size, numerical settings, physics options, boundary types, wave forcing, sediment parameters, design-component constants, linear-structure preview parameters, render settings, and export options. Example scenario configs override the defaults by key.
+
+Linear-structure state is stored in the same flat `calc_constants` object as the rest of the UI state. The fields include crest elevation, crest width, side slope, the currently selected endpoint, the shared x/y coordinate inputs, stored start/end coordinates, start/end-defined flags, a preview-enabled flag, and a pending add flag used to dispatch the bathy/topo edit through `MouseClickChange.wgsl`. This keeps the terrain-modification shader inputs and the current render preview tied to one source of truth.
 
 There is no formal schema. This file is effectively the schema, and many fields are coupled to uniform-buffer writers and WGSL `Globals` structs in `main.js` and `shaders/`.
 

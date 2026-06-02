@@ -300,6 +300,22 @@ var calc_constants = {
     whichPanelisOpen: 0, // tracks which GUI panel is currently maximized
     designcomponentToAdd: 1,  // which component to add
     designcomponent_Radius: 100.0, // radius of addition for surface cover components
+    // CODEX: Linear-structure design parameters and endpoint preview state.
+    designcomponent_CrestElev: 0.0, // crest elevation for linear structures
+    designcomponent_CrestWidth: 1.0, // crest width for linear structures
+    designcomponent_SideSlope: 0.25, // side slope for linear structures
+    designcomponent_CurrentEndPoint: 1, // selected linear-structure endpoint, 1=start and 2=end
+    designcomponent_xLoc: 0.0, // current linear-structure endpoint x-coordinate in meters
+    designcomponent_yLoc: 0.0, // current linear-structure endpoint y-coordinate in meters
+    designcomponent_StartX: 0.0, // stored linear-structure start x-coordinate in meters
+    designcomponent_StartY: 0.0, // stored linear-structure start y-coordinate in meters
+    designcomponent_EndX: 0.0, // stored linear-structure end x-coordinate in meters
+    designcomponent_EndY: 0.0, // stored linear-structure end y-coordinate in meters
+    designcomponent_StartDefined: 0, // start endpoint has been defined when 1
+    designcomponent_EndDefined: 0, // end endpoint has been defined when 1
+    designcomponent_PreviewOn: 0, // render linear-structure endpoint/line preview when 1
+    // CODEX: Pending action flag for applying the linear structure to bathy/topo through MouseClickChange.wgsl.
+    designcomponent_AddLinearStructure: 0, // add linear structure to bathy/topo when 1
     designcomponent_Friction: 0.0, // friction factor of the component currently being added
     designcomponent_Fric_Coral: 0.1, // Coral Reef  friction factor
     designcomponent_Fric_Oyser: 0.035, // Mussel/Oyster Bed friction factor

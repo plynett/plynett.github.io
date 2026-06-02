@@ -16,11 +16,13 @@ Surface editor modes can change:
 - Free surface elevation.
 - Sea-level/topography offset.
 
-Design-component mode writes design component IDs and matching friction values.
+Design-component mode writes design component IDs and matching friction values. When the linear-structure add flag is set, the same panel instead writes an updated bathymetry/topography texture.
 
 ## Brush Logic
 
 Most surface edits use a Gaussian radial function. Design components use a disk for component IDs and a Gaussian for friction blending.
+
+Linear structures use a finite segment/capsule distance: the crest follows the user-defined start/end line, rounded end caps are created by clamping distance to the finite segment, and the side slope lowers the target elevation away from the crest width. The shader applies the structure as a raise-only terrain change with `max(existingBottom, targetElevation)` and updates the center, north, and east bathy/topo channels consistently.
 
 ## Change Notes
 

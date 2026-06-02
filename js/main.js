@@ -54,6 +54,45 @@ let adapter = null;
 // CODEX: Tracks whether the iOS/mobile pseudo-fullscreen fallback is active.
 let pseudoFullscreenActive = false;
 
+// CODEX: Update the linear-structure coordinate summary from calc_constants outside the DOMContentLoaded scope.
+function updateLinearStructureLocationsDisplayFromCalcConstants() {
+    const linearStructureContainer = document.getElementById('linearstructurelocs-container');
+    if (!linearStructureContainer) {
+        return;
+    }
+    const startText = calc_constants.designcomponent_StartDefined == 1
+        ? `Start: (${calc_constants.designcomponent_StartX.toFixed(2)}, ${calc_constants.designcomponent_StartY.toFixed(2)}) m`
+        : 'Start: not set';
+    const endText = calc_constants.designcomponent_EndDefined == 1
+        ? `End: (${calc_constants.designcomponent_EndX.toFixed(2)}, ${calc_constants.designcomponent_EndY.toFixed(2)}) m`
+        : 'End: not set';
+    linearStructureContainer.innerHTML = `${startText}<br>${endText}`;
+}
+
+// CODEX: Clear linear-structure endpoints and preview state after the GPU bathy/topo edit completes.
+function resetLinearStructureEndpointsAfterApply() {
+    calc_constants.designcomponent_StartX = 0.0;
+    calc_constants.designcomponent_StartY = 0.0;
+    calc_constants.designcomponent_EndX = 0.0;
+    calc_constants.designcomponent_EndY = 0.0;
+    calc_constants.designcomponent_StartDefined = 0;
+    calc_constants.designcomponent_EndDefined = 0;
+    calc_constants.designcomponent_PreviewOn = 0;
+    calc_constants.designcomponent_AddLinearStructure = 0;
+    calc_constants.designcomponent_xLoc = 0.0;
+    calc_constants.designcomponent_yLoc = 0.0;
+    const xInput = document.getElementById('designcomponent_xLoc-input');
+    const yInput = document.getElementById('designcomponent_yLoc-input');
+    if (xInput) {
+        xInput.value = calc_constants.designcomponent_xLoc;
+    }
+    if (yInput) {
+        yInput.value = calc_constants.designcomponent_yLoc;
+    }
+    calc_constants.html_update = 1;
+    updateLinearStructureLocationsDisplayFromCalcConstants();
+}
+
 // Initialize a global set to track texture, pipeline objects
 const allTextures = new Set();
 const allComputePipelines = new Set();
@@ -204,7 +243,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const AddDisturbance_uniformBuffer = createUniformBuffer(device);
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const ExtractTimeSeries_uniformBuffer = createUniformBuffer(device);
-    let Render_bufferSize = 272; // 272 bytes for render pipeline, 256 for compute pipeline
+    // let Render_bufferSize = 272; // 272 bytes for render pipeline, 256 for compute pipeline
+    // CODEX: Add room for linear-structure preview uniforms appended after the existing render globals.
+    let Render_bufferSize = 304; // 304 bytes for render pipeline, 256 for compute pipeline
     const Render_uniformBuffer = createUniformBuffer(device,Render_bufferSize);
     const Skybox_uniformBuffer = createUniformBuffer(device); // View and Projection buffer: holds two 4×4 f32 view matrix (16 floats → 64 bytes)
     const Model_uniformBuffer = createUniformBuffer(device);
@@ -1062,9 +1103,21 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     MouseClickChange_view.setFloat32(40, calc_constants.base_depth, true);             // f32 
     MouseClickChange_view.setInt32(44, calc_constants.whichPanelisOpen, true);             // i32  
     MouseClickChange_view.setInt32(48, calc_constants.designcomponentToAdd, true);             // i32  
-    MouseClickChange_view.setFloat32(52, calc_constants.designcomponent_Radius, true);             // f32  
-    MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32  
-    MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32  
+    MouseClickChange_view.setFloat32(52, calc_constants.designcomponent_Radius, true);             // f32
+    MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32
+    MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32
+    // CODEX: Append linear-structure parameters to the MouseClickChange uniform buffer.
+    function updateMouseClickLinearStructureUniforms() {
+        MouseClickChange_view.setFloat32(64, calc_constants.designcomponent_CrestElev, true);             // f32
+        MouseClickChange_view.setFloat32(68, calc_constants.designcomponent_CrestWidth, true);             // f32
+        MouseClickChange_view.setFloat32(72, calc_constants.designcomponent_SideSlope, true);             // f32
+        MouseClickChange_view.setFloat32(76, calc_constants.designcomponent_StartX, true);             // f32
+        MouseClickChange_view.setFloat32(80, calc_constants.designcomponent_StartY, true);             // f32
+        MouseClickChange_view.setFloat32(84, calc_constants.designcomponent_EndX, true);             // f32
+        MouseClickChange_view.setFloat32(88, calc_constants.designcomponent_EndY, true);             // f32
+        MouseClickChange_view.setInt32(92, calc_constants.designcomponent_AddLinearStructure, true);             // i32
+    }
+    updateMouseClickLinearStructureUniforms();
 
     // ExtractTimeSeries -  Bindings & Uniforms Config
     const ExtractTimeSeries_BindGroupLayout = create_ExtractTimeSeries_BindGroupLayout(device);
@@ -1175,9 +1228,23 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         Render_view.setFloat32(192 + i * 4, viewProj[i], /* littleEndian */ true);
     }
     Render_view.setInt32(256, calc_constants.ShowArrows, true);           // i32
-    Render_view.setFloat32(260, calc_constants.arrow_scale, true);          // f32 
-    Render_view.setFloat32(264, calc_constants.arrow_density, true);          // f32 
+    Render_view.setFloat32(260, calc_constants.arrow_scale, true);          // f32
+    Render_view.setFloat32(264, calc_constants.arrow_density, true);          // f32
     Render_view.setFloat32(268, calc_constants.disturbanceType, true);          // f32
+    // CODEX: Keep linear-structure endpoint preview uniforms synchronized from calc_constants.
+    function updateRenderLinearStructurePreviewUniforms() {
+        // const linearStructurePreviewOn = calc_constants.viewType == 1 && calc_constants.designcomponent_PreviewOn == 1 ? 1 : 0;
+        // CODEX: Only show the linear-structure preview while the engineered-design panel is open in Design mode.
+        const linearStructurePreviewOn = calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 2 && calc_constants.designcomponent_PreviewOn == 1 ? 1 : 0;
+        Render_view.setFloat32(272, calc_constants.designcomponent_StartX, true);          // f32
+        Render_view.setFloat32(276, calc_constants.designcomponent_StartY, true);          // f32
+        Render_view.setFloat32(280, calc_constants.designcomponent_EndX, true);          // f32
+        Render_view.setFloat32(284, calc_constants.designcomponent_EndY, true);          // f32
+        Render_view.setInt32(288, calc_constants.designcomponent_StartDefined, true);          // i32
+        Render_view.setInt32(292, calc_constants.designcomponent_EndDefined, true);          // i32
+        Render_view.setInt32(296, linearStructurePreviewOn, true);          // i32
+        Render_view.setInt32(300, 0, true);          // i32 padding
+    }
 
     // Copy f32 data to f16 texture compute shader
     const Copytxf32_txf16_BindGroupLayout = create_Copytxf32_txf16_BindGroupLayout(device);
@@ -1659,9 +1726,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 else if(calc_constants.designcomponentToAdd == 8) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Dune;} 
                 else if(calc_constants.designcomponentToAdd == 9) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Berm;} 
                 else if(calc_constants.designcomponentToAdd == 10) {calc_constants.designcomponent_Friction = calc_constants.designcomponent_Fric_Seawall;} 
-                MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32  
-                MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32  
+                MouseClickChange_view.setFloat32(56, calc_constants.designcomponent_Friction, true);             // f32
+                MouseClickChange_view.setFloat32(60, calc_constants.changeSeaLevel_delta, true);             // f32
                 calc_constants.changeSeaLevel_delta = 0.0; // once the change is added once, set to zero
+                // CODEX: Upload pending linear-structure parameters before running MouseClickChange.wgsl.
+                updateMouseClickLinearStructureUniforms();
 
                 runComputeShader(device, MouseClickChange_uniformBuffer, MouseClickChange_uniforms, MouseClickChange_Pipeline, MouseClickChange_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  // update depth/friction based on mouse click
                 if(calc_constants.whichPanelisOpen == 3){
@@ -1686,8 +1755,24 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     }
                 } else if(calc_constants.whichPanelisOpen == 2){
                     console.log('Updating Design Components')
-                    runCopyTextures(device, calc_constants, txtemp_MouseClick, txDesignComponents)
-                    runCopyTextures(device, calc_constants, txtemp_MouseClick2, txBottomFriction)
+                    // runCopyTextures(device, calc_constants, txtemp_MouseClick, txDesignComponents)
+                    // runCopyTextures(device, calc_constants, txtemp_MouseClick2, txBottomFriction)
+                    // CODEX: Linear structures use the design panel UI but modify bathy/topo through the MouseClickChange infrastructure.
+                    if(calc_constants.designcomponent_AddLinearStructure == 1){
+                        console.log('Adding Linear Structure to Bathy/Topo')
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick, txBottom)
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick2, txstateUVstar)
+                        runComputeShader(device, Updateneardry_uniformBuffer, Updateneardry_uniforms, Updateneardry_Pipeline, Updateneardry_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        runCopyTextures(device, calc_constants, txtemp_bottom, txBottom)
+                        if (calc_constants.NLSW_or_Bous >= 1) { // only update for Celeris Boussinesq equations
+                            console.log('Updating neardry & tridiag coef due to linear structure')
+                            runComputeShader(device, UpdateTrid_uniformBuffer, UpdateTrid_uniforms, UpdateTrid_Pipeline, UpdateTrid_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);  //need to update tridiagonal coefficients due to change inn depth
+                        }
+                        resetLinearStructureEndpointsAfterApply();
+                    } else {
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick, txDesignComponents)
+                        runCopyTextures(device, calc_constants, txtemp_MouseClick2, txBottomFriction)
+                    }
                 }
             }
             else if (calc_constants.click_update == 2 && calc_constants.viewType == 2)
@@ -2050,7 +2135,7 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             RenderPipeline = RenderPipeline_quad;
         }
         else if (calc_constants.viewType == 2)
-        {  
+        {
             // turn off colorbar
             calc_constants.CB_show = 0;
 
@@ -2058,6 +2143,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Render_view.setInt32(84, calc_constants.CB_show, true);          // i32
             RenderPipeline = RenderPipeline_vertexgrid;
         }
+        // CODEX: Upload linear-structure preview state just before the render uniform buffer is written.
+        updateRenderLinearStructurePreviewUniforms();
 
         // make sure depthTexture matches the current canvas / window size
         const colorTexture = context.getCurrentTexture();
@@ -2904,6 +2991,141 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Canvas clicked/moved at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
     }
 
+    // CODEX: Convert a pointer location on the canvas to the same meter coordinates used by the tooltip and time-series UI.
+    function getCanvasWorldCoordinates(event) {
+        const bounds = canvas.getBoundingClientRect();
+        const canvasWidth = bounds.right - bounds.left;
+        const canvasHeight = bounds.bottom - bounds.top;
+        const normalizedX = Math.min(1.0, Math.max(0.0, (event.clientX - bounds.left) / canvasWidth));
+        const normalizedY = Math.min(1.0, Math.max(0.0, 1.0 - (event.clientY - bounds.top) / canvasHeight));
+        return {
+            x: normalizedX * calc_constants.WIDTH * calc_constants.dx,
+            y: normalizedY * calc_constants.HEIGHT * calc_constants.dy
+        };
+    }
+
+    // CODEX: Refresh the visible start/end coordinate summary from calc_constants.
+    function updateLinearStructureLocationsDisplay() {
+        const linearStructureContainer = document.getElementById('linearstructurelocs-container');
+        if (!linearStructureContainer) {
+            return;
+        }
+        const startText = calc_constants.designcomponent_StartDefined == 1
+            ? `Start: (${calc_constants.designcomponent_StartX.toFixed(2)}, ${calc_constants.designcomponent_StartY.toFixed(2)}) m`
+            : 'Start: not set';
+        const endText = calc_constants.designcomponent_EndDefined == 1
+            ? `End: (${calc_constants.designcomponent_EndX.toFixed(2)}, ${calc_constants.designcomponent_EndY.toFixed(2)}) m`
+            : 'End: not set';
+        linearStructureContainer.innerHTML = `${startText}<br>${endText}`;
+    }
+
+    // CODEX: Store the current x/y input pair into the selected linear-structure endpoint.
+    function storeLinearStructureEndpointFromInputs() {
+        if (Math.round(calc_constants.designcomponent_CurrentEndPoint) == 1) {
+            calc_constants.designcomponent_StartX = calc_constants.designcomponent_xLoc;
+            calc_constants.designcomponent_StartY = calc_constants.designcomponent_yLoc;
+            calc_constants.designcomponent_StartDefined = 1;
+        } else {
+            calc_constants.designcomponent_EndX = calc_constants.designcomponent_xLoc;
+            calc_constants.designcomponent_EndY = calc_constants.designcomponent_yLoc;
+            calc_constants.designcomponent_EndDefined = 1;
+        }
+        calc_constants.designcomponent_PreviewOn = 1;
+        calc_constants.html_update = 1;
+        updateLinearStructureLocationsDisplay();
+    }
+
+    // CODEX: Load the selected stored endpoint back into the shared x/y input fields.
+    function loadLinearStructureEndpointIntoInputs() {
+        if (Math.round(calc_constants.designcomponent_CurrentEndPoint) == 1 && calc_constants.designcomponent_StartDefined == 1) {
+            calc_constants.designcomponent_xLoc = calc_constants.designcomponent_StartX;
+            calc_constants.designcomponent_yLoc = calc_constants.designcomponent_StartY;
+        } else if (Math.round(calc_constants.designcomponent_CurrentEndPoint) == 1) {
+            calc_constants.designcomponent_xLoc = 0.0;
+            calc_constants.designcomponent_yLoc = 0.0;
+        } else if (Math.round(calc_constants.designcomponent_CurrentEndPoint) == 2 && calc_constants.designcomponent_EndDefined == 1) {
+            calc_constants.designcomponent_xLoc = calc_constants.designcomponent_EndX;
+            calc_constants.designcomponent_yLoc = calc_constants.designcomponent_EndY;
+        } else if (Math.round(calc_constants.designcomponent_CurrentEndPoint) == 2) {
+            calc_constants.designcomponent_xLoc = 0.0;
+            calc_constants.designcomponent_yLoc = 0.0;
+        }
+        const xInput = document.getElementById('designcomponent_xLoc-input');
+        const yInput = document.getElementById('designcomponent_yLoc-input');
+        if (xInput) {
+            xInput.value = calc_constants.designcomponent_xLoc;
+        }
+        if (yInput) {
+            yInput.value = calc_constants.designcomponent_yLoc;
+        }
+        updateLinearStructureLocationsDisplay();
+    }
+
+    // CODEX: Clear linear-structure endpoints and preview state after the Add Linear Structure action completes.
+    function resetLinearStructureEndpoints() {
+        calc_constants.designcomponent_StartX = 0.0;
+        calc_constants.designcomponent_StartY = 0.0;
+        calc_constants.designcomponent_EndX = 0.0;
+        calc_constants.designcomponent_EndY = 0.0;
+        calc_constants.designcomponent_StartDefined = 0;
+        calc_constants.designcomponent_EndDefined = 0;
+        calc_constants.designcomponent_PreviewOn = 0;
+        // CODEX: Clear any pending linear-structure add request when endpoints are reset.
+        calc_constants.designcomponent_AddLinearStructure = 0;
+        calc_constants.designcomponent_xLoc = 0.0;
+        calc_constants.designcomponent_yLoc = 0.0;
+        const xInput = document.getElementById('designcomponent_xLoc-input');
+        const yInput = document.getElementById('designcomponent_yLoc-input');
+        if (xInput) {
+            xInput.value = calc_constants.designcomponent_xLoc;
+        }
+        if (yInput) {
+            yInput.value = calc_constants.designcomponent_yLoc;
+        }
+        calc_constants.html_update = 1;
+        updateLinearStructureLocationsDisplay();
+    }
+
+    // CODEX: Queue a linear-structure bathy/topo edit for the next MouseClickChange dispatch.
+    function requestAddLinearStructure() {
+        if (!device) {
+            alert('Start a simulation before adding a linear structure.');
+            return;
+        }
+        if (calc_constants.viewType != 1 || calc_constants.whichPanelisOpen != 2) {
+            alert('Open the Add Engineered Design Components panel in Design mode before adding a linear structure.');
+            return;
+        }
+        if (calc_constants.designcomponent_StartDefined != 1 || calc_constants.designcomponent_EndDefined != 1) {
+            alert('Define both the linear structure start and end locations before adding the structure.');
+            return;
+        }
+        const linearStructureLength = Math.hypot(
+            calc_constants.designcomponent_EndX - calc_constants.designcomponent_StartX,
+            calc_constants.designcomponent_EndY - calc_constants.designcomponent_StartY
+        );
+        if (linearStructureLength <= Math.max(calc_constants.dx, calc_constants.dy)) {
+            alert('Choose start and end locations that are farther apart.');
+            return;
+        }
+        if (calc_constants.designcomponent_CrestWidth <= 0.0 || calc_constants.designcomponent_SideSlope <= 0.0) {
+            alert('Use a positive crest width and positive side slope before adding the linear structure.');
+            return;
+        }
+        calc_constants.designcomponent_AddLinearStructure = 1;
+        calc_constants.click_update = 1;
+        calc_constants.designcomponent_PreviewOn = 1;
+    }
+
+    // CODEX: Store a right-clicked world point as the currently selected linear-structure endpoint.
+    function storeLinearStructureEndpointFromPointer(event) {
+        const endpointLocation = getCanvasWorldCoordinates(event);
+        calc_constants.designcomponent_xLoc = endpointLocation.x;
+        calc_constants.designcomponent_yLoc = endpointLocation.y;
+        storeLinearStructureEndpointFromInputs();
+        loadLinearStructureEndpointIntoInputs();
+    }
+
     // CODEX: Compute midpoint and distance for active two-finger Explorer gestures.
     function getExplorerTouchGesture() {
         const touches = Array.from(activeExplorerTouches.values());
@@ -2969,6 +3191,8 @@ document.addEventListener('DOMContentLoaded', function () {
             lastMouseX_left = event.clientX;
             lastMouseY_left = event.clientY;
             calc_constants.click_update = 2;
+        } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 2) { // CODEX: Right-click stores the selected linear-structure endpoint in Design mode.
+            storeLinearStructureEndpointFromPointer(event);
         } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 7) { // right mouse button, Design mode for time series
             rightMouseIsDown = true;
             lastMouseX_right = event.clientX;
@@ -3343,7 +3567,9 @@ document.addEventListener('DOMContentLoaded', function () {
             var selectElement = document.getElementById(action.input);
             selectElement.value = currentValue;
         });
-    }    
+        // CODEX: Keep the linear-structure start/end status display synchronized with calc_constants.
+        updateLinearStructureLocationsDisplay();
+    }
 
     // Parameters for each button/input pair which has some numerical input value, and an associated "Update" button
     const buttonActions = [
@@ -3384,6 +3610,12 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'JPEGstack_dt-button', input: 'JPEGstack_dt-input', property: 'JPEGstack_dt' },
         { id: 'JPEGstack_frames-button', input: 'JPEGstack_frames-input', property: 'JPEGstack_frames' },
         { id: 'designcomponent_Radius-button', input: 'designcomponent_Radius-input', property: 'designcomponent_Radius' },
+        // CODEX: Wire linear-structure numeric inputs into the standard calc_constants update path.
+        { id: 'designcomponent_CrestElev-button', input: 'designcomponent_CrestElev-input', property: 'designcomponent_CrestElev' },
+        { id: 'designcomponent_CrestWidth-button', input: 'designcomponent_CrestWidth-input', property: 'designcomponent_CrestWidth' },
+        { id: 'designcomponent_SideSlope-button', input: 'designcomponent_SideSlope-input', property: 'designcomponent_SideSlope' },
+        { id: 'designcomponent_xLoc-button', input: 'designcomponent_xLoc-input', property: 'designcomponent_xLoc' },
+        { id: 'designcomponent_yLoc-button', input: 'designcomponent_yLoc-input', property: 'designcomponent_yLoc' },
         { id: 'designcomponent_Fric_Coral-button', input: 'designcomponent_Fric_Coral-input', property: 'designcomponent_Fric_Coral' },
         { id: 'designcomponent_Fric_Oyser-button', input: 'designcomponent_Fric_Oyser-input', property: 'designcomponent_Fric_Oyser' },
         { id: 'designcomponent_Fric_Mangrove-button', input: 'designcomponent_Fric_Mangrove-input', property: 'designcomponent_Fric_Mangrove' },
@@ -3424,6 +3656,8 @@ document.addEventListener('DOMContentLoaded', function () {
         { input: 'changethisTimeSeries-select', property: 'changethisTimeSeries' },
         { input: 'useBreakingModel-select', property: 'useBreakingModel' },
         { input: 'designcomponentToAdd-select', property: 'designcomponentToAdd' },
+        // CODEX: Track which linear-structure endpoint the shared x/y inputs edit.
+        { input: 'designcomponent_CurrentEndPoint-select', property: 'designcomponent_CurrentEndPoint' },
         { input: 'ShowArrows-select', property: 'ShowArrows' },
         { input: 'ShowLogos-select', property: 'ShowLogos' },
         { input: 'write_eta-select', property: 'write_eta' },
@@ -3750,6 +3984,24 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('NumberOfTimeSeries-select').addEventListener('change', function () {
         calc_constants.chartDataUpdate = 1;  // Indicate that the number of time series changed, need to update chart legends, etc.
     });
+
+    // CODEX: Linear-structure endpoint UI listeners store all endpoint state in calc_constants.
+    document.getElementById('designcomponent_xLoc-button').addEventListener('click', function () {
+        storeLinearStructureEndpointFromInputs();
+    });
+    document.getElementById('designcomponent_yLoc-button').addEventListener('click', function () {
+        storeLinearStructureEndpointFromInputs();
+    });
+    document.getElementById('designcomponent_CurrentEndPoint-select').addEventListener('change', function () {
+        loadLinearStructureEndpointIntoInputs();
+    });
+    document.getElementById('linearstructure-button').addEventListener('click', function () {
+        // CODEX: Future bathy/topo modification should run before this reset.
+        // resetLinearStructureEndpoints();
+        // CODEX: Request the GPU bathy/topo edit; the frame loop resets endpoints after copy-back and refresh.
+        requestAddLinearStructure();
+    });
+    updateLinearStructureLocationsDisplay();
 
     // add remove scroll wheel functionality
     // document.getElementById('viewType-select').addEventListener('change', function () {

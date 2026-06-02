@@ -32,6 +32,7 @@ The shader overlays:
 
 - Foam or tracer depending on `showBreaking`.
 - Velocity arrows from the sample texture array.
+- Linear-structure preview dots and line from render uniforms. The endpoint dots reuse the same aspect-correct UV distance mapping as the time-series markers, while the line uses the same corrected coordinate space for distance-to-segment testing.
 - Time-series dots and outlines.
 - Colorbar background, ticks, labels, and logos from `txDraw`.
 
