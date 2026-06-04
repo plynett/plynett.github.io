@@ -22,6 +22,13 @@ The initialization path loads config, bathymetry, waves, optional overlays, opti
 - Creates all bind groups through the `Handler_*.js` modules.
 - Starts the animation frame loop.
 
+The page also supports an optional CelerisAgent case startup path. When the URL includes
+`agent_case=<manifest-url>&autostart=1`, `main.js` fetches the manifest, loads the referenced
+`config.json`, `bathy.txt`, and `waves.txt` files as text, and passes them into the same
+`initializeWebGPUApp(configContent, bathymetryContent, waveContent, ...)` path used by manual
+file uploads. This path posts lightweight status messages to a parent iframe but does not alter
+the solver, shader, or example-loading code paths.
+
 ## Main Simulation Loop
 
 The `frame()` loop runs one or more simulation timesteps per rendered frame. The `render_step` value is adjusted dynamically to balance speed and browser responsiveness. Each timestep follows the pass order documented in `docs/architecture/SIMULATION_PIPELINE.md`.

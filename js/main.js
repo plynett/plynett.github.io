@@ -106,6 +106,66 @@ if (!gpu) {
     throw new Error("WebGPU is not supported in this browser.");
 }
 
+function postAgentCaseStatus(status, payload = {}) {
+    const message = { source: "celeris-webgpu", status, ...payload };
+    console.log("Agent case status:", message);
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage(message, "*");
+    }
+}
+
+async function fetchAgentCaseText(url, label) {
+    const response = await fetch(url, { mode: "cors" });
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${label}: HTTP ${response.status}`);
+    }
+    return response.text();
+}
+
+function resolveAgentCaseFileUrl(caseUrl, fileUrl) {
+    if (!fileUrl || typeof fileUrl !== "string") {
+        throw new Error("Agent case manifest is missing a required file URL.");
+    }
+    return new URL(fileUrl, caseUrl).toString();
+}
+
+async function loadAgentCaseFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const caseUrl = params.get("agent_case");
+    const autostart = params.get("autostart") === "1" || params.get("autostart") === "true";
+    if (!caseUrl || !autostart) {
+        return false;
+    }
+
+    try {
+        postAgentCaseStatus("celeris:case-loading", { caseUrl });
+        const manifestResponse = await fetch(caseUrl, { mode: "cors" });
+        if (!manifestResponse.ok) {
+            throw new Error(`Failed to fetch agent case manifest: HTTP ${manifestResponse.status}`);
+        }
+        const manifest = await manifestResponse.json();
+        const files = manifest.files || {};
+        const configUrl = resolveAgentCaseFileUrl(caseUrl, files.config);
+        const bathyUrl = resolveAgentCaseFileUrl(caseUrl, files.bathy);
+        const wavesUrl = resolveAgentCaseFileUrl(caseUrl, files.waves);
+        const [configContent, bathymetryContent, waveContent] = await Promise.all([
+            fetchAgentCaseText(configUrl, "config.json"),
+            fetchAgentCaseText(bathyUrl, "bathy.txt"),
+            fetchAgentCaseText(wavesUrl, "waves.txt"),
+        ]);
+
+        calc_constants.run_example = -1;
+        postAgentCaseStatus("celeris:case-loaded", { caseUrl, manifest });
+        await initializeWebGPUApp(configContent, bathymetryContent, waveContent);
+        postAgentCaseStatus("celeris:started", { caseUrl, manifest });
+        return true;
+    } catch (error) {
+        console.error("Agent case autostart failed:", error);
+        postAgentCaseStatus("celeris:error", { caseUrl, message: error.message || String(error) });
+        return false;
+    }
+}
+
 // create an async function to handle configuration routines that must be performed in order, but also have imbedded async functions.
 async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     // Set simulation parameters - this routine inits calc_constants to default values,
@@ -4174,7 +4234,13 @@ document.addEventListener('DOMContentLoaded', function () {
              console.error("Initialization failed:", error);
         });
     }
-    
+
+    loadAgentCaseFromUrl().then(function (started) {
+        if (started) {
+            const delay = 5000;
+            setTimeout(updateAllUIElements, delay);
+        }
+    });
 
 });
 // end web GUI code
