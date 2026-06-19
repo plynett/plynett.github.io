@@ -1,0 +1,14 @@
+numpy
+scipy
+rasterio
+xarray
+netCDF4
+Pillow
+requests
+geopandas
+shapely
+pyproj
+pyogrio
+redis
+rq
+okada-wrapper

@@ -1,0 +1,867 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "namespace": "examples",
+      "action": "run_example",
+      "panel": "Start Here: Load Simulation Datafiles",
+      "html_order": 1,
+      "purpose": "Run one of the built-in examples from the root CELERIS example dropdown.",
+      "html_control_id": "run_example-select",
+      "calc_constants_property": "run_example",
+      "arg_name": "example",
+      "safe_while_running": true,
+      "reloads_case": true,
+      "response_template": "run the {label} example",
+      "selection_policy": "Choose the most likely example from the valid values based on the full conversation. Prefer the more specific hazard/mode when the user says tsunami, hot start, tide, high-order, or basin experiment; otherwise prefer the wind-wave option for named coastal places when one exists. If the user asks only to run/load/start an example without naming one, choose ventura_harbor_ca_wind_waves as the first/default dropdown example.",
+      "values": [
+        { "key": "ventura_harbor_ca_wind_waves", "label": "Ventura Harbor (CA), wind waves", "value": 0, "example_folder": "Ventura" },
+        { "key": "hermosa_beach_ca_wind_waves", "label": "Hermosa Beach (CA), wind waves", "value": 27, "example_folder": "Hermosa_Beach_CA" },
+        { "key": "hermosa_beach_ca_high_order", "label": "Hermosa Beach (CA), High-Order mode", "value": 37, "example_folder": "Hermosa_Beach_CA" },
+        { "key": "balboa_pier_ca_wind_waves", "label": "Balboa Pier (CA), wind waves", "value": 25, "example_folder": "Balboa_Pier_CA" },
+        { "key": "newport_jetties_ca_wind_waves", "label": "Newport Jetties (CA), wind waves", "value": 20, "example_folder": "Newport_Jetties_CA" },
+        { "key": "oceanside_ca_wind_waves", "label": "Oceanside (CA), wind waves", "value": 33, "example_folder": "Oceanside_CA" },
+        { "key": "blacks_beach_ca_wind_waves", "label": "Blacks Beach (CA), wind waves", "value": 26, "example_folder": "Blacks_Beach_CA" },
+        { "key": "scripps_pier_ca_wind_waves", "label": "Scripps Pier (CA), wind waves", "value": 18, "example_folder": "Scripps_Pier" },
+        { "key": "scripps_canyon_ca_wind_waves", "label": "Scripps Canyon (CA), wind waves", "value": 19, "example_folder": "Scripps_Canyon" },
+        { "key": "morro_rock_ca_wind_waves", "label": "Morro Rock (CA), wind waves", "value": 28, "example_folder": "Morro_Rock_CA" },
+        { "key": "santa_cruz_harbor_ca_wind_waves", "label": "Santa Cruz Harbor (CA), wind waves", "value": 1, "example_folder": "Santa_Cruz" },
+        { "key": "mavericks_ca_wind_waves", "label": "Mavericks (CA), wind waves", "value": 23, "example_folder": "Mavericks" },
+        { "key": "pillar_point_harbor_ca_wind_waves", "label": "Pillar Point Harbor (CA), wind waves", "value": 7, "example_folder": "Half_Moon_Bay" },
+        { "key": "pacifica_ca_wind_waves", "label": "Pacifica (CA), wind waves", "value": 29, "example_folder": "Pacifica_CA" },
+        { "key": "newport_or_wind_waves", "label": "Newport (OR), wind waves", "value": 11, "example_folder": "Newport_OR" },
+        { "key": "waimea_bay_hi_wind_waves", "label": "Waimea Bay (HI), wind waves", "value": 21, "example_folder": "Waimea_Bay" },
+        { "key": "ipan_reef_guam_wind_waves", "label": "Ipan Reef (Guam), wind waves", "value": 24, "example_folder": "Ipan_Guam" },
+        { "key": "frf_duck_nc_wind_waves", "label": "FRF Duck (NC), wind waves", "value": 5, "example_folder": "DuckFRF_NC" },
+        { "key": "sebastian_inlet_fl_wind_waves", "label": "Sebastian Inlet (FL), wind waves", "value": 42, "example_folder": "Sebastian_Inlet_FL" },
+        { "key": "miami_beach_fl_wind_waves", "label": "Miami Beach (FL), wind waves", "value": 9, "example_folder": "Miami_Beach_FL" },
+        { "key": "miami_inlet_fl_wind_waves", "label": "Miami Inlet (FL), wind waves", "value": 10, "example_folder": "Miami_FL" },
+        { "key": "tyndall_afb_fl_wind_waves", "label": "Tyndall AFB (FL), wind waves", "value": 22, "example_folder": "Tyndall_FL" },
+        { "key": "hania_crete_harbor_wind_waves", "label": "Hania (Crete) Harbor, wind waves", "value": 8, "example_folder": "Hania_Greece" },
+        { "key": "santa_cruz_harbor_ca_tsunami", "label": "Santa Cruz Harbor (CA), tsunami", "value": 2, "example_folder": "Santa_Cruz_tsunami" },
+        { "key": "crescent_city_harbor_ca_tsunami", "label": "Crescent City Harbor (CA), tsunami", "value": 4, "example_folder": "Crescent_City" },
+        { "key": "port_of_la_lb_ca_tsunami", "label": "Port of LA/LB (CA), tsunami", "value": 12, "example_folder": "POLALB" },
+        { "key": "santa_barbara_ca_tsunami", "label": "Santa Barbara (CA), tsunami", "value": 13, "example_folder": "SantaBarbara" },
+        { "key": "tracy_arm_ak_tsunami", "label": "Tracy Arm (AK), tsunami", "value": 38, "example_folder": "TracyArm_hotstart" },
+        { "key": "tracy_arm_ak_hot_start", "label": "Tracy Arm (AK), hot start", "value": 39, "example_folder": "TracyArm_hotstart" },
+        { "key": "yakutat_bay_ak_tsunami", "label": "Yakutat Bay (AK), tsunami", "value": 41, "example_folder": "Yakutat_slide" },
+        { "key": "taan_fjord_ak_tsunami", "label": "Taan Fjord (AK), tsunami", "value": 14, "example_folder": "Taan_fjord" },
+        { "key": "portage_lake_ak_tsunami", "label": "Portage Lake (AK), tsunami", "value": 34, "example_folder": "Portage_Lake_AK" },
+        { "key": "portage_lake_and_river_ak_tsunami", "label": "Portage Lake & River (AK), tsunami", "value": 40, "example_folder": "Portage_Lake_AK" },
+        { "key": "barry_arm_pws_ak_tsunami", "label": "Barry Arm (PWS, AK), tsunami", "value": 3, "example_folder": "Barry_Arm" },
+        { "key": "greenland_karrat_tsunami", "label": "Greenland (Karrat), tsunami", "value": 6, "example_folder": "Greenland" },
+        { "key": "greenland_umanak_tsunami", "label": "Greenland (Umanak), tsunami", "value": 35, "example_folder": "Greenland_Umanak" },
+        { "key": "harrison_lake_bc_tsunami", "label": "Harrison Lake (BC), tsunami", "value": 31, "example_folder": "Harrison_Lake" },
+        { "key": "san_francisco_bay_ca_tides", "label": "San Francisco Bay (CA), tides", "value": 16, "example_folder": "SF_Bay_tides" },
+        { "key": "osu_directional_wave_basin", "label": "OSU Directional Wave Basin", "value": 15, "example_folder": "OSU_WaveBasin" },
+        { "key": "osu_seaside_experiments_2007", "label": "OSU Seaside Experiments (2007)", "value": 17, "example_folder": "OSU_Seaside" },
+        { "key": "toy_problem_wind_waves", "label": "Toy Problem, wind waves", "value": 30, "example_folder": "Toy_Config" }
+      ],
+      "examples": [
+        "Run the Morro Rock example",
+        "load FRF Duck",
+        "start the Santa Cruz tsunami case",
+        "show me the toy problem"
+      ]
+    },
+    {
+      "namespace": "simulation",
+      "action": "set_pause",
+      "panel": "Start Here: Load Simulation Datafiles",
+      "html_order": 2,
+      "purpose": "Pause or resume the running simulation.",
+      "html_control_id": "simPause-select",
+      "calc_constants_property": "simPause",
+      "arg_name": "pause_state",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "{label} the running simulation",
+      "values": [
+        { "key": "pause", "label": "Pause", "value": 1 },
+        { "key": "resume", "label": "Resume", "value": -1 }
+      ],
+      "examples": [
+        "pause the sim",
+        "stop advancing for a moment",
+        "resume",
+        "unpause the simulation"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_plot_quantity",
+      "panel": "Modify Visualization",
+      "html_order": 3,
+      "purpose": "Change which simulation property is rendered on the canvas.",
+      "html_control_id": "surfaceToPlot-select",
+      "calc_constants_property": "surfaceToPlot",
+      "arg_name": "plot_quantity",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "plot {label}",
+      "values": [
+        { "key": "free_surface_elevation", "label": "Free Surface Elevation (m)", "value": 0 },
+        { "key": "bathymetry_topography", "label": "Bathymetry/Topography (m)", "value": 6 },
+        { "key": "bottom_friction_map", "label": "Bottom Friction Map", "value": 15 },
+        { "key": "fluid_speed", "label": "Fluid Speed (m/s)", "value": 1 },
+        { "key": "x_velocity", "label": "East-West (x) Velocity (m/s)", "value": 2 },
+        { "key": "y_velocity", "label": "North-South (y) Velocity (m/s)", "value": 3 },
+        { "key": "vertical_vorticity", "label": "Vertical Vorticity (1/s)", "value": 4 },
+        { "key": "mean_abs_vertical_vorticity", "label": "Mean |Vertical Vorticity| (1/s)", "value": 23 },
+        { "key": "foam_tracer_concentration", "label": "Foam / Tracer Concentration", "value": 5 },
+        { "key": "mean_foam_tracer_concentration", "label": "Mean Foam / Tracer Concentration", "value": 11 },
+        { "key": "max_free_surface_elevation", "label": "Max Free Surface Elev (m)", "value": 16 },
+        { "key": "mean_free_surface_elevation", "label": "Mean Free Surface Elev (m)", "value": 7 },
+        { "key": "mean_fluid_speed_magnitude", "label": "Mean Fluid Speed [Magn] (m/s)", "value": 8 },
+        { "key": "mean_fluid_speed_x", "label": "Mean Fluid Speed [E-W] (m/s)", "value": 9 },
+        { "key": "mean_fluid_speed_y", "label": "Mean Fluid Speed [N-S] (m/s)", "value": 10 },
+        { "key": "rms_wave_height", "label": "RMS Wave Height (m)", "value": 12 },
+        { "key": "significant_wave_height", "label": "Significant Wave Height (m)", "value": 13 },
+        { "key": "baseline_hs_difference", "label": "Difference from Baseline Hs (m)", "value": 14 },
+        { "key": "sediment_depth_change", "label": "Depth Change due to Sed Transport", "value": 21 },
+        { "key": "sediment_class_1_concentration", "label": "Sediment Class 1 Concentration", "value": 17 },
+        { "key": "sediment_class_1_erosion_rate", "label": "Sediment Class 1 Erosion Rate", "value": 18 },
+        { "key": "sediment_class_1_available_depth", "label": "Sediment Class 1 Available Depth", "value": 19 },
+        { "key": "design_component_map", "label": "Design Component Map", "value": 22 }
+      ],
+      "examples": [
+        "show bathymetry",
+        "plot significant wave height",
+        "show the velocity magnitude",
+        "plot the bottom friction map"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_colormap",
+      "panel": "Modify Visualization",
+      "html_order": 4,
+      "purpose": "Change the rendered colorbar/colormap of the running simulation.",
+      "html_control_id": "colorMap_choice-select",
+      "calc_constants_property": "colorMap_choice",
+      "arg_name": "colormap",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the running simulation colormap to {label}",
+      "values": [
+        { "key": "ocean", "label": "Ocean", "value": 0 },
+        { "key": "parula", "label": "Parula", "value": 1 },
+        { "key": "turbo", "label": "Turbo", "value": 2 },
+        { "key": "hsv", "label": "HSV", "value": 3 },
+        { "key": "gray", "label": "Gray", "value": 4 },
+        { "key": "pink", "label": "Pink", "value": 5 },
+        { "key": "bathy_topo", "label": "Bathy/Topo", "value": 6 }
+      ],
+      "examples": [
+        "change the colormap to Turbo",
+        "use the gray colorbar",
+        "show bathy/topo colors",
+        "switch back to Ocean colors"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_color_axis_max",
+      "panel": "Modify Visualization",
+      "html_order": 5,
+      "purpose": "Set the maximum color axis value in units of the plotted property.",
+      "html_control_id": "colorVal_max-input",
+      "html_button_id": "colorVal_max-button",
+      "calc_constants_property": "colorVal_max",
+      "arg_name": "color_axis_max",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the maximum color axis value to {value}",
+      "examples": [
+        "set the max color value to 2",
+        "cap the colorbar at 0.5"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_color_axis_min",
+      "panel": "Modify Visualization",
+      "html_order": 6,
+      "purpose": "Set the minimum color axis value in units of the plotted property.",
+      "html_control_id": "colorVal_min-input",
+      "html_button_id": "colorVal_min-button",
+      "calc_constants_property": "colorVal_min",
+      "arg_name": "color_axis_min",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the minimum color axis value to {value}",
+      "examples": [
+        "set the min color value to -2",
+        "make the lower colorbar limit -0.5"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_transport_overlay",
+      "panel": "Modify Visualization",
+      "html_order": 7,
+      "purpose": "Change the transport/foam/tracer overlay mode.",
+      "html_control_id": "showBreaking-select",
+      "calc_constants_property": "showBreaking",
+      "arg_name": "transport_overlay",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set transport overlays to {label}",
+      "values": [
+        { "key": "foam", "label": "Show Areas of Foam", "value": 1 },
+        { "key": "none", "label": "No Foam or Tracer", "value": 0 },
+        { "key": "passive_tracer", "label": "Passive Tracer Conc", "value": 2 }
+      ],
+      "examples": [
+        "show foam",
+        "turn off foam and tracer overlays",
+        "show passive tracer concentration"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_map_overlay",
+      "panel": "Modify Visualization",
+      "html_order": 8,
+      "purpose": "Change the Google Maps or aerial imagery overlay mode.",
+      "html_control_id": "GoogleMapOverlay-select",
+      "calc_constants_property": "GoogleMapOverlay",
+      "arg_name": "map_overlay",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the map overlay to {label}",
+      "values": [
+        { "key": "none", "label": "No Overlay", "value": 0 },
+        { "key": "google_maps", "label": "Include Google Maps Overlay", "value": 1 },
+        { "key": "satellite_aerial", "label": "Include Satellite / Aerial Overlay", "value": 2 }
+      ],
+      "examples": [
+        "turn on the satellite overlay",
+        "show the Google map overlay",
+        "remove the map overlay"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_vector_arrows",
+      "panel": "Modify Visualization",
+      "html_order": 9,
+      "purpose": "Change flow field vector arrow display mode.",
+      "html_control_id": "ShowArrows-select",
+      "calc_constants_property": "ShowArrows",
+      "arg_name": "vector_arrows",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set vector arrows to {label}",
+      "values": [
+        { "key": "none", "label": "No", "value": 0 },
+        { "key": "instantaneous_velocity", "label": "Instantaneous Velocity Vectors", "value": 1 },
+        { "key": "time_averaged_velocity", "label": "Time-Averaged Velocity Vectors", "value": 2 }
+      ],
+      "examples": [
+        "show velocity arrows",
+        "show time averaged arrows",
+        "turn off arrows"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_arrow_scale",
+      "panel": "Modify Visualization",
+      "html_order": 10,
+      "purpose": "Set the vector arrow scale factor.",
+      "html_control_id": "arrow_scale-input",
+      "html_button_id": "arrow_scale-button",
+      "calc_constants_property": "arrow_scale",
+      "arg_name": "arrow_scale",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the arrow scale factor to {value}",
+      "examples": [
+        "make the arrows twice as long",
+        "set arrow scale to 0.75"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_arrow_density",
+      "panel": "Modify Visualization",
+      "html_order": 11,
+      "purpose": "Set the vector arrow density factor.",
+      "html_control_id": "arrow_density-input",
+      "html_button_id": "arrow_density-button",
+      "calc_constants_property": "arrow_density",
+      "arg_name": "arrow_density",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the arrow density factor to {value}",
+      "examples": [
+        "make the arrows less dense",
+        "set arrow density to 4"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_logos",
+      "panel": "Modify Visualization",
+      "html_order": 12,
+      "purpose": "Show or hide the USACE and USC logos.",
+      "html_control_id": "ShowLogos-select",
+      "calc_constants_property": "ShowLogos",
+      "arg_name": "logos",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set logos to {label}",
+      "values": [
+        { "key": "show", "label": "Yes", "value": 0 },
+        { "key": "hide", "label": "No", "value": 1 }
+      ],
+      "examples": [
+        "hide the logos",
+        "show the logos again"
+      ]
+    },
+    {
+      "namespace": "visualization",
+      "action": "set_view_mode",
+      "panel": "Modify Visualization",
+      "html_order": 13,
+      "purpose": "Switch between the 2D design view and 3D explorer view.",
+      "html_control_id": "viewType-select",
+      "calc_constants_property": "viewType",
+      "arg_name": "view_mode",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "switch view mode to {label}",
+      "values": [
+        { "key": "design_2d", "label": "-Design: 2D view, modify surfaces", "value": 1 },
+        { "key": "explorer_3d", "label": "-Explorer: 3D view, fly-through scene", "value": 2 }
+      ],
+      "examples": [
+        "switch to 3D explorer mode",
+        "go back to the 2D design view"
+      ]
+    },
+    {
+      "namespace": "view",
+      "action": "enter_fullscreen",
+      "panel": "Modify Visualization",
+      "html_order": 14,
+      "purpose": "Enter the existing CELERIS full-screen or pseudo-full-screen canvas mode.",
+      "html_control_id": "fullscreen-button",
+      "calc_constants_property": "full_screen",
+      "arg_name": "fullscreen_state",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "enter full-screen simulation view",
+      "values": [
+        { "key": "enter", "label": "Full Screen", "value": 1 }
+      ],
+      "examples": [
+        "make the sim full screen",
+        "open full screen view"
+      ]
+    },
+    {
+      "namespace": "design",
+      "action": "set_surface_component",
+      "panel": "Add Engineered Design Components",
+      "html_order": 15,
+      "purpose": "Select a surface-cover design component brush for live painting in Design mode.",
+      "html_control_id": "designcomponentToAdd-select",
+      "calc_constants_property": "designcomponentToAdd",
+      "default_radius_m": 100,
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "select {component_label} for surface-cover painting. Radius: {radius_m}. Friction factor: {friction}. Left click (and hold) to add surface cover components (in Design Mode)",
+      "arguments": [
+        {
+          "name": "component",
+          "type": "enum",
+          "required": true,
+          "values": [
+            { "key": "coral_reef", "label": "Coral Reef", "value": 1, "friction_property": "designcomponent_Fric_Coral", "default_friction": 0.1 },
+            { "key": "oyster_bed", "label": "Mussel/Oyster Bed", "value": 2, "friction_property": "designcomponent_Fric_Oyser", "default_friction": 0.035 },
+            { "key": "mangrove", "label": "Mangrove", "value": 3, "friction_property": "designcomponent_Fric_Mangrove", "default_friction": 0.15 },
+            { "key": "kelp_bed", "label": "Kelp Bed", "value": 4, "friction_property": "designcomponent_Fric_Kelp", "default_friction": 0.025 },
+            { "key": "grass", "label": "Grass", "value": 5, "friction_property": "designcomponent_Fric_Grass", "default_friction": 0.03 },
+            { "key": "scrub", "label": "Scrub", "value": 6, "friction_property": "designcomponent_Fric_Scrub", "default_friction": 0.075 },
+            { "key": "rubblemound_structure", "label": "Rubblemound Structure", "value": 7, "friction_property": "designcomponent_Fric_RubbleMound", "default_friction": 0.04 }
+          ]
+        },
+        { "name": "radius_m", "type": "number", "required": false },
+        { "name": "friction", "type": "number", "required": false }
+      ],
+      "selection_policy": "Use only components 1-7 from the HTML design component dropdown. If the user asks for dunes, berms, seawalls, breakwaters, or other line-like structures, use the linear-structure workflow instead of selecting components 8-10.",
+      "examples": [
+        "add coral reef cover",
+        "paint rubblemound with radius 20 m",
+        "use mangroves with friction 0.12"
+      ]
+    },
+    {
+      "namespace": "design",
+      "action": "prepare_linear_structure",
+      "panel": "Add Engineered Design Components",
+      "html_order": 16,
+      "purpose": "Set required linear-structure cross-section parameters and put the runner into start-point selection mode.",
+      "html_control_id": "designcomponent_CrestElev-input",
+      "calc_constants_property": "designcomponent_CrestElev/designcomponent_CrestWidth/designcomponent_SideSlope",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set up the {structure_label} cross-section: crest elevation {crest_elevation_m} m, crest width {crest_width_m} m, side slope {side_slope}. Right-click the structure start location in Design Mode. When the start point looks correct, tell me the start point is set",
+      "arguments": [
+        { "name": "structure_label", "type": "string", "required": false },
+        { "name": "crest_elevation_m", "type": "number", "required": true },
+        { "name": "crest_width_m", "type": "number", "required": true },
+        { "name": "side_slope", "type": "number", "required": true }
+      ],
+      "selection_policy": "Use this command for breakwaters, dunes, seawalls, levees, berms, revetments, and other linear structures only after crest elevation, crest width, and side slope are specified. If any of those three values are missing or malformed, do not emit this command. Answer conversationally with the usable values already supplied, and ask only for missing or malformed values. If no required values are usable, answer: To add a structure, I need crest elevation, crest width, and side slope - for example \"add a breakwater with crest elevation of 1m, crest width of 2 m, and side slope of 1/2\".",
+      "examples": [
+        "add a breakwater with crest elevation 3 m, crest width 8 m, side slope 0.5",
+        "set up a dune, crest elevation 4 m, width 20 m, side slope 0.25"
+      ]
+    },
+    {
+      "namespace": "design",
+      "action": "confirm_linear_start",
+      "panel": "Add Engineered Design Components",
+      "html_order": 17,
+      "purpose": "Advance the linear-structure workflow after the user explicitly says the start point is set.",
+      "html_control_id": "designcomponent_CurrentEndPoint-select",
+      "calc_constants_property": "designcomponent_CurrentEndPoint",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "confirm the start point and switch to end-point selection. Right-click the structure end location in Design Mode. When the end point looks correct, tell me the end point is set, and then I will add the structure",
+      "arguments": [],
+      "selection_policy": "Use this only when the user explicitly states that the start point is set, correct, accepted, or confirmed. Do not infer this from a mouse click.",
+      "examples": [
+        "the start point is set",
+        "start looks good"
+      ]
+    },
+    {
+      "namespace": "design",
+      "action": "confirm_linear_end_and_add",
+      "panel": "Add Engineered Design Components",
+      "html_order": 18,
+      "purpose": "Advance the linear-structure workflow after the user explicitly says the end point is set, then queue the existing Add Linear Structure operation.",
+      "html_control_id": "linearstructure-button",
+      "calc_constants_property": "designcomponent_AddLinearStructure",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "confirm the end point and add the linear structure",
+      "arguments": [],
+      "selection_policy": "Use this only when the user explicitly states that the end point is set, correct, accepted, or confirmed. This command should immediately add the structure. After the add operation, the core resets only the start/end endpoints and preserves crest elevation, crest width, and side slope for repeated structures.",
+      "examples": [
+        "the end point is set",
+        "end looks good"
+      ]
+    },
+    {
+      "namespace": "mods",
+      "action": "prepare_click_edit",
+      "panel": "Modify Sea Level & Edit Bathy/Topo",
+      "html_order": 19,
+      "purpose": "Prepare a canvas click-edit operation for bathy/topo, bottom friction, passive tracer sources, or ocean surface elevation. This command stores the interpreted values and asks for user confirmation before enabling click edits.",
+      "html_control_id": "surfaceToChange-select",
+      "calc_constants_property": "surfaceToChange/changeType/changeAmplitude/changeRadius",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "prepare {surface_label} click editing with mode {change_mode_label}, amount/value {amount}, and lengthscale {radius_m}. Confirm these values before canvas editing is enabled",
+      "arguments": [
+        {
+          "name": "surface",
+          "type": "enum",
+          "required": true,
+          "values": [
+            { "key": "bathy_topography", "label": "Bathymetry/Topography (m)", "value": 1 },
+            { "key": "bottom_friction", "label": "Bottom Friction", "value": 2 },
+            { "key": "passive_tracer_source", "label": "Passive Tracer Sources", "value": 3 },
+            { "key": "water_surface_elevation", "label": "Ocean Surface Elevation", "value": 4 }
+          ]
+        },
+        {
+          "name": "change_mode",
+          "type": "enum",
+          "required": false,
+          "values": [
+            { "key": "increase_decrease", "label": "Increase/Decrease on Click", "value": 1 },
+            { "key": "set_value", "label": "Set to Value on Click", "value": 2 }
+          ]
+        },
+        { "name": "amount", "type": "number", "required": false },
+        { "name": "radius_m", "type": "number", "required": false }
+      ],
+      "selection_policy": "Use this command when the user asks to modify/change bathy, topo, DEM, bottom friction, passive tracer/contaminant/pollution sources, or ocean surface elevation/free-surface/water level by clicking on the running canvas. Do not activate destructive canvas editing immediately; this command should prompt the user to confirm the surface, change mode, amount/value, and lengthscale first. If the user omits any optional value, leave it null so the backend can show the current/default value.",
+      "examples": [
+        "modify the bathy near the inlet",
+        "set bottom friction to 0.08 where I click",
+        "add a passive tracer source",
+        "raise the water surface by 0.2 m with a 100 m brush"
+      ]
+    },
+    {
+      "namespace": "mods",
+      "action": "activate_click_edit",
+      "panel": "Modify Sea Level & Edit Bathy/Topo",
+      "html_order": 20,
+      "purpose": "Activate a previously confirmed canvas click-edit operation for bathy/topo, bottom friction, passive tracer sources, or ocean surface elevation.",
+      "html_control_id": "surfaceToChange-select",
+      "calc_constants_property": "surfaceToChange/changeType/changeAmplitude/changeRadius",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "activate {surface_label} click editing with mode {change_mode_label}, amount/value {amount}, and lengthscale {radius_m}. Left click or click-hold in Design Mode to modify the selected surface",
+      "arguments": [
+        {
+          "name": "surface",
+          "type": "enum",
+          "required": false,
+          "values": [
+            { "key": "bathy_topography", "label": "Bathymetry/Topography (m)", "value": 1 },
+            { "key": "bottom_friction", "label": "Bottom Friction", "value": 2 },
+            { "key": "passive_tracer_source", "label": "Passive Tracer Sources", "value": 3 },
+            { "key": "water_surface_elevation", "label": "Ocean Surface Elevation", "value": 4 }
+          ]
+        },
+        {
+          "name": "change_mode",
+          "type": "enum",
+          "required": false,
+          "values": [
+            { "key": "increase_decrease", "label": "Increase/Decrease on Click", "value": 1 },
+            { "key": "set_value", "label": "Set to Value on Click", "value": 2 }
+          ]
+        },
+        { "name": "amount", "type": "number", "required": false },
+        { "name": "radius_m", "type": "number", "required": false }
+      ],
+      "selection_policy": "Use this command only when the user confirms that the pending mods values are good, or when the user clearly asks to activate/start/apply the already prepared click-edit operation. If arguments are omitted, the backend will fill them from the pending mods edit state.",
+      "examples": [
+        "use these values",
+        "these edit values are good",
+        "activate the bathy edit brush"
+      ]
+    },
+    {
+      "namespace": "boundary",
+      "action": "set_boundary_type",
+      "panel": "Modify Boundary Conditions",
+      "html_order": 21,
+      "purpose": "Change one model-domain boundary type through the boundary-container controls.",
+      "html_control_id": "west_boundary_type-select/east_boundary_type-select/south_boundary_type-select/north_boundary_type-select",
+      "calc_constants_property": "west_boundary_type/east_boundary_type/south_boundary_type/north_boundary_type",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the {side_label} boundary to {boundary_type_label}",
+      "arguments": [
+        {
+          "name": "side",
+          "type": "enum",
+          "required": true,
+          "values": [
+            { "key": "west", "label": "West", "value": "west_boundary_type" },
+            { "key": "east", "label": "East", "value": "east_boundary_type" },
+            { "key": "south", "label": "South", "value": "south_boundary_type" },
+            { "key": "north", "label": "North", "value": "north_boundary_type" }
+          ]
+        },
+        {
+          "name": "boundary_type",
+          "type": "enum",
+          "required": true,
+          "values": [
+            { "key": "solid_wall", "label": "Solid Wall", "value": 0 },
+            { "key": "sponge_layer", "label": "Sponge Layer", "value": 1 },
+            { "key": "incident_waves", "label": "Incident Waves", "value": 2 },
+            { "key": "periodic_boundary", "label": "Periodic Boundary", "value": 3 }
+          ]
+        }
+      ],
+      "selection_policy": "Use this command for requests like 'set the west boundary to a sponge layer', 'make the south boundary solid', 'waves enter on the east boundary', or 'make east and west periodic'. Emit one command per side. Periodic boundaries usually require paired west/east or south/north commands when the user asks for periodic behavior.",
+      "examples": [
+        "change the west boundary to a sponge layer",
+        "set the south boundary to incident waves",
+        "make east and west periodic"
+      ]
+    },
+    {
+      "namespace": "boundary",
+      "action": "set_incident_wave_type",
+      "panel": "Modify Boundary Conditions",
+      "html_order": 22,
+      "purpose": "Change the incident wave type through the boundary-container controls.",
+      "html_control_id": "incident_wave_type-select",
+      "calc_constants_property": "incident_wave_type",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the incident wave type to {incident_wave_type_label}",
+      "arg_name": "incident_wave_type",
+      "arg_type": "enum",
+      "values": [
+        { "key": "sine_wave", "label": "Sine Wave (single harmonic)", "value": 0 },
+        { "key": "tma_spectrum", "label": "TMA Spectrum", "value": 1 },
+        { "key": "transient_pulse", "label": "Transient Pulse (4 waves)", "value": 2 },
+        { "key": "solitary_wave", "label": "Solitary Wave", "value": 3 },
+        { "key": "custom_spectrum_file", "label": "Custom Spectrum from loaded file", "value": -1 },
+        { "key": "time_series_file", "label": "Time Series from loaded file", "value": 5 }
+      ],
+      "selection_policy": "Use sine_wave for 'single sine wave', 'sine', or 'single harmonic'. Use tma_spectrum for 'spectrum' unless the user specifically says a custom loaded spectrum file. Do not ask for confirmation when the requested wave type is clear.",
+      "examples": [
+        "change the incident wave to a single sine wave",
+        "change the waves to a spectrum",
+        "use a TMA spectrum"
+      ]
+    },
+    {
+      "namespace": "boundary",
+      "action": "set_incident_wave_parameters",
+      "panel": "Modify Boundary Conditions",
+      "html_order": 23,
+      "purpose": "Change incident wave height, period, and/or direction through the boundary-container controls.",
+      "html_control_id": "incident_wave_H-input/incident_wave_T-input/incident_wave_direction-input",
+      "calc_constants_property": "incident_wave_H/incident_wave_T/incident_wave_direction",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "update incident wave parameters",
+      "arguments": [
+        { "name": "height_m", "type": "number", "required": false },
+        { "name": "period_s", "type": "number", "required": false },
+        { "name": "direction_deg", "type": "number", "required": false }
+      ],
+      "selection_policy": "Use this command for incident wave height, period, or direction changes. Include only values the user specified. Use the CELERIS boundary-container direction convention: 0 means from west, 90 means from south, 180 means from east, and 270 or -90 means from north; prefer 270 for from-north requests. Do not convert directional phrases using the CELERIS config Thetap convention unless the user is generating config files rather than changing a running boundary container.",
+      "examples": [
+        "change the incident angle to 10 degrees",
+        "change the wave height to 2 m and the angle to 15 degrees",
+        "set wave height to 1 m, period to 20 seconds, and direction to 20 degrees"
+      ]
+    },
+    {
+      "namespace": "sediment",
+      "action": "set_d50_mm",
+      "panel": "Configure Sediment Transport Model",
+      "html_order": 24,
+      "purpose": "Set Sediment Class 1 D50 grain size in millimeters.",
+      "html_control_id": "sedC1_d50-input",
+      "html_button_id": "sedC1_d50-button",
+      "calc_constants_property": "sedC1_d50",
+      "arg_name": "d50_mm",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set Sediment Class 1 D50 to {value} mm",
+      "examples": [
+        "set sediment d50 to 0.25 mm",
+        "use 0.3 mm sand"
+      ]
+    },
+    {
+      "namespace": "sediment",
+      "action": "set_porosity",
+      "panel": "Configure Sediment Transport Model",
+      "html_order": 25,
+      "purpose": "Set Sediment Class 1 porosity.",
+      "html_control_id": "sedC1_n-input",
+      "html_button_id": "sedC1_n-button",
+      "calc_constants_property": "sedC1_n",
+      "arg_name": "porosity",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set Sediment Class 1 porosity to {value}",
+      "examples": [
+        "set sediment porosity to 0.4",
+        "use porosity 0.38"
+      ]
+    },
+    {
+      "namespace": "sediment",
+      "action": "set_specific_gravity",
+      "panel": "Configure Sediment Transport Model",
+      "html_order": 26,
+      "purpose": "Set Sediment Class 1 specific gravity.",
+      "html_control_id": "sedC1_denrat-input",
+      "html_button_id": "sedC1_denrat-button",
+      "calc_constants_property": "sedC1_denrat",
+      "arg_name": "specific_gravity",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set Sediment Class 1 specific gravity to {value}",
+      "examples": [
+        "set sediment specific gravity to 2.65",
+        "use quartz density"
+      ]
+    },
+    {
+      "namespace": "sediment",
+      "action": "set_erosion_psi",
+      "panel": "Configure Sediment Transport Model",
+      "html_order": 27,
+      "purpose": "Set Sediment Class 1 psi erosion parameter.",
+      "html_control_id": "sedC1_psi-input",
+      "html_button_id": "sedC1_psi-button",
+      "calc_constants_property": "sedC1_psi",
+      "arg_name": "erosion_psi",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set Sediment Class 1 psi erosion parameter to {value}",
+      "examples": [
+        "set sediment psi to 0.0002",
+        "change the erosion parameter to 0.001"
+      ]
+    },
+    {
+      "namespace": "sediment",
+      "action": "set_critical_shields",
+      "panel": "Configure Sediment Transport Model",
+      "html_order": 28,
+      "purpose": "Set Sediment Class 1 critical Shields number.",
+      "html_control_id": "sedC1_criticalshields-input",
+      "html_button_id": "sedC1_criticalshields-button",
+      "calc_constants_property": "sedC1_criticalshields",
+      "arg_name": "critical_shields",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set Sediment Class 1 critical Shields number to {value}",
+      "examples": [
+        "set critical Shields to 0.05",
+        "increase the critical Shields number to 0.08"
+      ]
+    },
+    {
+      "namespace": "sediment",
+      "action": "set_transport_model",
+      "panel": "Configure Sediment Transport Model",
+      "html_order": 29,
+      "purpose": "Turn the sediment transport model on or off.",
+      "html_control_id": "useSedTransModel-select",
+      "calc_constants_property": "useSedTransModel",
+      "arg_name": "sediment_transport",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set sediment transport to {label}",
+      "values": [
+        { "key": "off", "label": "No Sediment Transport", "value": 0 },
+        { "key": "on", "label": "Include Sediment Transport", "value": 1 }
+      ],
+      "selection_policy": "Use this command when the user asks to enable, include, turn on, disable, or turn off sediment transport. If the user asks only to turn on sediment transport, emit only this command and leave class-1 sediment parameters unchanged.",
+      "examples": [
+        "turn on sediment transport",
+        "include sediment transport",
+        "turn sediment transport off"
+      ]
+    },
+    {
+      "namespace": "timeseries",
+      "action": "set_count",
+      "panel": "Plot Time Series",
+      "html_order": 30,
+      "purpose": "Set the total number of active time series locations.",
+      "html_control_id": "NumberOfTimeSeries-select",
+      "calc_constants_property": "NumberOfTimeSeries",
+      "arg_name": "time_series_count",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the number of active time series to {value}",
+      "selection_policy": "Use an integer count from 0 through 15. If the user asks to add gauge N or location N, make sure the active count is at least N. If the user asks to close, hide, remove, clear, disable, or turn off the time-series plot/gauges/probes, set the count to 0; do not close the embedded simulation runner.",
+      "examples": [
+        "add three time series gauges",
+        "turn on 2 time series locations",
+        "disable time series",
+        "close the time series",
+        "remove the time series plot"
+      ]
+    },
+    {
+      "namespace": "timeseries",
+      "action": "set_duration",
+      "panel": "Plot Time Series",
+      "html_order": 31,
+      "purpose": "Set the duration of the displayed and saved time series in seconds.",
+      "html_control_id": "maxdurationTimeSeries-input",
+      "html_button_id": "maxdurationTimeSeries-button",
+      "calc_constants_property": "maxdurationTimeSeries",
+      "arg_name": "duration_s",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set the time series duration to {value} s",
+      "examples": [
+        "set the time series duration to 120 seconds",
+        "plot gauges for 5 minutes"
+      ]
+    },
+    {
+      "namespace": "timeseries",
+      "action": "select_location_index",
+      "panel": "Plot Time Series",
+      "html_order": 32,
+      "purpose": "Select which time series location index will be edited next.",
+      "html_control_id": "changethisTimeSeries-select",
+      "calc_constants_property": "changethisTimeSeries",
+      "arg_name": "location_index",
+      "arg_type": "number",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "select time series location {value} for editing",
+      "selection_policy": "Use an integer location index from 1 through 15.",
+      "examples": [
+        "edit gauge 2",
+        "select time series location 1"
+      ]
+    },
+    {
+      "namespace": "timeseries",
+      "action": "set_location_xy",
+      "panel": "Plot Time Series",
+      "html_order": 33,
+      "purpose": "Set a time series location from explicit model-domain x/y coordinates in meters.",
+      "html_control_id": "changeXTimeSeries-input/changeYTimeSeries-input",
+      "html_button_id": "changeXTimeSeries-button/changeYTimeSeries-button",
+      "calc_constants_property": "locationOfTimeSeries[].xts/locationOfTimeSeries[].yts",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "set time series location {location_index} to x={x_m} m, y={y_m} m",
+      "arguments": [
+        { "name": "location_index", "type": "number", "required": false },
+        { "name": "x_m", "type": "number", "required": true },
+        { "name": "y_m", "type": "number", "required": true }
+      ],
+      "selection_policy": "Use this command only when the user gives explicit model-domain x and y coordinates. If the user gives a geographic or visual location such as pier, inlet, offshore, or here, use prepare_click_location instead.",
+      "examples": [
+        "put gauge 1 at x 500 and y 200",
+        "set time series location 2 to x=1200 m, y=450 m"
+      ]
+    },
+    {
+      "namespace": "timeseries",
+      "action": "prepare_click_location",
+      "panel": "Plot Time Series",
+      "html_order": 34,
+      "purpose": "Prepare Design-mode right-click placement for a time series location.",
+      "html_control_id": "changethisTimeSeries-select",
+      "calc_constants_property": "whichPanelisOpen/changethisTimeSeries/locationOfTimeSeries",
+      "safe_while_running": true,
+      "reloads_case": false,
+      "response_template": "prepare time series location {location_index} for right-click placement. Right-click the time series location in Design Mode",
+      "arguments": [
+        { "name": "location_index", "type": "number", "required": false }
+      ],
+      "selection_policy": "Use this command when the user asks to add, place, move, or update a time series gauge/location/probe without explicit model x/y coordinates. The user will right-click the desired location on the canvas in Design mode.",
+      "examples": [
+        "add a time series at the pier",
+        "let me place gauge 1",
+        "move the second gauge by clicking on the map",
+        "add a wave gauge offshore"
+      ]
+    }
+  ]
+}

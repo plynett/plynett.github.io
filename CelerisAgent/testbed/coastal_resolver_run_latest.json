@@ -1,0 +1,806 @@
+{
+  "created": "2026-06-04T04:57:30+00:00",
+  "purpose": "Resolver-only test after web-search, adjudication, line-geometry endpoint, and conservative review-policy updates. Expected points are approximate km-scale review anchors.",
+  "summary": {
+    "PASS": 1,
+    "REVIEW": 15,
+    "FAIL": 1
+  },
+  "cases": [
+    {
+      "id": "ca_marina_del_rey_entrance",
+      "category": "harbor",
+      "location": "Marina del Rey Harbor, California",
+      "center_description": "entrance of Marina del Rey Harbor where it meets Santa Monica Bay",
+      "lon": -118.4557,
+      "lat": 33.9589,
+      "tol_m": 1800,
+      "resolved_lon": -118.448,
+      "resolved_lat": 33.9798,
+      "distance_m": 2433,
+      "status": "REVIEW",
+      "elapsed_s": 39.26,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Marina del Rey Harbor entrance opening to Santa Monica Bay",
+      "reason": "The requested target is the practical seaward entrance of Marina del Rey Harbor where the main channel opens into Santa Monica Bay. Evidence consistently describes this as the entrance channel between the north and south jetties / at the breakwater, not the inland harbor centroid. A 2 km DEM centered near the midpoint of that jetty opening will straddle both the harbor mouth and Santa Monica Bay, which matches the workflow intent.",
+      "evidence": [
+        {
+          "title": "Marina del Rey Harbor study appendix with station MdRH-MC3",
+          "url": "https://file.lacounty.gov/SDSInter/dbh/docs/1143109_AppendixA_MdRHSSOstudy_FinalReport.pdf",
+          "summary": "Lists station 'MdRH-MC3' as 'Main Channel, entrance' at 33\u00b058.880' N, 118\u00b027.316' W, directly supporting the entrance location."
+        },
+        {
+          "title": "33 CFR 162.200 restricted area description",
+          "url": "https://www.customsmobile.com/regulations/title33_chapterI-i1_part162_section162.200",
+          "summary": "Describes the relevant waters as the most seaward 1,000 feet of the entrance channel between the north and south jetties, confirming the functional entrance target."
+        },
+        {
+          "title": "USACE Marina del Rey navigation page",
+          "url": "https://www.spl.usace.army.mil/Missions/CivilWorks/Navigation/MarinadelRey.aspx",
+          "summary": "Refers to dredging and navigation safety in the Marina del Rey entrance and approach channels, reinforcing that the entrance channel is the practical coastal connection to the bay."
+        },
+        {
+          "title": "LA County navigation and regulations page",
+          "url": "https://beaches.lacounty.gov/marina-del-rey-navigation-and-regulations/",
+          "summary": "Provides local harbor navigation context and mentions entrance conditions, supporting that the harbor mouth is an actively managed navigational opening."
+        }
+      ],
+      "rejected_candidates": [
+        "Marina del Rey community/place centroid: rejected because the request is for the harbor entrance where it meets the bay, not the broader district.",
+        "Harbor interior or main basin centroid: rejected because it is inland of the practical ocean connection.",
+        "Far offshore end of the approach channel near or beyond the detached breakwater: rejected because the DEM target should be the shoreline/breakwater opening, not a farther offshore navigation endpoint.",
+        "North or south jetty access points/parking areas: rejected because they are land access features, not the water opening itself."
+      ],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -118.4576,
+        "alternate_lat": 33.9705,
+        "separation_m": 1362.8,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "ca_santa_cruz_harbor_entrance",
+      "category": "harbor",
+      "location": "Santa Cruz Harbor, California",
+      "center_description": "harbor entrance where Santa Cruz Harbor opens to Monterey Bay",
+      "lon": -121.9995,
+      "lat": 36.9618,
+      "tol_m": 1200,
+      "resolved_lon": -122.003,
+      "resolved_lat": 36.9669,
+      "distance_m": 647,
+      "status": "REVIEW",
+      "elapsed_s": 36.8,
+      "source": "llm_resolution_adjudicator_web",
+      "confidence": "high",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Santa Cruz Harbor entrance opening between the east and west jetties, where the harbor opens to Monterey Bay",
+      "reason": "The user wants the physical harbor entrance where Santa Cruz Harbor opens to Monterey Bay. The web candidate explicitly targets the opening between the jetties, which is the correct practical DEM center for a 2 km coastal box. The grounded candidate is about 1.7 km away and appears too far south, inconsistent with Santa Cruz Harbor\u2019s actual entrance area. For this request, the seaward jetty-gap midpoint is preferred over any generic harbor or inferred point.",
+      "evidence": [
+        {
+          "title": "Santa Cruz Port District - Location",
+          "url": "https://www.santacruzharbor.org/location",
+          "summary": "Official harbor source gives Walton Lighthouse at the end of the breakwater at 36\u00b057.38\u2032N, 122\u00b000.05\u2032W, placing the west jetty tip at the harbor entrance."
+        },
+        {
+          "title": "Santa Cruz Port District - West Jetty Repair Project notice",
+          "url": "https://www.santacruzharbor.org/notice-u-s-army-corps-of-engineers-west-jetty-repair-project",
+          "summary": "Official source states the East and West Jetties were constructed to maintain a stabilized entrance channel, confirming the practical target is the opening between them."
+        },
+        {
+          "title": "US Harbors - Santa Cruz (Monterey Bay), CA",
+          "url": "https://www.usharbors.com/harbor/california/santa-cruz-monterey-bay-ca/",
+          "summary": "Describes shoaling at the harbor entrance, reinforcing that the navigable mouth/opening is the coastal feature of interest, not the interior harbor."
+        }
+      ],
+      "rejected_candidates": [
+        "Santa Cruz Harbor / Small Craft Harbor centroid \u2014 rejected because the request is specifically for the entrance where it opens to Monterey Bay.",
+        "Walton Lighthouse point itself \u2014 rejected as a structure on the west breakwater, not the center of the entrance opening.",
+        "Santa Cruz city centroid \u2014 rejected because it is administrative and not the coastal hydraulic target.",
+        "Far offshore navigation alignment/channel endpoint \u2014 rejected because the DEM center should be at the shoreline/breakwater opening, not offshore."
+      ],
+      "review_reason": "Resolver candidates disagreed beyond the domain-scale threshold; LLM adjudicated the center, but analyst map review is required.",
+      "agreement_check": null
+    },
+    {
+      "id": "ca_oceanside_harbor_entrance",
+      "category": "harbor",
+      "location": "Oceanside Harbor, California",
+      "center_description": "entrance of Oceanside Harbor where the harbor meets the ocean",
+      "lon": -117.397,
+      "lat": 33.207,
+      "tol_m": 1200,
+      "resolved_lon": -117.4022,
+      "resolved_lat": 33.2066,
+      "distance_m": 486,
+      "status": "REVIEW",
+      "elapsed_s": 40.74,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Oceanside Harbor ocean entrance opening between the west breakwater and east/south jetty, Oceanside, California",
+      "reason": "The request is specifically for the harbor entrance where Oceanside Harbor meets the ocean. Authoritative marine sources describe a single common entrance between two jetties, with the breakwater and south jetty forming the entrance channel. For a 2 km DEM, the practical center should be placed at the seaward jetty opening/channel mouth so the box spans both the harbor side and the Pacific, not the inland harbor basin or a generic harbor centroid.",
+      "evidence": [
+        {
+          "title": "USACE Los Angeles District \u2013 Oceanside navigation project",
+          "url": "https://www.spl.usace.army.mil/Missions/Civil-Works/Navigation/Oceanside/",
+          "summary": "States that the harbor's breakwater and south jetty form an entrance channel, directly matching the requested harbor mouth feature."
+        },
+        {
+          "title": "33 CFR 80.1108 \u2013 Oceanside Harbor, CA",
+          "url": "https://ecfr.io/Title-33/Section-80.1108",
+          "summary": "Defines the harbor entrance line from Oceanside South Jetty Light 4 to Oceanside Breakwater Light 3, confirming the practical entrance is the opening between those structures."
+        },
+        {
+          "title": "MarineLink Ports Directory \u2013 Oceanside",
+          "url": "https://ports.marinelink.com/ports/port/oceanside",
+          "summary": "Describes Oceanside as having a single main entrance with two protective structures, supporting a single harbor-mouth target rather than multiple candidate mouths."
+        },
+        {
+          "title": "NOAA Tides & Currents station 9410396 \u2013 Oceanside Harbor",
+          "url": "https://tidesandcurrents.noaa.gov/stationhome.html?id=9410396",
+          "summary": "Confirms the harbor location and supports the general placement at the harbor mouth area rather than an inland basin or city centroid."
+        }
+      ],
+      "rejected_candidates": [
+        "Oceanside city centroid \u2014 administrative place, not the harbor entrance.",
+        "Oceanside Harbor office / Harbor Drive facilities \u2014 inland operational site, not where the harbor meets the ocean.",
+        "Harbor interior basins or fishing pier \u2014 inside the harbor, not the mouth opening.",
+        "Far offshore entrance-channel endpoint \u2014 not the practical shoreline/breakwater opening requested."
+      ],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -117.4039,
+        "alternate_lat": 33.2039,
+        "separation_m": 339.7,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "ca_morro_bay_harbor_entrance",
+      "category": "bay/harbor",
+      "location": "Morro Bay Harbor, California",
+      "center_description": "harbor entrance channel between Morro Rock and the breakwater",
+      "lon": -120.866,
+      "lat": 35.3655,
+      "tol_m": 1500,
+      "resolved_lon": -120.8697,
+      "resolved_lat": 35.3603,
+      "distance_m": 669,
+      "status": "REVIEW",
+      "elapsed_s": 41.72,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Morro Bay Harbor entrance channel opening between Morro Rock and the west breakwater",
+      "reason": "The user's target is the practical harbor entrance between Morro Rock and the breakwater, so the DEM center should be placed at the seaward opening/channel throat rather than at Morro Rock, the town/harbor centroid, or an inland harbor basin. NOAA Coast Pilot describes Morro Rock on the north side of the entrance, a breakwater extending south from the rock, and the entrance channel between protective breakwaters. Multiple sources give entrance coordinates clustered near 35.36 N, -120.87 W, which match the requested opening well enough for a 2 km DEM centered on the harbor mouth.",
+      "evidence": [
+        {
+          "title": "USACE Morro Bay navigation history",
+          "url": "https://www.spl.usace.army.mil/Missions/Civil-Works/Navigation/Morro-Bay/",
+          "summary": "States access from the north side of Morro Rock was eliminated when the seawall/causeway connected Morro Rock to the mainland, implying the functional entrance is the south-side opening."
+        },
+        {
+          "title": "Historical/official harbor description",
+          "url": "https://documents.coastal.ca.gov/reports/2023/10/F8a/F8a-10-2023-appendix.pdf",
+          "summary": "Explains that before the causeway the harbor entrance was from the north, and later USACE built the outer breakwater to protect the new entrance to the harbor, confirming the present entrance is the protected opening south of Morro Rock."
+        },
+        {
+          "title": "Local description of entrance location",
+          "url": "https://mbbirdhouse.com/kayaking/",
+          "summary": "Describes the entrance to the bay as lying between Morro Rock and the breakwater jetties, matching the user's target phrasing."
+        },
+        {
+          "title": "USACE/EA entrance reference",
+          "url": "https://www.spl.usace.army.mil/Portals/17/docs/publicnotices/morro_bay_draft_ea.pdf",
+          "summary": "Gives approximate entrance coordinates for Morro Bay Harbor near 35\u00b021'4\"N, 120\u00b052'07\"W, supporting a center in the entrance reach; the chosen point is adjusted slightly seaward/northwest to the middle of the practical opening between the rock and breakwater."
+        }
+      ],
+      "rejected_candidates": [
+        "Morro Bay city centroid rejected because the request is for the harbor entrance opening, not the municipality.",
+        "Morro Rock centroid/base rejected because the target is the channel gap adjacent to the rock, not the rock itself.",
+        "Harbor interior/marina area rejected because it is inland of the entrance opening.",
+        "Far offshore entrance-channel endpoint rejected because the workflow wants the practical shoreline/breakwater opening where the harbor meets the ocean.",
+        "North side of Morro Rock rejected because official/history sources indicate the former north entrance was closed by the causeway/seawall."
+      ],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -120.8688,
+        "alternate_lat": 35.3706,
+        "separation_m": 1149.5,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "ca_mission_bay_entrance",
+      "category": "bay",
+      "location": "Mission Bay, San Diego, California",
+      "center_description": "Mission Bay entrance channel where Mission Bay opens to the Pacific Ocean",
+      "lon": -117.253,
+      "lat": 32.76,
+      "tol_m": 1500,
+      "resolved_lon": -117.2395,
+      "resolved_lat": 32.7684,
+      "distance_m": 1572,
+      "status": "REVIEW",
+      "elapsed_s": 39.63,
+      "source": "llm_resolution_adjudicator_web",
+      "confidence": "high",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Mission Bay entrance channel opening between the north and south jetties, San Diego, California",
+      "reason": "The user's intent is the practical ocean connection where Mission Bay opens to the Pacific. The web candidate explicitly targets the jetty-gap midpoint/seaward opening, which is the preferred DEM center for an entrance-channel request and would straddle both the bay channel and open ocean. The grounded candidate is substantially west-southwest of that and appears too far offshore/alongshore relative to the physical inlet opening. Therefore the web candidate best represents the requested shoreline connection.",
+      "evidence": [
+        {
+          "title": "USACE San Diego\u2013Mission Bay fact sheet",
+          "url": "https://www.spl.usace.army.mil/Portals/17/docs/congressional/Fact_Sheets/PPMD/SanDiegoMissionBayFactSheet.pdf?ver=2020-02-20-124707-127",
+          "summary": "Authoritative source identifying Mission Bay's entrance channel and jetties as the engineered inlet system."
+        },
+        {
+          "title": "San Diego Kayak Club: Mission Bay Entrance",
+          "url": "https://www.sdkc.org/safety/mission-bay-entrance-a-safety-issue-for-paddlers/",
+          "summary": "Describes the mouth/entrance as the full-width opening between the north and south jetties and discusses navigation through that gap."
+        },
+        {
+          "title": "Historic USACE environmental statement for Mission Bay entrance channel dredging",
+          "url": "https://upload.wikimedia.org/wikipedia/commons/d/da/Final_environmental_statement-_Mission_Bay_entrance_channel_dredging%2C_San_Diego_River_and_Mission_Bay%2C_San_Diego_County%2C_California_-_USACE-p16021coll7-17772.pdf",
+          "summary": "Confirms the entrance channel and jetties were constructed/dredged to form the ocean access opening at Mission Bay."
+        }
+      ],
+      "rejected_candidates": [
+        "Mission Bay city/place centroid \u2014 too broad and not the requested coastal opening.",
+        "Mission Bay Channel topo feature centroid \u2014 may represent a channel label rather than the shoreline opening.",
+        "Jetty parking/access points on either shore \u2014 land access locations, not the hydraulic entrance center.",
+        "Far offshore navigation alignment endpoint \u2014 not the practical DEM center for 'where Mission Bay opens to the Pacific Ocean'."
+      ],
+      "review_reason": "Resolver candidates disagreed beyond the domain-scale threshold; LLM adjudicated the center, but analyst map review is required.",
+      "agreement_check": null
+    },
+    {
+      "id": "ca_newport_harbor_entrance",
+      "category": "harbor",
+      "location": "Newport Harbor, California",
+      "center_description": "entrance of Newport Harbor between the jetties at the ocean",
+      "lon": -117.883,
+      "lat": 33.6033,
+      "tol_m": 1200,
+      "resolved_lon": -117.8993,
+      "resolved_lat": 33.5969,
+      "distance_m": 1671,
+      "status": "REVIEW",
+      "elapsed_s": 36.0,
+      "source": "llm_resolution_adjudicator_web",
+      "confidence": "medium",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Newport Harbor ocean entrance midpoint between the west and east jetties, Newport Beach, California",
+      "reason": "The user's target is the physical ocean entrance of Newport Harbor between the jetties. The grounded candidate at -117.9329, 33.5962 is clearly wrong for Newport Harbor because it is about 3.1 km west of the actual harbor mouth and does not plausibly fall at the Newport Bay/Newport Harbor entrance. The web candidate matches the requested feature type and explicitly identifies the midpoint of the seaward jetty opening, which is the correct practical DEM center for a 2 km box straddling harbor and Pacific Ocean. Confidence is medium rather than high because the two supplied candidates conflict strongly and only the web candidate is plausibly located at the harbor entrance.",
+      "evidence": [
+        {
+          "title": "City of Newport Beach \u2013 Visiting Vessels",
+          "url": "https://www.newportbeachca.gov/government/departments/harbor/visiting-vessels",
+          "summary": "Official harbor guidance says the broad entrance channel is formed by two jetties, confirming the practical target is the opening between them."
+        },
+        {
+          "title": "NOAA Tides & Currents \u2013 Newport Beach, Newport Bay Entrance (Station 9410580)",
+          "url": "https://tidesandcurrents.noaa.gov/stationhome.html?id=9410580",
+          "summary": "NOAA maintains a station specifically named for the Newport Bay entrance, anchoring the entrance location."
+        },
+        {
+          "title": "NOAA benchmark sheet for station 9410580",
+          "url": "https://tidesandcurrents.noaa.gov/benchmarks/9410580.html",
+          "summary": "Lists the entrance station latitude as 33.60330, supporting a center near the harbor mouth."
+        },
+        {
+          "title": "NOAA Coast Pilot 7 / nautical references",
+          "url": "https://nauticalcharts.noaa.gov/publications/coast-pilot/files/cp7/CPB7_C04_WEB.pdf",
+          "summary": "Describes the entrance to Newport Bay as being between jetties 275 yards apart, reinforcing that the correct DEM target is the jetty gap itself."
+        }
+      ],
+      "rejected_candidates": [
+        "Newport Beach city centroid \u2014 administrative place, not the requested coastal opening.",
+        "Newport Harbor interior centroid \u2014 too far inside the bay; not the ocean entrance.",
+        "West Jetty or East Jetty tip alone \u2014 user asked for the entrance between the jetties, so a midpoint is more appropriate.",
+        "Entrance buoy / offshore channel marker \u2014 offshore navigation aid, not the practical shoreline/breakwater opening.",
+        "Upper Newport Bay / Back Bay mouth \u2014 different internal connection, not where the harbor meets the ocean."
+      ],
+      "review_reason": "The user's target is the physical ocean entrance of Newport Harbor between the jetties. The grounded candidate at -117.9329, 33.5962 is clearly wrong for Newport Harbor because it is about 3.1 km west of the actual harbor mouth and does not plausibly fall at the Newport Bay/Newport Harbor entrance. The web candidate matches the requested feature type and explicitly identifies the midpoint of the seaward jetty opening, which is the correct practical DEM center for a 2 km box straddling harbor and Pacific Ocean. Confidence is medium rather than high because the two supplied candidates conflict strongly and only the web candidate is plausibly located at the harbor entrance.",
+      "agreement_check": null
+    },
+    {
+      "id": "or_brookings_harbor_entrance",
+      "category": "harbor",
+      "location": "Brookings Harbor, Oregon",
+      "center_description": "entrance of Brookings Harbor where the harbor opens to the Pacific Ocean",
+      "lon": -124.2895,
+      "lat": 42.0385,
+      "tol_m": 1500,
+      "resolved_lon": -124.285,
+      "resolved_lat": 42.043,
+      "distance_m": 624,
+      "status": "REVIEW",
+      "elapsed_s": 38.15,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Brookings Harbor entrance / Chetco River mouth opening between the jetties",
+      "reason": "The user's target is the practical harbor entrance where Brookings Harbor opens to the Pacific, not the marina basin or a generic Brookings centroid. Multiple primary/official sources place the Port of Brookings Harbor at the mouth of the Chetco River and describe two rock jetties stabilizing the entrance/bar. For a 2 km DEM, the appropriate center is the seaward opening between those jetties at the Chetco River mouth, so the domain straddles both the inner entrance channel and adjacent Pacific coast.",
+      "evidence": [],
+      "rejected_candidates": [],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -124.2969,
+        "alternate_lat": 42.0418,
+        "separation_m": 992.8,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "or_yaquina_bay_entrance",
+      "category": "bay",
+      "location": "Yaquina Bay, Newport, Oregon",
+      "center_description": "Yaquina Bay entrance between the jetties where it meets the Pacific Ocean",
+      "lon": -124.072,
+      "lat": 44.624,
+      "tol_m": 1500,
+      "resolved_lon": -124.0588,
+      "resolved_lat": 44.6208,
+      "distance_m": 1105,
+      "status": "REVIEW",
+      "elapsed_s": 39.18,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Yaquina Bay entrance between the north and south jetties, Newport, Oregon",
+      "reason": "The user asked for the practical DEM center at the Yaquina Bay entrance where it meets the Pacific Ocean. Authoritative nautical and project sources describe the entrance as the jetty-protected opening, with the jetties about 330 yards apart. For a 2 km \u00d7 2 km DEM, the appropriate center is the midpoint of that seaward opening between the north and south jetties, so the domain straddles both the outer Pacific and the inner entrance channel rather than inland Newport or a representative bay centroid.",
+      "evidence": [
+        {
+          "title": "USACE Yaquina Bay project description",
+          "url": "https://www.nwp.usace.army.mil/Locations/Oregon-Coastal-Projects/Yaquina-Bay/",
+          "summary": "Describes Yaquina Bay navigation project with entrance channel and extended jetties, confirming the functional entrance is the jetty-controlled mouth."
+        },
+        {
+          "title": "NOAA BookletChart / harbor description",
+          "url": "https://www.portoftoledo.org/files/3d33081de/Charts.%2Bnoaa.gov%2B18581_BookletChart.pdf",
+          "summary": "States the entrance to Yaquina Bay is protected by jetties 330 yards apart, supporting use of the midpoint between jetties as the practical entrance target."
+        },
+        {
+          "title": "Oregon State Parks / Yaquina Bay State Recreation Site",
+          "url": "https://stateparks.oregon.gov/index.cfm?do=parkPage.dsp_parkFeedback&feedbackSent=true&parkId=148",
+          "summary": "Places the park at the north end of Yaquina Bay near its outlet to the Pacific and notes beach access along the north jetty, corroborating the north side of the entrance."
+        },
+        {
+          "title": "Oregon State Parks / South Jetty",
+          "url": "https://stateparks.oregon.gov/index.cfm?do=parkPage.dsp_parkPage&parkId=171",
+          "summary": "Identifies the South Jetty day-use area overlooking Yaquina Bay, corroborating the south side of the same entrance."
+        }
+      ],
+      "rejected_candidates": [
+        "Newport, Oregon city centroid \u2014 administrative/place centroid, not the entrance opening.",
+        "Yaquina Bay waterbody centroid \u2014 too broad and inland relative to the requested ocean meeting point.",
+        "Yaquina River Bar offshore reference \u2014 bar/channel area is seaward of the practical shoreline entrance between jetties.",
+        "North Jetty or South Jetty parking/access points \u2014 access locations, not the center of the entrance gap."
+      ],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -124.0615,
+        "alternate_lat": 44.6213,
+        "separation_m": 221.1,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "or_coos_bay_entrance",
+      "category": "bay",
+      "location": "Coos Bay, Oregon",
+      "center_description": "entrance of Coos Bay at the Pacific Ocean between the jetties",
+      "lon": -124.33,
+      "lat": 43.348,
+      "tol_m": 1800,
+      "resolved_lon": -124.3225,
+      "resolved_lat": 43.3365,
+      "distance_m": 1417,
+      "status": "REVIEW",
+      "elapsed_s": 38.51,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Coos Bay entrance between the north and south jetties",
+      "reason": "The request is specifically for the entrance of Coos Bay at the Pacific Ocean between the jetties, so the practical DEM center should be placed at the seaward harbor opening between the north and south jetties rather than at a city centroid, harbor interior, or offshore buoy. Sources consistently describe Coos Bay\u2019s entrance as a jetty-bounded navigation entrance/bar. A center near 43.3365, -124.3225 should place a 2 km by 2 km DEM across both the entrance channel and adjacent Pacific surf zone.",
+      "evidence": [
+        {
+          "title": "Oregon International Port of Coos Bay \u2014 Channel Description",
+          "url": "https://www.portofcoosbay.com/channel-description",
+          "summary": "Describes the navigation entrance reducing through the entrance jetties to Channel Mile 1.0, confirming the functional target is the jetty-bounded harbor mouth rather than an inland bay centroid or offshore buoy."
+        },
+        {
+          "title": "Oregon International Port of Coos Bay \u2014 About the Port",
+          "url": "https://www.portofcoosbay.com/about-the-port",
+          "summary": "States the navigation system includes the jetties at the mouth of Coos Bay, directly supporting that the requested entrance is the mouth between those jetties."
+        },
+        {
+          "title": "33 CFR 80.1320 Coos Bay, OR",
+          "url": "https://ecfr.io/Title-33/Section-80.1320",
+          "summary": "Defines Coos Bay\u2019s demarcation line as a line drawn across the seaward extremities of the Coos Bay Entrance Jetties, reinforcing that the ocean entrance is operationally referenced by the jetty opening."
+        },
+        {
+          "title": "USACE Portland District \u2014 Coos Bay",
+          "url": "https://www.nwp.usace.army.mil/Locations/Oregon-Coastal-Projects/Coos-Bay/",
+          "summary": "Confirms the Corps maintains two jetties at the entrance, establishing the entrance geometry and the existence of a practical opening between them."
+        }
+      ],
+      "rejected_candidates": [
+        "Coos Bay city centroid \u2014 administrative/place label, not the ocean entrance.",
+        "Oregon International Port of Coos Bay offices \u2014 business/office location, not the coastal target.",
+        "Coos Bay sea buoy near 43\u00b022'N 124\u00b022'W \u2014 offshore approach reference, not the between-jetties opening requested.",
+        "Far offshore channel/approach endpoint \u2014 inconsistent with 'entrance ... between the jetties'.",
+        "Charleston Marina / inner harbor points \u2014 inland from the actual mouth."
+      ],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -124.322,
+        "alternate_lat": 43.344,
+        "separation_m": 835.9,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "nc_new_river_inlet_mouth",
+      "category": "inlet",
+      "location": "New River Inlet, North Carolina",
+      "center_description": "mouth of New River Inlet where it enters the Atlantic Ocean",
+      "lon": -77.3369,
+      "lat": 34.5274,
+      "tol_m": 1200,
+      "resolved_lon": -77.3362,
+      "resolved_lat": 34.5262,
+      "distance_m": 148,
+      "status": "PASS",
+      "elapsed_s": 44.99,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": false,
+      "label": "New River Inlet ocean entrance midpoint, between Onslow Beach spit and North Topsail Beach ocean shoreline",
+      "reason": "The user asked for the mouth of New River Inlet where it enters the Atlantic Ocean. The practical DEM center should be the seaward opening itself, not the named-feature centroid or an inland channel point. Recent USACE hydrographic imagery shows the active inlet throat opening to the Atlantic between the Onslow Beach spit on the north/west side and North Topsail Beach on the south side. A 2 km \u00d7 2 km DEM centered near the midpoint of that opening will straddle both the inlet throat and adjacent Atlantic surf zone.",
+      "evidence": [
+        {
+          "title": "Natural Atlas: New River Inlet",
+          "url": "https://naturalatlas.com/inlets/new-river-1763581",
+          "summary": "Identifies New River Inlet as an inlet on the Atlantic Ocean near Sneads Ferry, confirming the feature type and general location."
+        },
+        {
+          "title": "TopoZone: New River Inlet",
+          "url": "https://www.topozone.com/north-carolina/onslow-nc/bay/new-river-inlet/",
+          "summary": "Lists New River Inlet at approximately 34.5273875, -77.3369029, giving a direct named-feature coordinate close to the ocean opening."
+        },
+        {
+          "title": "TopoZone: New River",
+          "url": "https://www.topozone.com/north-carolina/onslow-nc/stream/new-river-18/",
+          "summary": "Lists nearby New River coordinates around 34.5298875, -77.3371807, consistent with the river/inlet mouth area and supporting a center in the throat of the opening."
+        },
+        {
+          "title": "US Harbors: New River Inlet, NC",
+          "url": "https://www.usharbors.com/harbor/north-carolina/new-river-inlet-nc/",
+          "summary": "Describes navigation above the mouth, implying the functional entrance is the inlet opening rather than an inland point."
+        }
+      ],
+      "rejected_candidates": [
+        "Sneads Ferry town centroid \u2014 administrative/community location, not the ocean entrance.",
+        "NDBC Station 41109 'New River Inlet' \u2014 offshore buoy/station, not the shoreline inlet mouth.",
+        "Generic inlet feature centroid if placed inland or broad-waterbody centered \u2014 less precise than the practical opening requested.",
+        "Far offshore navigation-channel approach endpoint \u2014 user asked for where the inlet enters the Atlantic, so the shoreline opening/throat is the correct DEM center."
+      ],
+      "review_reason": null,
+      "agreement_check": {
+        "alternate_source": "llm_georesolver",
+        "alternate_lon": -77.3369,
+        "alternate_lat": 34.5274,
+        "separation_m": 148.2,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "nc_duck_frf_pier_shoreline",
+      "category": "beach/pier",
+      "location": "Duck, North Carolina",
+      "center_description": "shoreline at the USACE Field Research Facility research pier in Duck",
+      "lon": -75.751,
+      "lat": 36.183,
+      "tol_m": 1200,
+      "resolved_lon": -75.7469,
+      "resolved_lat": 36.1837,
+      "distance_m": 377,
+      "status": "REVIEW",
+      "elapsed_s": 35.9,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Shoreline at the landward base of the USACE Field Research Facility research pier, Duck, North Carolina",
+      "reason": "The user asked for the shoreline at the USACE Field Research Facility research pier in Duck, not the town center or pier end. Multiple USACE sources confirm the FRF is the well-known Duck research pier on the Atlantic Ocean in Duck, NC, at 1261 Duck Road, with a 560 m (1,840 ft) pier extending seaward from the dune/shoreline. For a 2 km \u00d7 2 km DEM, the practical center is the beach/shoreline where the pier meets land so the domain straddles the surf zone and adjacent back-beach/pier area rather than centering offshore at the pier head.",
+      "evidence": [],
+      "rejected_candidates": [],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -75.7467,
+        "alternate_lat": 36.1833,
+        "separation_m": 48.0,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "fl_government_cut_ocean_entrance",
+      "category": "inlet/channel",
+      "location": "Government Cut, Miami Beach, Florida",
+      "center_description": "ocean entrance of Government Cut by South Beach where it meets the Atlantic",
+      "lon": -80.1146,
+      "lat": 25.756,
+      "tol_m": 1800,
+      "resolved_lon": -80.1288,
+      "resolved_lat": 25.7611,
+      "distance_m": 1533,
+      "status": "REVIEW",
+      "elapsed_s": 37.79,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Government Cut ocean entrance midpoint between the seaward ends of the north and south jetties, off South Pointe/Fisher Island",
+      "reason": "The user asked for the ocean entrance of Government Cut where it meets the Atlantic by South Beach. For a coastal DEM, the practical target is not an inland channel point or harbor centroid, but the jettied Atlantic opening itself. Evidence consistently describes Government Cut as the jettied ocean entry to Miami Harbor at South Beach, between Miami Beach/South Pointe and Fisher Island. A 2 km \u00d7 2 km DEM centered near the midpoint of that seaward gap will straddle both the outer Atlantic and the inlet throat.",
+      "evidence": [
+        {
+          "title": "Library of Congress aerial description",
+          "url": "https://www.loc.gov/item/2020721064/",
+          "summary": "Describes Government Cut as the Atlantic Ocean inlet between the southern tip of Miami Beach and Fisher Island, matching the requested ocean entrance target."
+        },
+        {
+          "title": "Marinas.com inlet description",
+          "url": "https://marinas.com/view/inlet/d7inn_Government_Cut_Inlet_Miami_Beach_FL_United_States",
+          "summary": "Calls Government Cut the main ocean entry into the Miami area at South Beach and notes Miami Beach Marina lies just inside the inlet on the north side, confirming the functional inlet mouth."
+        },
+        {
+          "title": "USACE / port references",
+          "url": "https://usace.contentdm.oclc.org/digital/api/collection/p16021coll7/id/23725/download",
+          "summary": "States the ocean entrance channel to Miami Harbor passes through Government Cut, a man-made inlet at the southern end of Miami Beach; supporting inlet-mouth interpretation rather than an inland harbor centroid."
+        },
+        {
+          "title": "South Pointe / jetty context",
+          "url": "https://www.360cities.net/image/south-pointe-jetty-miami-beach-florida-usa-01",
+          "summary": "Places the South Pointe jetty directly north of Government Cut inlet, helping locate the practical opening at the jettied entrance."
+        }
+      ],
+      "rejected_candidates": [
+        "South Pointe Park centroid \u2014 park/viewpoint, not the water entrance itself.",
+        "PortMiami / Dodge Island centroid \u2014 inland port area, not where Government Cut meets the Atlantic.",
+        "Miami Beach city centroid \u2014 administrative/place centroid, not a coastal entrance target.",
+        "Far offshore Miami Harbor Entrance navigation reference \u2014 too seaward for the practical shoreline/breakwater opening requested."
+      ],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -80.1278,
+        "alternate_lat": 25.7643,
+        "separation_m": 370.1,
+        "threshold_m": 1500.0
+      }
+    },
+    {
+      "id": "fl_clearwater_pass",
+      "category": "inlet",
+      "location": "Clearwater Pass, Florida",
+      "center_description": "Clearwater Pass inlet where it meets the Gulf of Mexico",
+      "lon": -82.829,
+      "lat": 27.963,
+      "tol_m": 1500,
+      "resolved_lon": -82.8292,
+      "resolved_lat": 27.9622,
+      "distance_m": 91,
+      "status": "REVIEW",
+      "elapsed_s": 48.77,
+      "source": "llm_resolution_adjudicator_web",
+      "confidence": "high",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Clearwater Pass seaward inlet opening between the north and south jetties, Clearwater Beach/Sand Key, Florida",
+      "reason": "The user's intent is explicitly the inlet mouth where Clearwater Pass meets the Gulf of Mexico. For a coastal DEM, that practical target is the seaward opening between the jetties so the 2 km box straddles both the pass and open Gulf water. The web candidate matches that physical shoreline/opening interpretation and is supported by inlet-jetty evidence. The grounded candidate is about 1.75 km farther north, which would shift the DEM away from the actual seaward pass opening and does not fit the requested mouth location as well.",
+      "evidence": [
+        {
+          "title": "NOAA / Florida Sea Grant \u2013 Clearwater Pass: Glossary of Inlets #12",
+          "url": "https://repository.library.noaa.gov/view/noaa/38964",
+          "summary": "Authoritative inlet reference for Clearwater Pass; supports that this is a named tidal inlet/pass deserving resolution at its functional entrance rather than a city centroid."
+        },
+        {
+          "title": "OffshoreBlue \u2013 Florida\u2019s West Coast Ocean Entrances and Passes",
+          "url": "https://www.offshoreblue.com/cruise/inlets-fl-wc.php/1000",
+          "summary": "Describes Clearwater Pass as leading in from the Gulf of Mexico between the north end of Sand Key and the south end of Clearwater Beach Island, directly identifying the practical ocean entrance."
+        },
+        {
+          "title": "USACE Jacksonville District \u2013 Clearwater Pass FL (O&M)",
+          "url": "https://www.saj.usace.army.mil/About/Congressional-Fact-Sheets-2025/Clearwater-Pass-FL-O-M/",
+          "summary": "Confirms a maintained navigation channel runs from deep water in the Gulf through Clearwater Pass, supporting use of the inlet mouth/channel entrance rather than an inland harbor point."
+        },
+        {
+          "title": "Florida DEP Strategic Beach Management Plan (2023)",
+          "url": "https://floridadep.gov/sites/default/files/SBMP-SouthwestGulfCoastRegion_2023_4.pdf",
+          "summary": "States Clearwater Pass is an altered inlet stabilized with two jetties, which is strong evidence that the practical DEM target is the jetty-defined shoreline opening."
+        }
+      ],
+      "rejected_candidates": [
+        "Downtown Clearwater or Clearwater city centroid \u2014 administrative/place centroid, not the coastal inlet mouth.",
+        "Sand Key Bridge / Clearwater Pass Bridge \u2014 bridge crossing over the pass, but not the Gulf-facing entrance itself.",
+        "Clearwater Harbor or ICW interior channel \u2014 inland waterbody/channel segment, not where the inlet meets the Gulf.",
+        "Far offshore dredged/navigation channel endpoint in the Gulf \u2014 too far seaward for the requested inlet mouth target."
+      ],
+      "review_reason": "Resolver candidates disagreed beyond the domain-scale threshold; LLM adjudicated the center, but analyst map review is required.",
+      "agreement_check": null
+    },
+    {
+      "id": "tx_galveston_harbor_entrance",
+      "category": "harbor/channel",
+      "location": "Galveston Harbor, Texas",
+      "center_description": "Galveston harbor entrance between the jetties where the ship channel meets the Gulf",
+      "lon": -94.7247,
+      "lat": 29.3057,
+      "tol_m": 2200,
+      "resolved_lon": -94.6503,
+      "resolved_lat": 29.3019,
+      "distance_m": 7235,
+      "status": "FAIL",
+      "elapsed_s": 51.42,
+      "source": "llm_resolution_adjudicator_web",
+      "confidence": "high",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Galveston Harbor entrance between the outer jetties at the Gulf opening",
+      "reason": "The user explicitly wants the harbor entrance between the jetties where the ship channel meets the Gulf. For that coastal target, the practical DEM center should be the seaward jetty opening, not an inland named-channel point. The grounded candidate (-94.707, 29.3105) is too far west and does not plausibly represent the Galveston/Bolivar jetty throat. The web candidate is consistent with the intended Gulf-side entrance between the outer jetties and is the better fit for a 2 km DEM centered on the harbor mouth.",
+      "evidence": [
+        {
+          "title": "NOAA Coast Pilot 5, Chapter 10",
+          "url": "https://nauticalcharts.noaa.gov/publications/coast-pilot/files/cp5/CPB5_C10_WEB.pdf",
+          "summary": "Describes Galveston Bay Entrance Channel and notes features 'just outside the jetties,' confirming the navigational entrance is defined by the jetties."
+        },
+        {
+          "title": "NOAA chart references for Galveston Bay Entrance",
+          "url": "https://www.offshoreblue.com/cruise/inlets-tx.php",
+          "summary": "References NOAA Chart 11324 'Galveston Bay Entrance' and distinguishes the entrance as a specific mapped opening/channel at the jetties."
+        },
+        {
+          "title": "Galveston Bay Entrance Channel topo entry",
+          "url": "https://www.topozone.com/texas/galveston-tx/channel/galveston-bay-entrance-channel/",
+          "summary": "Provides coordinates 29.3121813, -94.6346364 for Galveston Bay Entrance Channel, matching the practical entrance area between the jetties."
+        }
+      ],
+      "rejected_candidates": [
+        "Downtown Galveston or Port of Galveston centroids \u2014 inland harbor/city targets, not the entrance opening.",
+        "Bolivar Roads broad waterbody centroid \u2014 too broad; the request is specifically for the ship-channel mouth between the jetties.",
+        "Offshore approach or sea buoy positions \u2014 too far offshore and not the practical shoreline/breakwater opening.",
+        "Jetty endpoints individually \u2014 user asked for the entrance between them, so the center should lie in the opening, not on one structure."
+      ],
+      "review_reason": "Resolver candidates disagreed beyond the domain-scale threshold; LLM adjudicated the center, but analyst map review is required.",
+      "agreement_check": null
+    },
+    {
+      "id": "tx_port_aransas_channel",
+      "category": "inlet/channel",
+      "location": "Port Aransas, Texas",
+      "center_description": "Port Aransas ship channel entrance at Aransas Pass where it meets the Gulf of Mexico",
+      "lon": -97.05,
+      "lat": 27.836,
+      "tol_m": 1800,
+      "resolved_lon": -97.0438,
+      "resolved_lat": 27.8342,
+      "distance_m": 642,
+      "status": "REVIEW",
+      "elapsed_s": 39.79,
+      "source": "llm_resolution_adjudicator_web",
+      "confidence": "high",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Aransas Pass / Port Aransas ship channel gulf entrance between the north and south jetties",
+      "reason": "The request is specifically for the Port Aransas ship channel entrance at Aransas Pass where it meets the Gulf of Mexico. For a coastal DEM, that practical target is the seaward opening between the north and south jetties so the 2 km box straddles both the inlet/channel and the Gulf. The web candidate matches that physical entrance and is supported by coastal-source evidence. The grounded candidate is ~5.6 km east of this and appears too far offshore to represent the jetty-bounded mouth itself.",
+      "evidence": [
+        {
+          "title": "Aransas Pass (Wikipedia)",
+          "url": "https://en.wikipedia.org/wiki/Aransas_Pass",
+          "summary": "Describes Aransas Pass as the navigable channel connecting the Gulf of Mexico with Aransas Bay and notes it is protected by jetties extending into the Gulf from Mustang Island and San Jos\u00e9 Island."
+        },
+        {
+          "title": "U.S. Coast Pilot 5, Chapter 11 (NOAA)",
+          "url": "https://nauticalcharts.noaa.gov/publications/coast-pilot/files/cp5/CPB5_C11_WEB.pdf",
+          "summary": "NOAA Coast Pilot references the Aransas Pass entrance jetties and the pass entrance geometry, supporting that the functional mouth is the jettied Gulf opening."
+        },
+        {
+          "title": "Texas Inlets \u2013 Gulf of Mexico Coastal Entrances and Passes",
+          "url": "https://www.offshoreblue.com/cruise/inlets-tx.php",
+          "summary": "Summarizes the entrance as improved by two rubble-mound jetties extending nearly a mile into the Gulf, reinforcing that the practical inlet mouth is the opening between those jetties."
+        },
+        {
+          "title": "NOAA NDBC Station 42092 - Aransas Pass Channel Entrance South",
+          "url": "https://www.ndbc.noaa.gov/station_page.php/?station=42092",
+          "summary": "Confirms the recognized offshore approach area is the Aransas Pass channel entrance, useful as context but offshore of the actual DEM target."
+        }
+      ],
+      "rejected_candidates": [
+        "Port Aransas city centroid \u2014 administrative/place centroid, not the coastal entrance.",
+        "Aransas Pass city centroid on the mainland \u2014 wrong feature type and inland from the requested mouth.",
+        "NOAA/NDBC offshore entrance buoy 42092 \u2014 useful context but too far offshore; not the practical shoreline opening.",
+        "Generic geocoder point for 'Aransas Pass' channel around 27.8356, -97.0414 \u2014 plausible channel label but slightly inland of the actual Gulf-facing jetty opening.",
+        "Harbor Island / Roberts Point / marina-related points \u2014 nearby facilities, not the requested inlet mouth."
+      ],
+      "review_reason": "Resolver candidates disagreed beyond the domain-scale threshold; LLM adjudicated the center, but analyst map review is required.",
+      "agreement_check": null
+    },
+    {
+      "id": "hi_pearl_harbor_entrance",
+      "category": "harbor",
+      "location": "Pearl Harbor, Hawaii",
+      "center_description": "entrance of Pearl Harbor where the harbor meets the ocean",
+      "lon": -157.9572,
+      "lat": 21.2999,
+      "tol_m": 1200,
+      "resolved_lon": -157.9616,
+      "resolved_lat": 21.3088,
+      "distance_m": 1091,
+      "status": "REVIEW",
+      "elapsed_s": 50.71,
+      "source": "llm_resolution_adjudicator_revised",
+      "confidence": "high",
+      "resolver_status": null,
+      "needs_review": true,
+      "label": "Pearl Harbor ocean-facing entrance gap",
+      "reason": "The user wants the practical harbor mouth where Pearl Harbor meets the ocean. The grounded candidate uses the seaward endpoint of a long entrance-channel line, but that endpoint lies too far offshore/south to be the DEM center for the physical opening. The web candidate is closer in concept but sits too far inland/north near a representative named-feature coordinate. For a 2 km box, the best center is the actual seaward entrance gap between the harbor defenses/breakwaters at the mouth, so the DEM straddles both the inner entrance channel and adjacent open ocean. A midpoint near (-157.9616, 21.3088) better represents that physical opening than either supplied candidate.",
+      "evidence": [],
+      "rejected_candidates": [],
+      "review_reason": "Resolver candidates disagreed beyond the domain-scale threshold; LLM adjudicated the center, but analyst map review is required.",
+      "agreement_check": null
+    },
+    {
+      "id": "hi_ala_wai_harbor_entrance",
+      "category": "harbor/marina",
+      "location": "Ala Wai Boat Harbor, Honolulu, Hawaii",
+      "center_description": "entrance of Ala Wai Boat Harbor where it opens to the ocean",
+      "lon": -157.8405,
+      "lat": 21.2842,
+      "tol_m": 1200,
+      "resolved_lon": -157.8432,
+      "resolved_lat": 21.2829,
+      "distance_m": 315,
+      "status": "REVIEW",
+      "elapsed_s": 36.98,
+      "source": "openai_web_coastal_resolver",
+      "confidence": "high",
+      "resolver_status": "ready",
+      "needs_review": true,
+      "label": "Ala Wai Boat Harbor ocean entrance opening, Honolulu, Oahu, Hawaii",
+      "reason": "The user asked for the entrance of Ala Wai Boat Harbor where it opens to the ocean. Ala Wai Harbor is consistently described as being at the mouth of the Ala Wai Canal, with debris and harbor operations referring specifically to the 'ocean entrance' and 'harbor\u2019s mouth.' For a 2 km DEM, the practical target is the seaward opening between the harbor/breakwater system and the Pacific, not the harbor centroid or inland canal mouth. A center near the middle of that opening will straddle both the inner harbor channel and the adjacent ocean.",
+      "evidence": [],
+      "rejected_candidates": [],
+      "review_reason": "Web resolver agreed only with an ungrounded text fallback; inspect the context maps before using this AOI.",
+      "agreement_check": {
+        "alternate_source": "llm_text_georesolver",
+        "alternate_lon": -157.8426,
+        "alternate_lat": 21.2807,
+        "separation_m": 252.7,
+        "threshold_m": 1500.0
+      }
+    }
+  ]
+}

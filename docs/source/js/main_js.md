@@ -24,10 +24,42 @@ The initialization path loads config, bathymetry, waves, optional overlays, opti
 
 The page also supports an optional CelerisAgent case startup path. When the URL includes
 `agent_case=<manifest-url>&autostart=1`, `main.js` fetches the manifest, loads the referenced
-`config.json`, `bathy.txt`, and `waves.txt` files as text, and passes them into the same
-`initializeWebGPUApp(configContent, bathymetryContent, waveContent, ...)` path used by manual
-file uploads. This path posts lightweight status messages to a parent iframe but does not alter
-the solver, shader, or example-loading code paths.
+`config.json`, `bathy.txt`, and `waves.txt` files as text, optionally loads `overlay.jpg` as a
+blob when the manifest provides `files.overlay`, optionally loads `etaInitCond.txt` when the
+manifest provides `files.initial_eta`, and passes them into the same
+`initializeWebGPUApp(configContent, bathymetryContent, waveContent, overlayBlob, ..., initialEtaBlob)`
+path used by manual file uploads. This path posts lightweight status messages to a parent iframe
+but does not alter the solver, shader, or example-loading code paths.
+
+For embedded CelerisAgent operation, `main.js` also installs the runtime control bridge from
+`js/agent_controls.js` after the normal HTML update helpers are defined. The bridge exposes
+semantic commands for examples, pause/resume, and the Modify Visualization panel through
+`window.CelerisAgentControls` and the `celeris-agent-command` `postMessage` channel. These
+commands reuse the same `calc_constants` update path as the hidden HTML controls rather than
+introducing separate render logic. The view-mode command refreshes the Explorer zoom listener, and
+the fullscreen command invokes the existing fullscreen button path only when fullscreen is not
+already active. The bridge receives a live `getCalcConstants()` getter because `calc_constants` is
+reassigned when examples or agent cases load; runtime state replies must read the current object, not
+the original install-time object. Design-container commands use the same bridge to select surface-cover components,
+set optional radius/friction values, prepare linear-structure cross-sections, switch the active
+linear-structure endpoint, and queue the existing Add Linear Structure path. The add callback returns
+`{ok, message}` for agent calls while preserving the native alert behavior for manual UI clicks; the
+GPU apply path continues to reset only start/end endpoint state and leaves crest elevation, crest
+width, and side slope unchanged. Agent-selected design workflow mode gates the shared design-panel
+click handlers so surface-cover editing ignores right-click endpoint placement, and linear-structure
+editing ignores left-click component painting.
+
+The Agent bridge also exposes the mods-container click-edit path through a confirmed runtime command.
+Root CELERIS receives only the activation command; natural-language interpretation and confirmation
+stay in CelerisAgent. Activation sets `whichPanelisOpen=3`, the requested `surfaceToChange`,
+`changeType`, and optional `changeAmplitude`/`changeRadius`, then the existing click-update shader
+handles bathy/topo, friction, passive tracer source, or free-surface edits.
+
+For embedded CelerisAgent status display, the render loop mirrors the current simulated time and
+faster-than-realtime ratio into `calc_constants.agent_total_time`,
+`calc_constants.agent_total_time_since_http_update`, and
+`calc_constants.agent_faster_than_realtime_ratio`. These are display/provenance values only; they do
+not drive solver behavior.
 
 ## Main Simulation Loop
 
@@ -61,6 +93,7 @@ Most DOM event listeners are registered in this file:
 - In Explorer mode on touch devices, two-finger horizontal drag strafes left/right, and pinch maps to the same forward/back `shift_y` movement used by `W/S` and up/down keys.
 - Fullscreen entry falls back to an inline pseudo-fullscreen canvas layout when the browser rejects or lacks `requestFullscreen`; the fullscreen button remains visible as the exit control, and mobile viewport resize events are debounced.
 - Time-series location management.
+- Pointer-to-domain coordinate conversion uses the visible `object-fit: contain` content rectangle rather than the raw canvas element rectangle. The helper respects CSS `object-position`, which lets the embedded Agent runner anchor the rendered simulation at the top-left of its split while keeping tooltip, time-series, and design-click mapping aligned.
 - Linear-structure management for the engineered-design panel. Crest elevation, crest width, side slope, current endpoint selection, and start/end coordinates are stored in `calc_constants`; right-clicking in Design mode while the engineered-design panel is open records the selected endpoint. The preview is plotted only while that panel is open. The Add Linear Structure button validates the endpoints and queues a `MouseClickChange.wgsl` bathy/topo edit; after the GPU copy-back and near-dry/tridiagonal refresh complete, the stored endpoints and preview are reset.
 - File input handlers.
 - Export buttons for images, GIFs, JSON config, and simulation surfaces.
@@ -71,7 +104,7 @@ The UI does not directly mutate GPU textures. It changes `calc_constants` and se
 
 - Shader selection is driven by `Accuracy_mode` and `NLSW_or_Bous`.
 - Handler argument order is critical because `main.js` passes textures positionally.
-- `txWaves` is normally loaded from `waves.txt`, but UI-selected sine and TMA forcing reuse the same texture contract. Sine sets `numberOfWaves` to 1, converts UI height to amplitude with `H / 2`, and converts UI direction from degrees to radians. TMA generates a cached spectrum from the incident-wave controls, updates `numberOfWaves`, and reuploads the wave texture without resetting wave-height diagnostics.
+- `txWaves` is normally loaded from `waves.txt`, but UI-selected sine and TMA forcing reuse the same texture contract. Sine sets `numberOfWaves` to 1, converts UI height to amplitude with `H / 2`, and converts UI direction from degrees to radians. Sine and TMA both fit directions so phase is periodic across the active forcing span only when the boundaries transverse to the wave boundary are periodic. TMA generates a cached spectrum from the incident-wave controls, updates `numberOfWaves`, and reuploads the wave texture without resetting wave-height diagnostics.
 - The PCR tridiagonal solver depends on the paired `BaseToA`, `AToB`, and `BToA` bind groups created here for both x and y directions.
 - The render bind group is shared by 2D and 3D rendering.
 - Linear-structure preview uniforms are appended to the render uniform buffer and are populated from `calc_constants` before each render write. The preview is panel-gated and draws endpoint dots and the connecting segment in `fragment.wgsl`. Linear-structure bathy/topo edits are dispatched separately through `MouseClickChange.wgsl`, then copied into `txBottom` with the same near-dry and tridiagonal refresh sequence used by manual bathy/topo edits.

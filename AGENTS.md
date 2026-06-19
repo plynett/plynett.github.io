@@ -156,12 +156,27 @@ Each `examples/<Location>/` directory contains:
 
 ## Important Considerations for AI Assistants
 
+### CelerisAgent Geographic Intelligence
+
+For `CelerisAgent`, do not encode natural-language geographic understanding as growing script-side phrase lists or custom keyword rules. The LLM must interpret user intent such as "harbor entrance", "where the harbor meets the ocean", "mouth of the inlet", "offshore of the wharf", or equivalent phrasing.
+
+The correct architecture is:
+1. Send the raw user message, conversation state, and recent transcript to the LLM.
+2. Have the LLM produce a structured geographic intent and search plan.
+3. Let deterministic scripts gather map/geocoder evidence and geometry from external/local sources.
+4. Send that evidence back to the LLM to select or derive the requested real-world point.
+5. Let deterministic scripts compute the final bbox, retrieve DEMs, and process files.
+
+Scripts may perform deterministic geometry, geocoder/API calls, file IO, validation, and provenance recording. Scripts should not decide that specific user phrases imply specific geographic features through hard-coded vocabulary except for internal workflow states created by the scripts themselves.
+
 ### Code Change Workflow
 
 When making source changes:
 1. Read the existing markdown file for any source file that will be changed.
 2. Make the absolute minimal source-code change possible.
 3. Update all affected markdown files as needed.
+4. Keep the local repository and the LAN host deployment synchronized. For this project, the local repo and `celeris@192.168.1.239:/srv/celeris/current` must not intentionally diverge. After changing files that affect the LAN deployment, copy the same files to the LAN host, restart the affected services, and verify the local and remote file hashes match. If a change cannot be synced immediately, state that explicitly before ending the turn.
+5. LAN host setup and repeatable deployment details live in `LAN_HOST_SETUP.md`; update that document whenever the LAN host configuration changes.
 
 ### No Build System
 

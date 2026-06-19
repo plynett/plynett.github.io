@@ -1,0 +1,79 @@
+{
+  "name": "US coastal DEM conversational smoke tests",
+  "created": "2026-06-03",
+  "purpose": "Exercise CelerisAgent chat state, LLM spatial interpretation, source routing, and UI rendering across varied US coastal locations.",
+  "cases": [
+    {
+      "id": "hawaii_waikiki_ala_wai",
+      "region": "Hawaii",
+      "place": "Waikiki Beach / Ala Wai Boat Harbor, Honolulu, HI",
+      "notable_features": ["Waikiki Beach", "Ala Wai Boat Harbor", "Magic Island"],
+      "turns": [
+        "Could you make me a coastal DEM for waikiki, maybe by the boat harbor?",
+        "I forgot the size - use about 800 m by 800 m, centered around the Ala Wai boat harbor entrance. Native datum/res is fine.",
+        "Actually bias it a little offshore so the beach and harbor entrance are both visible."
+      ],
+      "expected_focus": "State carryover from informal Waikiki request, fuzzy harbor entrance center, and offshore spatial correction."
+    },
+    {
+      "id": "oregon_cannon_beach",
+      "region": "Oregon",
+      "place": "Cannon Beach / Haystack Rock, OR",
+      "notable_features": ["Cannon Beach", "Haystack Rock"],
+      "turns": [
+        "Need a DEM for Cannon bech Oregon near Haystack rock.",
+        "Let's do a 1 km square domain. I don't care about resampling, keep native source resolution.",
+        "Center it so Haystack Rock is in the lower half and there is ocean on the west side."
+      ],
+      "expected_focus": "Typo in place name, missing domain on first turn, final conversational footprint correction."
+    },
+    {
+      "id": "california_monterey_harbor",
+      "region": "California",
+      "place": "Monterey Harbor / Fisherman's Wharf, CA",
+      "notable_features": ["Monterey Harbor", "Fisherman's Wharf", "Monterey Bay"],
+      "turns": [
+        "Create a coastal DEM for Monterey harbor by Fishermans wharf.",
+        "Use a roughly 900 meter by 900 meter domain, but don't force it to 5m. native grid is ok.",
+        "If the first center is too far inland, move it toward the harbor mouth."
+      ],
+      "expected_focus": "Named harbor request, native-resolution policy, and relative correction toward harbor mouth."
+    },
+    {
+      "id": "texas_galveston_pleasure_pier",
+      "region": "Texas",
+      "place": "Galveston Seawall / Pleasure Pier, TX",
+      "notable_features": ["Galveston Seawall", "Pleasure Pier", "Gulf of Mexico"],
+      "turns": [
+        "Can we build a DEM for Galviston beach around Pleasure Pier?",
+        "Target area is about 1 km x 1 km. Put the pier near the center.",
+        "The Gulf side matters most; if needed shift the grid seaward."
+      ],
+      "expected_focus": "Typo in Galveston, source routing outside the West Coast, and seaward correction."
+    },
+    {
+      "id": "florida_south_beach_government_cut",
+      "region": "Florida",
+      "place": "South Beach / Government Cut, Miami Beach, FL",
+      "notable_features": ["South Beach", "Government Cut", "Miami Beach"],
+      "turns": [
+        "I want a DEM for south beach Miami near Gov cut.",
+        "Make it a 1 km by 1 km coastal box, centered near the beach side of Government Cut.",
+        "Use whatever vertical datum the source has, just make sure the inlet/ocean entrance is included."
+      ],
+      "expected_focus": "Abbreviated feature name, missing datum, and final inlet/ocean footprint inclusion."
+    },
+    {
+      "id": "north_carolina_duck_pier",
+      "region": "North Carolina",
+      "place": "Duck Pier / USACE Field Research Facility, Duck, NC",
+      "notable_features": ["Duck Pier", "USACE Field Research Facility", "Outer Banks"],
+      "turns": [
+        "Make a coastal DEM for Duck NC near the pier.",
+        "Oops, I mean the research pier / field research facility. Use about 1 km square.",
+        "Center it on the shoreline with enough offshore area for incoming waves."
+      ],
+      "expected_focus": "Conversational correction of feature name and shoreline/offshore AOI reasoning."
+    }
+  ]
+}

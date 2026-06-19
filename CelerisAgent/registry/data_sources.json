@@ -1,0 +1,38 @@
+{
+  "data_sources": [
+    {
+      "id": "noaa_digital_coast",
+      "name": "NOAA Digital Coast Data Access Viewer",
+      "status": "partially_implemented",
+      "tier": 1,
+      "role": "First online path when the user specifies a particular US dataset or source name. Implemented paths are DAV candidate search, direct GeoTIFF export for ImageServer candidates, and direct full-product/provider-link download."
+    },
+    {
+      "id": "usgs_coned_wcs",
+      "name": "USGS CoNED Project Viewer GeoServer WCS",
+      "status": "implemented",
+      "tier": 2,
+      "role": "Default first-choice US coastal DEM source when no specific dataset is supplied or Tier 1 cannot produce a downloadable dataset. Uses targeted DescribeCoverage and GetCoverage requests to extract GeoTIFF subsets."
+    },
+    {
+      "id": "noaa_slr_viewer_dem",
+      "name": "NOAA Sea Level Rise Viewer DEM",
+      "status": "implemented",
+      "tier": 2,
+      "role": "Default second-choice US coastal DEM source when CoNED WCS has no coverage or cannot extract the AOI."
+    },
+    {
+      "id": "public_noaa_gridded",
+      "name": "Public NOAA gridded sources",
+      "status": "implemented",
+      "tier": 3,
+      "role": "Public online fallback after DAV, CoNED, and NOAA SLR. Queries NOAA DEM Global Mosaic for the best available gridded raster over the AOI, then falls back to CRM Mosaic and ETOPO 2022 Bedrock 15 arcseconds. Explicit CRM or ETOPO requests use the named product directly."
+    },
+    {
+      "id": "direct_url",
+      "name": "Direct DEM URL",
+      "status": "implemented",
+      "role": "Download a user-provided DEM URL and route it through the normal DEM standardization workflow."
+    }
+  ]
+}

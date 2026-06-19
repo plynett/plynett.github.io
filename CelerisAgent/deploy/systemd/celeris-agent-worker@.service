@@ -1,0 +1,24 @@
+[Unit]
+Description=CelerisAgent background worker %i
+After=network-online.target redis-server.service
+Wants=network-online.target
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=celeris
+Group=celeris
+WorkingDirectory=/srv/celeris/current/CelerisAgent
+EnvironmentFile=/etc/celeris-agent.env
+Environment=PYTHONUNBUFFERED=1
+Environment=CELERIS_AGENT_QUEUE_MODE=rq
+Environment=OPENBLAS_NUM_THREADS=2
+Environment=OMP_NUM_THREADS=2
+Environment=GDAL_NUM_THREADS=2
+Environment=NUMEXPR_NUM_THREADS=2
+ExecStart=/srv/celeris/.venv/bin/rq worker celeris-agent --url redis://127.0.0.1:6379/0
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

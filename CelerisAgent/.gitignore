@@ -1,0 +1,11 @@
+workspace/jobs/*
+workspace/cache/*
+workspace/logs/*
+workspace/auth/*
+!workspace/jobs/.gitkeep
+!workspace/cache/.gitkeep
+!workspace/logs/.gitkeep
+!workspace/auth/.gitkeep
+__pycache__/
+*.pyc
+.env

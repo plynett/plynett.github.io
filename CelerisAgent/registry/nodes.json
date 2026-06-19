@@ -1,0 +1,294 @@
+{
+  "source_tiers": [
+    {
+      "tier": 1,
+      "id": "tier_1_user_specified_us_dataset",
+      "condition": "No DEM file or direct DEM URL was provided, and the user specifies a particular US dataset or source name.",
+      "primary_source": "noaa_digital_coast",
+      "nodes": [
+        "resolve_aoi_center",
+        "build_aoi_bbox",
+        "noaa_dav_search_user_dataset",
+        "rank_user_specified_dav_dataset",
+        "noaa_arcgis_export_image",
+        "noaa_dav_full_dataset_download"
+      ],
+      "fallback": "tier_2_default_us_dem",
+      "policy": [
+        "Search DAV for the requested dataset, including DEM and lidar candidates.",
+        "If the dataset is accessible and downloadable, download it even when full-dataset acquisition is required.",
+        "Before a large full-dataset download, inform the user of the estimated size and likely wait time.",
+        "If the downloaded product is not already a raster DEM, preserve the source files and metadata but do not claim a CELERIS bathymetry artifact."
+      ]
+    },
+    {
+      "tier": 2,
+      "id": "tier_2_default_us_dem",
+      "condition": "No specific dataset was provided, the requested dataset was not available, or the requested dataset was not downloadable.",
+      "primary_sources": ["usgs_coned_wcs", "noaa_slr_viewer_dem"],
+      "nodes": [
+        "usgs_coned_wcs_catalog_match",
+        "usgs_coned_wcs_describe",
+        "usgs_coned_wcs_extract",
+        "noaa_slr_viewer_dem_search",
+        "noaa_slr_viewer_dem_extract"
+      ],
+      "fallback": "tier_3_public_noaa_gridded",
+      "policy": [
+        "Try USGS CoNED WCS extraction first for US coastal AOIs.",
+        "If CoNED WCS has no coverage or cannot produce a GeoTIFF subset, try NOAA Sea Level Rise Viewer DEM.",
+        "Use native or service-native resolution and datum, and record which one was used in metadata."
+      ]
+    },
+    {
+      "tier": 3,
+      "id": "tier_3_public_noaa_gridded",
+      "condition": "Tier 1 and Tier 2 cannot produce a usable source DEM, or the user explicitly requests public NOAA gridded sources such as NOAA DEM Global Mosaic, CUDEM, CRM, or ETOPO.",
+      "primary_sources": ["noaa_coastal_relief_model", "noaa_etopo_2022"],
+      "nodes": [
+        "public_noaa_gridded_search",
+        "rank_public_noaa_gridded",
+        "public_noaa_gridded_extract"
+      ],
+      "fallback": "online_sources_exhausted",
+      "policy": [
+        "Query NOAA DEM Global Mosaic for the best available gridded raster over the AOI, then fall back to CRM Mosaic and ETOPO 2022 Bedrock 15 arcseconds.",
+        "Export a clipped GeoTIFF for the requested AOI through NOAA Grid Extract ImageServer endpoints.",
+        "Preserve service-native resolution, datum, source bbox, and request bbox in DEM metadata."
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "parse_dem_request",
+      "type": "agent_router",
+      "description": "Extract location, AOI, resolution, datum, file hints, and desired products from a chat instruction.",
+      "outputs": ["dem_intent"]
+    },
+    {
+      "id": "detect_attachment_format",
+      "type": "intake",
+      "description": "Inspect chat attachments, expand ZIP bundles, and rank supported DEM-like files.",
+      "outputs": ["candidate_dem_files"]
+    },
+    {
+      "id": "load_geotiff",
+      "type": "loader",
+      "description": "Read GeoTIFF rasters with rasterio/GDAL metadata."
+    },
+    {
+      "id": "load_netcdf",
+      "type": "loader",
+      "description": "Read DEM-like 2D variables from NetCDF datasets."
+    },
+    {
+      "id": "load_ascii_grid",
+      "type": "loader",
+      "description": "Read ESRI ASCII grid files."
+    },
+    {
+      "id": "load_text_or_xyz",
+      "type": "loader",
+      "description": "Read 2D numeric matrices or regular XYZ point grids."
+    },
+    {
+      "id": "load_mat",
+      "type": "loader",
+      "description": "Read 2D numeric DEM arrays from MATLAB files."
+    },
+    {
+      "id": "normalize_to_canonical_dem",
+      "type": "processing",
+      "description": "Apply sign, unit, CRS, datum, nodata, and downsampling options."
+    },
+    {
+      "id": "validate_celeris_bathy",
+      "type": "validation",
+      "description": "Check shape, nodata, CRS, datum, spacing, sign convention risks, and elevation ranges."
+    },
+    {
+      "id": "export_celeris_bathy",
+      "type": "export",
+      "description": "Write celeris_bathy.mat, preview.png, and dem_manifest.json. bathy.txt is deferred to the config-generation node."
+    },
+    {
+      "id": "rank_dem_sources",
+      "type": "source_selection",
+      "description": "Apply the tiered online source hierarchy: user-specified US dataset through DAV, then CoNED WCS, then NOAA SLR DEM, then public NOAA gridded sources."
+    },
+    {
+      "id": "route_online_dem_source_tiers",
+      "type": "agent_router",
+      "status": "implemented",
+      "description": "Route source-based DEM requests through Tier 1 user-specified DAV datasets, Tier 2 default US DEM sources, and Tier 3 public NOAA gridded sources."
+    },
+    {
+      "id": "resolve_aoi_center",
+      "type": "geocoding",
+      "description": "Resolve a named center point to lon/lat using request coordinates, curated aliases, or a geocoder fallback.",
+      "outputs": ["center_lon_lat"]
+    },
+    {
+      "id": "resolve_shoreline_anchor",
+      "type": "geometry",
+      "status": "implemented",
+      "description": "For coastal center-plus-domain AOIs, use local OSM coastline first and Natural Earth fallback to snap the resolved center to the nearest shoreline before building the DEM bbox.",
+      "outputs": ["shoreline_anchor_lon_lat", "shoreline_anchor_metadata"]
+    },
+    {
+      "id": "build_aoi_bbox",
+      "type": "geometry",
+      "description": "Create a WGS84 bounding box and DAV WKT polygon from center lon/lat and requested domain size.",
+      "outputs": ["aoi_bbox_wgs84", "dav_wkt_polygon"]
+    },
+    {
+      "id": "noaa_dav_search_missions",
+      "type": "retrieval",
+      "description": "Call the NOAA Digital Coast Data Access Viewer /search/missions endpoint for Lidar and DEM candidates intersecting the AOI.",
+      "outputs": ["noaa_dav_candidates"]
+    },
+    {
+      "id": "noaa_dav_search_user_dataset",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Tier 1 DAV search for a user-specified US dataset, including DEM and lidar candidates intersecting the AOI.",
+      "outputs": ["noaa_dav_user_dataset_candidates"]
+    },
+    {
+      "id": "rank_user_specified_dav_dataset",
+      "type": "source_selection",
+      "status": "implemented",
+      "description": "Match a user-specified dataset name against DAV candidates and choose the best downloadable candidate before falling back to default DEM sources."
+    },
+    {
+      "id": "rank_noaa_dav_candidates",
+      "type": "source_selection",
+      "description": "Rank NOAA DAV candidates by data type, datum match, target resolution, recency, direct export support, and bulk download availability."
+    },
+    {
+      "id": "noaa_arcgis_export_image",
+      "type": "retrieval",
+      "description": "For NOAA DAV candidates with an ArcGIS ImageServer, export a GeoTIFF for the requested AOI and grid size."
+    },
+    {
+      "id": "noaa_dav_full_dataset_download",
+      "type": "retrieval",
+      "status": "partially_implemented",
+      "description": "Download a user-specified DAV dataset through direct full-product or provider links when AOI extraction is unavailable; estimate and report size before large downloads. Bulk tile indexing remains separate."
+    },
+    {
+      "id": "usgs_coned_wcs_catalog_match",
+      "type": "source_selection",
+      "status": "implemented",
+      "description": "Match a US coastal AOI against a cached CoNED Project Viewer layer catalog and choose the intersecting WCS coverage."
+    },
+    {
+      "id": "usgs_coned_wcs_describe",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Call GeoServer WCS DescribeCoverage for the selected CoNED coverage to capture CRS, bounds, grid spacing, native format, and service-native resolution."
+    },
+    {
+      "id": "usgs_coned_wcs_extract",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Call GeoServer WCS GetCoverage to export a GeoTIFF subset for the AOI, then route it through DEM standardization."
+    },
+    {
+      "id": "noaa_slr_viewer_dem_search",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Search for NOAA Sea Level Rise Viewer DEM coverage after CoNED is unavailable or cannot extract the AOI."
+    },
+    {
+      "id": "noaa_slr_viewer_dem_extract",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Export the NOAA Sea Level Rise Viewer DEM for the AOI in its native datum and resolution, then route it through DEM standardization."
+    },
+    {
+      "id": "public_noaa_gridded_search",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Create public NOAA gridded candidates for the AOI, including NOAA DEM Global Mosaic best-available raster, CRM Mosaic, and ETOPO 2022 Bedrock 15 arcseconds.",
+      "outputs": ["public_noaa_gridded_candidates"]
+    },
+    {
+      "id": "rank_public_noaa_gridded",
+      "type": "source_selection",
+      "status": "implemented",
+      "description": "Prefer user-requested CRM or ETOPO when specified; otherwise try NOAA DEM Global Mosaic first, then CRM and ETOPO fallbacks."
+    },
+    {
+      "id": "public_noaa_gridded_extract",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "Export a clipped GeoTIFF from a public NOAA Grid Extract ArcGIS ImageServer dataset and route it through DEM standardization."
+    },
+    {
+      "id": "download_direct_dem_url",
+      "type": "retrieval",
+      "description": "Download a user-provided DEM URL and route it through the normal attachment workflow."
+    },
+    {
+      "id": "parse_celeris_config_request",
+      "type": "agent_router",
+      "status": "implemented",
+      "description": "Ask the LLM to merge user-provided simulation setup details with CELERIS defaults and return a complete config request object."
+    },
+    {
+      "id": "validate_celeris_config_request",
+      "type": "validation",
+      "status": "implemented",
+      "description": "Validate first-pass CELERIS config requirements, including the required wave direction and exactly one incoming wave boundary."
+    },
+    {
+      "id": "load_celeris_bathy_mat",
+      "type": "loader",
+      "status": "implemented",
+      "description": "Load outputs/celeris_bathy.mat and support z/h bathymetry variables plus x/y coordinates."
+    },
+    {
+      "id": "interpolate_bathy_to_model_grid",
+      "type": "processing",
+      "status": "implemented",
+      "description": "Interpolate canonical bathymetry to the requested CELERIS dx/dy model grid."
+    },
+    {
+      "id": "write_bathy_txt",
+      "type": "export",
+      "status": "implemented",
+      "description": "Write CELERIS bathy.txt from the interpolated model grid."
+    },
+    {
+      "id": "generate_periodic_wave_file",
+      "type": "export",
+      "status": "implemented",
+      "description": "Generate waves.txt using a Python port of the Korea JLOTS spectrum_2D_periodic.m workflow."
+    },
+    {
+      "id": "write_celeris_config_json",
+      "type": "export",
+      "status": "implemented",
+      "description": "Write config.json using the Korea JLOTS Step2 defaults plus LLM/user-provided overrides and derived grid fields."
+    },
+    {
+      "id": "write_celeris_case_manifest",
+      "type": "export",
+      "status": "implemented",
+      "description": "Write celeris_case_manifest.json with config, wave, grid, provenance, and validation metadata."
+    },
+    {
+      "id": "satellite_overlay_generation",
+      "type": "retrieval",
+      "status": "implemented",
+      "description": "After CELERIS inputs are generated, resolve the final model-domain bbox, retrieve tiled satellite imagery from Esri World Imagery with EOX Sentinel-2 cloudless fallback, and write overlay.jpg plus overlay_manifest.json with a maximum side length of 8192 pixels."
+    },
+    {
+      "id": "queue_celeris_runtime_command",
+      "type": "runtime_control",
+      "status": "implemented",
+      "description": "Queue a whitelisted semantic runtime command for the embedded root CELERIS agent runner. Implemented commands include examples, pause/resume, Modify Visualization controls, and Add Engineered Design Components controls listed in celeris_runtime_controls.json."
+    }
+  ]
+}

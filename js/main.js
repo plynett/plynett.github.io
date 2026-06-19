@@ -6,7 +6,7 @@ import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, re
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 // Added by Codex: Boundary-wave generators keep UI-created spectra outside the main orchestrator.
-import { GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY, buildSineWaveData, buildTmaWaveData } from './Wave_Generator.js';
+import { GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY, buildSineWaveData, buildTmaWaveData } from './Wave_Generator.js?v=periodic-wave-fit-gated-20260611';
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
 import { createRenderBindGroupLayout, createRenderBindGroup, update_colorbar, loadImage} from './Handler_Render.js';  // group bindings for render shaders
 import { createSkyboxBindGroupLayout, createSkyboxBindGroup} from './Handler_Skybox.js';  // group bindings for skybox shaders
@@ -33,6 +33,7 @@ import { createComputePipeline, createRenderPipeline, createRenderPipeline_verte
 import { fetchShader, runComputeShader, runCopyTextures, runComputeShader_EncStack, runCopyTextures_EncStack} from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, displaySlideVolume, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
+import { installCelerisAgentControls } from './agent_controls.js?v=agent-timeseries-duration-native-path-20260614';
 import { mat4, vec3 } from 'https://cdn.jsdelivr.net/npm/gl-matrix/esm/index.js';
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
@@ -53,6 +54,8 @@ let context = null;
 let adapter = null;
 // CODEX: Tracks whether the iOS/mobile pseudo-fullscreen fallback is active.
 let pseudoFullscreenActive = false;
+// CODEX: Agent-selected design workflow mode gates left/right design-panel click actions.
+let agentDesignInteractionMode = null;
 
 // CODEX: Update the linear-structure coordinate summary from calc_constants outside the DOMContentLoaded scope.
 function updateLinearStructureLocationsDisplayFromCalcConstants() {
@@ -122,6 +125,14 @@ async function fetchAgentCaseText(url, label) {
     return response.text();
 }
 
+async function fetchAgentCaseBlob(url, label) {
+    const response = await fetch(url, { mode: "cors" });
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${label}: HTTP ${response.status}`);
+    }
+    return response.blob();
+}
+
 function resolveAgentCaseFileUrl(caseUrl, fileUrl) {
     if (!fileUrl || typeof fileUrl !== "string") {
         throw new Error("Agent case manifest is missing a required file URL.");
@@ -148,15 +159,19 @@ async function loadAgentCaseFromUrl() {
         const configUrl = resolveAgentCaseFileUrl(caseUrl, files.config);
         const bathyUrl = resolveAgentCaseFileUrl(caseUrl, files.bathy);
         const wavesUrl = resolveAgentCaseFileUrl(caseUrl, files.waves);
+        const overlayUrl = files.overlay ? resolveAgentCaseFileUrl(caseUrl, files.overlay) : null;
+        const initialEtaUrl = files.initial_eta ? resolveAgentCaseFileUrl(caseUrl, files.initial_eta) : null;
         const [configContent, bathymetryContent, waveContent] = await Promise.all([
             fetchAgentCaseText(configUrl, "config.json"),
             fetchAgentCaseText(bathyUrl, "bathy.txt"),
             fetchAgentCaseText(wavesUrl, "waves.txt"),
         ]);
+        const overlayBlob = overlayUrl ? await fetchAgentCaseBlob(overlayUrl, "overlay.jpg") : undefined;
+        const initialEtaBlob = initialEtaUrl ? await fetchAgentCaseBlob(initialEtaUrl, "etaInitCond.txt") : undefined;
 
         calc_constants.run_example = -1;
         postAgentCaseStatus("celeris:case-loaded", { caseUrl, manifest });
-        await initializeWebGPUApp(configContent, bathymetryContent, waveContent);
+        await initializeWebGPUApp(configContent, bathymetryContent, waveContent, overlayBlob, undefined, initialEtaBlob);
         postAgentCaseStatus("celeris:started", { caseUrl, manifest });
         return true;
     } catch (error) {
@@ -2672,6 +2687,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         const now = new Date();
         calc_constants.elapsedTime = (now - startTime) / 1000.0;
         calc_constants.elapsedTime_update = (now - startTime_update) / 1000.0;
+        calc_constants.agent_total_time = total_time;
+        calc_constants.agent_total_time_since_http_update = total_time_since_http_update;
+        calc_constants.agent_faster_than_realtime_ratio = calc_constants.elapsedTime_update > 0
+            ? total_time_since_http_update / calc_constants.elapsedTime_update
+            : null;
 
         // Call the function to display the constants in the index.html page
         calc_constants.clearConc = 0; // reset back to default value - no easier place to set this back.
@@ -3040,7 +3060,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Helper function to handle click or mouse move while button is pressed
     function handleMouseEvent(event) {
-        var rect = canvas.getBoundingClientRect();
+        if (calc_constants.viewType == 1 && ["linear", "timeseries"].includes(agentDesignInteractionMode)) {
+            return;
+        }
+        const rect = getCanvasContentRect();
+        if (!rect || !isPointerInCanvasContent(event, rect)) {
+            return;
+        }
         var scaleX = calc_constants.WIDTH / rect.width;
         var scaleY = calc_constants.HEIGHT / rect.height;
 
@@ -3051,13 +3077,73 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Canvas clicked/moved at X:", calc_constants.xClick, " Y:", calc_constants.yClick);
     }
 
+    function getCanvasContentRect() {
+        const bounds = canvas.getBoundingClientRect();
+        const boundsWidth = bounds.right - bounds.left;
+        const boundsHeight = bounds.bottom - bounds.top;
+        if (boundsWidth <= 0 || boundsHeight <= 0 || canvas.width <= 0 || canvas.height <= 0) {
+            return null;
+        }
+        const boundsRatio = boundsWidth / boundsHeight;
+        const canvasRatio = canvas.width / canvas.height;
+        if (boundsRatio > canvasRatio) {
+            const contentWidth = boundsHeight * canvasRatio;
+            const insetX = objectFitOffset(boundsWidth - contentWidth, getComputedStyle(canvas).objectPosition, "x");
+            return {
+                left: bounds.left + insetX,
+                right: bounds.left + insetX + contentWidth,
+                top: bounds.top,
+                bottom: bounds.bottom,
+                width: contentWidth,
+                height: boundsHeight
+            };
+        }
+        const contentHeight = boundsWidth / canvasRatio;
+        const insetY = objectFitOffset(boundsHeight - contentHeight, getComputedStyle(canvas).objectPosition, "y");
+        return {
+            left: bounds.left,
+            right: bounds.right,
+            top: bounds.top + insetY,
+            bottom: bounds.top + insetY + contentHeight,
+            width: boundsWidth,
+            height: contentHeight
+        };
+    }
+
+    function objectFitOffset(extraSpace, objectPosition, axis) {
+        if (extraSpace <= 0) {
+            return 0;
+        }
+        const tokens = String(objectPosition || "50% 50%").toLowerCase().trim().split(/\s+/);
+        const token = axis === "x" ? tokens[0] : (tokens[1] || tokens[0]);
+        if (token === "left" || token === "top") {
+            return 0;
+        }
+        if (token === "right" || token === "bottom") {
+            return extraSpace;
+        }
+        const percent = token.endsWith("%") ? Number.parseFloat(token) : NaN;
+        if (Number.isFinite(percent)) {
+            return extraSpace * percent / 100.0;
+        }
+        return 0.5 * extraSpace;
+    }
+
+    function isPointerInCanvasContent(event, rect) {
+        return event.clientX >= rect.left
+            && event.clientX <= rect.right
+            && event.clientY >= rect.top
+            && event.clientY <= rect.bottom;
+    }
+
     // CODEX: Convert a pointer location on the canvas to the same meter coordinates used by the tooltip and time-series UI.
     function getCanvasWorldCoordinates(event) {
-        const bounds = canvas.getBoundingClientRect();
-        const canvasWidth = bounds.right - bounds.left;
-        const canvasHeight = bounds.bottom - bounds.top;
-        const normalizedX = Math.min(1.0, Math.max(0.0, (event.clientX - bounds.left) / canvasWidth));
-        const normalizedY = Math.min(1.0, Math.max(0.0, 1.0 - (event.clientY - bounds.top) / canvasHeight));
+        const bounds = getCanvasContentRect();
+        if (!bounds || !isPointerInCanvasContent(event, bounds)) {
+            return null;
+        }
+        const normalizedX = Math.min(1.0, Math.max(0.0, (event.clientX - bounds.left) / bounds.width));
+        const normalizedY = Math.min(1.0, Math.max(0.0, 1.0 - (event.clientY - bounds.top) / bounds.height));
         return {
             x: normalizedX * calc_constants.WIDTH * calc_constants.dx,
             y: normalizedY * calc_constants.HEIGHT * calc_constants.dy
@@ -3147,39 +3233,44 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // CODEX: Queue a linear-structure bathy/topo edit for the next MouseClickChange dispatch.
-    function requestAddLinearStructure() {
+    function requestAddLinearStructure(options = {}) {
+        const fail = (message) => {
+            if (!options.silent) {
+                alert(message);
+            }
+            return { ok: false, message };
+        };
         if (!device) {
-            alert('Start a simulation before adding a linear structure.');
-            return;
+            return fail('Start a simulation before adding a linear structure.');
         }
         if (calc_constants.viewType != 1 || calc_constants.whichPanelisOpen != 2) {
-            alert('Open the Add Engineered Design Components panel in Design mode before adding a linear structure.');
-            return;
+            return fail('Open the Add Engineered Design Components panel in Design mode before adding a linear structure.');
         }
         if (calc_constants.designcomponent_StartDefined != 1 || calc_constants.designcomponent_EndDefined != 1) {
-            alert('Define both the linear structure start and end locations before adding the structure.');
-            return;
+            return fail('Define both the linear structure start and end locations before adding the structure.');
         }
         const linearStructureLength = Math.hypot(
             calc_constants.designcomponent_EndX - calc_constants.designcomponent_StartX,
             calc_constants.designcomponent_EndY - calc_constants.designcomponent_StartY
         );
         if (linearStructureLength <= Math.max(calc_constants.dx, calc_constants.dy)) {
-            alert('Choose start and end locations that are farther apart.');
-            return;
+            return fail('Choose start and end locations that are farther apart.');
         }
         if (calc_constants.designcomponent_CrestWidth <= 0.0 || calc_constants.designcomponent_SideSlope <= 0.0) {
-            alert('Use a positive crest width and positive side slope before adding the linear structure.');
-            return;
+            return fail('Use a positive crest width and positive side slope before adding the linear structure.');
         }
         calc_constants.designcomponent_AddLinearStructure = 1;
         calc_constants.click_update = 1;
         calc_constants.designcomponent_PreviewOn = 1;
+        return { ok: true };
     }
 
     // CODEX: Store a right-clicked world point as the currently selected linear-structure endpoint.
     function storeLinearStructureEndpointFromPointer(event) {
         const endpointLocation = getCanvasWorldCoordinates(event);
+        if (!endpointLocation) {
+            return;
+        }
         calc_constants.designcomponent_xLoc = endpointLocation.x;
         calc_constants.designcomponent_yLoc = endpointLocation.y;
         storeLinearStructureEndpointFromInputs();
@@ -3252,6 +3343,9 @@ document.addEventListener('DOMContentLoaded', function () {
             lastMouseY_left = event.clientY;
             calc_constants.click_update = 2;
         } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 2) { // CODEX: Right-click stores the selected linear-structure endpoint in Design mode.
+            if (agentDesignInteractionMode === "surface") {
+                return;
+            }
             storeLinearStructureEndpointFromPointer(event);
         } else if (event.button === 2 && calc_constants.viewType == 1 && calc_constants.whichPanelisOpen == 7) { // right mouse button, Design mode for time series
             rightMouseIsDown = true;
@@ -3502,17 +3596,19 @@ document.addEventListener('DOMContentLoaded', function () {
     let x_position = 0.0;
     let y_position = 0.0;
     canvas.addEventListener('mousemove', async (event) => {
-        const bounds = canvas.getBoundingClientRect(); // Get the bounding rectangle of the canvas
+        const bounds = getCanvasContentRect(); // Visible rendered canvas content, excluding object-fit letterboxing.
+        if (!bounds || !isPointerInCanvasContent(event, bounds)) {
+            tooltip.style.display = 'none';
+            return;
+        }
     
         // Calculate coordinates relative to the canvas
         const x = event.clientX;
         const y = event.clientY;
         
         // Normalize the coordinates to [0, 1]
-        const canvas_width = bounds.right - bounds.left;
-        const canvas_height = bounds.bottom - bounds.top;
-        const normalizedX = (x - bounds.left) / canvas_width; //normalizedX;
-        const normalizedY = 1.0 - (y - bounds.top) / canvas_height; //normalizedY;
+        const normalizedX = (x - bounds.left) / bounds.width; //normalizedX;
+        const normalizedY = 1.0 - (y - bounds.top) / bounds.height; //normalizedY;
         
         // Update your constants for WebGPU
         //calc_constants.mouse_current_canvas_positionX = normalizedX;
@@ -3732,6 +3828,45 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Call the function for setting up listeners on dropdown menus
     setupDropdownListeners(button_dropdown_Actions);
+    installCelerisAgentControls({
+        calcConstants: calc_constants,
+        getCalcConstants: () => calc_constants,
+        updateCalcConstants,
+        updateAllUIElements,
+        runExample: (exampleValue) => {
+            agentDesignInteractionMode = null;
+            calc_constants.run_example = exampleValue;
+            initializeWebGPUApp();
+            setTimeout(updateAllUIElements, 5000);
+        },
+        updateViewMode: (viewType) => {
+            updateCalcConstants("viewType", viewType);
+            updateZoomListener();
+            updateAllUIElements();
+        },
+        exitFullscreenCleanup: () => {
+            if (pseudoFullscreenActive) {
+                exitPseudoFullscreen();
+                return;
+            }
+            canvas.classList.remove('fullscreen');
+            calc_constants.full_screen = 0;
+            resizeCanvas();
+            updateCalcConstants("viewType", 1);
+            calc_constants.click_update = 1;
+            updateAllUIElements();
+            updateZoomListener();
+        },
+        setLinearStructureEndpointMode: (endpointMode) => {
+            updateCalcConstants("designcomponent_CurrentEndPoint", endpointMode);
+            loadLinearStructureEndpointIntoInputs();
+        },
+        setDesignInteractionMode: (mode) => {
+            agentDesignInteractionMode = mode === "surface" || mode === "linear" || mode === "timeseries" ? mode : null;
+        },
+        requestAddLinearStructure,
+        postStatus: postAgentCaseStatus,
+    });
 
     // set up listeners for the "Update" button fields
     buttonActions.forEach(({ id, input, property }) => {

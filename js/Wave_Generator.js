@@ -44,9 +44,19 @@ function cloneWaveResult(waveResult) {
 export function buildSineWaveData(calc_constants) {
     const waveHeight = finiteOrDefault(calc_constants.incident_wave_H, 0.0);
     const wavePeriod = positiveOrDefault(calc_constants.incident_wave_T, 10.0);
-    const waveDirection = toRadians(calc_constants.incident_wave_direction);
+    const requestedDirectionDegrees = finiteOrDefault(calc_constants.incident_wave_direction, 0.0);
+    const geometry = getIncidentBoundaryGeometry(calc_constants);
+    const waveDirectionDegrees = geometry.hasTransversePeriodicBoundaries
+        ? fitDirectionToPeriodicBoundary(
+            requestedDirectionDegrees,
+            1.0 / wavePeriod,
+            geometry.boundaryDepth,
+            activeBoundaryLength(geometry),
+            geometry.boundaryAngleDegrees
+        )
+        : requestedDirectionDegrees;
 
-    return { numberOfWaves: 1, waveData: [[0.5 * waveHeight, wavePeriod, waveDirection, 0.0]] };
+    return { numberOfWaves: 1, waveData: [[0.5 * waveHeight, wavePeriod, waveDirectionDegrees * DEG_TO_RAD, 0.0]] };
 }
 
 export function buildTmaWaveData(calc_constants) {
@@ -103,20 +113,22 @@ function generateTmaComponents(waveHeight, wavePeriod, peakDirectionDegrees, geo
     const scaledSpectra = scaleDirectionalSpectraToInputHeight(directionalSpectra, waveHeight, frequencies.delF);
     const retainedSpectra = retainPeakFrequencies(scaledSpectra, directions);
     const retainedDelF = retainedSpectra.length > 1 ? retainedSpectra[1].frequency - retainedSpectra[0].frequency : frequencies.delF;
-    const effectiveBoundaryLength = Math.max(0.0, geometry.boundaryLength - 2.0 * geometry.ds);
+    const activeBoundaryLength = Math.max(0.0, geometry.boundaryLength - 2.0 * geometry.ds);
     const waveData = [];
 
     for (const spectrumRow of retainedSpectra) {
         for (let directionIndex = 0; directionIndex < directions.length; directionIndex++) {
             const componentEnergy = spectrumRow.directionalEnergies[directionIndex];
             const amplitude = Math.sqrt(Math.max(0.0, 2.0 * componentEnergy * retainedDelF));
-            const correctedDirectionDegrees = fitDirectionToPeriodicBoundary(
-                directions[directionIndex],
-                spectrumRow.frequency,
-                geometry.boundaryDepth,
-                effectiveBoundaryLength,
-                geometry.boundaryAngleDegrees
-            );
+            const correctedDirectionDegrees = geometry.hasTransversePeriodicBoundaries
+                ? fitDirectionToPeriodicBoundary(
+                    directions[directionIndex],
+                    spectrumRow.frequency,
+                    geometry.boundaryDepth,
+                    activeBoundaryLength,
+                    geometry.boundaryAngleDegrees
+                )
+                : directions[directionIndex];
 
             waveData.push([
                 amplitude,
@@ -251,8 +263,7 @@ function fitDirectionToPeriodicBoundary(directionDegrees, frequency, boundaryDep
     const waveNumber = omega * omega / (gravity * Math.sqrt(Math.max(1.0e-12, Math.tanh(dispersionArgument))));
     const relativeWaveAngle = directionDegrees - boundaryAngleDegrees;
     const alongBoundaryWaveNumber = Math.sin(relativeWaveAngle * DEG_TO_RAD) * waveNumber;
-    const alongBoundaryWavelength = TWO_PI / (1.0e-6 + alongBoundaryWaveNumber);
-    const wavesAlongBoundary = Math.abs(boundaryLength / alongBoundaryWavelength);
+    const wavesAlongBoundary = Math.abs(alongBoundaryWaveNumber * boundaryLength / TWO_PI);
     let correctedRelativeDirection = 0.0;
 
     if (wavesAlongBoundary >= 0.5) {
@@ -266,7 +277,8 @@ function fitDirectionToPeriodicBoundary(directionDegrees, frequency, boundaryDep
         }
 
         if (nearestIntegerWaves > 0.0) {
-            const sineArgument = clamp(Math.sign(alongBoundaryWaveNumber) * (TWO_PI / nearestAlongBoundaryWavelength) / waveNumber, -1.0, 1.0);
+            const fittedAlongBoundaryWaveNumber = Math.sign(alongBoundaryWaveNumber) * TWO_PI * nearestIntegerWaves / boundaryLength;
+            const sineArgument = clamp(fittedAlongBoundaryWaveNumber / waveNumber, -1.0, 1.0);
             correctedRelativeDirection = Math.asin(sineArgument) * RAD_TO_DEG;
         }
     }
@@ -282,22 +294,50 @@ function getIncidentBoundaryGeometry(calc_constants) {
     const boundaryDepth = positiveOrDefault(calc_constants.base_depth, 1.0);
 
     if (calc_constants.west_boundary_type == 2) {
-        return { ds: dy, boundaryLength: Math.max(0.0, (height - 1.0) * dy), boundaryAngleDegrees: 0.0, boundaryDepth };
+        return {
+            ds: dy,
+            boundaryLength: Math.max(0.0, (height - 1.0) * dy),
+            boundaryAngleDegrees: 0.0,
+            boundaryDepth,
+            hasTransversePeriodicBoundaries: calc_constants.south_boundary_type == 3 && calc_constants.north_boundary_type == 3
+        };
     }
 
     if (calc_constants.east_boundary_type == 2) {
-        return { ds: dy, boundaryLength: Math.max(0.0, (height - 1.0) * dy), boundaryAngleDegrees: 180.0, boundaryDepth };
+        return {
+            ds: dy,
+            boundaryLength: Math.max(0.0, (height - 1.0) * dy),
+            boundaryAngleDegrees: 180.0,
+            boundaryDepth,
+            hasTransversePeriodicBoundaries: calc_constants.south_boundary_type == 3 && calc_constants.north_boundary_type == 3
+        };
     }
 
     if (calc_constants.south_boundary_type == 2) {
-        return { ds: dx, boundaryLength: Math.max(0.0, (width - 1.0) * dx), boundaryAngleDegrees: 90.0, boundaryDepth };
+        return {
+            ds: dx,
+            boundaryLength: Math.max(0.0, (width - 1.0) * dx),
+            boundaryAngleDegrees: 90.0,
+            boundaryDepth,
+            hasTransversePeriodicBoundaries: calc_constants.west_boundary_type == 3 && calc_constants.east_boundary_type == 3
+        };
     }
 
     if (calc_constants.north_boundary_type == 2) {
-        return { ds: dx, boundaryLength: Math.max(0.0, (width - 1.0) * dx), boundaryAngleDegrees: 270.0, boundaryDepth };
+        return {
+            ds: dx,
+            boundaryLength: Math.max(0.0, (width - 1.0) * dx),
+            boundaryAngleDegrees: 270.0,
+            boundaryDepth,
+            hasTransversePeriodicBoundaries: calc_constants.west_boundary_type == 3 && calc_constants.east_boundary_type == 3
+        };
     }
 
-    return { ds: dy, boundaryLength: Math.max(0.0, (height - 1.0) * dy), boundaryAngleDegrees: 0.0, boundaryDepth };
+    return { ds: dy, boundaryLength: Math.max(0.0, (height - 1.0) * dy), boundaryAngleDegrees: 0.0, boundaryDepth, hasTransversePeriodicBoundaries: false };
+}
+
+function activeBoundaryLength(geometry) {
+    return Math.max(0.0, geometry.boundaryLength - 2.0 * geometry.ds);
 }
 
 function clamp(value, minValue, maxValue) {

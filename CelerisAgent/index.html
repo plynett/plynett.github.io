@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CelerisAgent</title>
+  <link rel="stylesheet" href="/CelerisAgent/ui.css?v=agent-thread-archive-20260614">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CA</div>
+        <div>
+          <h1>CelerisAgent</h1>
+          <p>Voice-to-simulation workflow</p>
+        </div>
+      </div>
+
+      <section class="side-section">
+        <h2>Current Thread</h2>
+        <dl class="kv">
+          <div><dt>Job</dt><dd id="jobId">new</dd></div>
+          <div><dt>State</dt><dd id="workflowState">waiting</dd></div>
+          <div><dt>Intent</dt><dd id="lastIntent">none</dd></div>
+          <div><dt>Planner</dt><dd id="plannerMode">not run</dd></div>
+        </dl>
+        <a id="downloadConfigLink" class="thread-download disabled" href="#" aria-disabled="true">Download Simulation Configuration</a>
+      </section>
+
+      <section class="side-section">
+        <h2>Try Saying</h2>
+        <button class="prompt-chip" type="button">How do I use this site? Can you give me a detailed tutorial on how to create a simulation and what options / abilities there are?</button>
+        <button class="prompt-chip" type="button">Give me an example set of prompts to generate a wave simulation for Santa Cruz Harbor, CA</button>
+        <button class="prompt-chip" type="button">Run the Hermosa Beach, CA example</button>
+        <button class="prompt-chip" type="button">Create a DEM around the June 2026, Mw 7.8 earthquake in the Philippines. Center on the earthquake location, and make the domain 4 degrees on a side. Use the etopo database.</button>
+      </section>
+
+      <section class="side-section">
+        <h2>Voice</h2>
+        <p class="small">Use the mic button in the composer when browser speech recognition is available.</p>
+      </section>
+
+      <section class="side-section">
+        <h2>Access</h2>
+        <div class="auth-mini">
+          <div id="authUser" class="small">Not signed in</div>
+          <button id="logoutBtn" class="secondary" type="button">Sign out</button>
+        </div>
+        <form id="feedbackForm" class="feedback-form">
+          <h2>Comments/Feedback</h2>
+          <textarea id="feedbackText" rows="5" placeholder="Use this submission box to paste any prompts + responses that did not behave correctly, general use case faults, or really anything you want me to know"></textarea>
+          <button id="feedbackSubmitBtn" class="secondary" type="submit">Submit</button>
+        </form>
+      </section>
+
+      <section id="adminAccessSection" class="side-section hidden">
+        <h2>Admin</h2>
+        <button id="adminRequestBtn" class="prompt-chip" type="button">
+          Access requests <span id="adminRequestBadge" class="badge">0</span>
+        </button>
+        <div id="adminRequestsList" class="admin-request-list empty">No pending requests.</div>
+        <button id="adminFeedbackBtn" class="prompt-chip" type="button">
+          Comments/Feedback <span id="adminFeedbackBadge" class="badge empty">0</span>
+        </button>
+        <div id="adminFeedbackList" class="admin-request-list empty">No feedback received.</div>
+      </section>
+
+      <section class="side-section">
+        <h2>DEM Request</h2>
+        <dl id="demRequestList" class="kv compact">
+          <div><dt>Location</dt><dd>none</dd></div>
+          <div><dt>AOI</dt><dd>none</dd></div>
+          <div><dt>Source</dt><dd>native DAV policy</dd></div>
+          <div><dt>Resolution</dt><dd>none</dd></div>
+          <div><dt>Datum</dt><dd>none</dd></div>
+        </dl>
+      </section>
+
+      <section class="side-section">
+        <h2>CELERIS Config</h2>
+        <dl id="celerisConfigList" class="kv compact">
+          <div><dt>Waves</dt><dd>direction needed</dd></div>
+          <div><dt>Grid</dt><dd>2 m x 2 m</dd></div>
+          <div><dt>Solver</dt><dd>Boussinesq</dd></div>
+        </dl>
+      </section>
+
+      <section class="side-section">
+        <h2>Simulation Info</h2>
+        <dl id="simulationInfoList" class="kv compact">
+          <div><dt>Time</dt><dd>not running</dd></div>
+          <div><dt>Speed</dt><dd>not running</dd></div>
+        </dl>
+      </section>
+
+      <section class="side-section">
+        <h2>Browser Console</h2>
+        <div id="browserConsoleList" class="browser-console empty">No console messages yet.</div>
+      </section>
+    </aside>
+
+    <main class="chat-main">
+      <header class="chat-header">
+        <div>
+          <h2>Simulation Setup Conversation</h2>
+          <p>Describe the DEM, wave setup, CELERIS inputs, or later simulation actions in the same thread.</p>
+        </div>
+        <button id="newThreadBtn" class="secondary" type="button">New thread</button>
+      </header>
+
+      <section id="messages" class="messages" aria-live="polite">
+        <article class="message assistant">
+          <div class="bubble">
+            <p>I can help build a CELERIS setup from conversation. Tell me the DEM, wave forcing, or input files you need. I will route the request through the script graph and save outputs in the job workspace.</p>
+          </div>
+        </article>
+      </section>
+
+      <section id="simulationPanel" class="simulation-stage empty">No simulation runner prepared yet.</section>
+
+      <form id="composer" class="composer">
+        <input id="attachments" name="attachments" type="file" multiple hidden>
+        <button id="attachBtn" class="icon-button" type="button" title="Attach DEM files">Attach</button>
+        <textarea id="messageInput" name="message" rows="2" placeholder="Ask for a DEM, CELERIS inputs, wave setup, or describe attached files"></textarea>
+        <button id="voiceBtn" class="icon-button" type="button" title="Voice input">Voice</button>
+        <button id="sendBtn" class="send" type="submit">Send</button>
+      </form>
+      <div id="attachmentBar" class="attachment-bar"></div>
+    </main>
+
+    <aside class="workspace-panel">
+      <section class="panel-block">
+        <h2>Regional Context</h2>
+        <div id="regionalMap" class="regional-map empty">No resolved AOI yet.</div>
+        <div id="regionalMapMeta" class="map-meta empty">No grid location to display.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>Local Context</h2>
+        <div id="localMap" class="regional-map empty">No resolved AOI yet.</div>
+        <div id="localMapMeta" class="map-meta empty">No grid location to display.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>DEM Preview</h2>
+        <div id="previewBox" class="preview-box empty">No DEM preview yet.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>Validation</h2>
+        <div id="validationList" class="validation-list empty">No validation report yet.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>Source Candidates</h2>
+        <div id="sourceCandidates" class="source-list empty">No source search has run yet.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>Artifacts</h2>
+        <div id="artifactList" class="artifact-list empty">No artifacts yet.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>Workflow Path</h2>
+        <div id="workflowPath" class="path-list empty">No workflow has run yet.</div>
+      </section>
+    </aside>
+  </div>
+
+  <div id="authGate" class="auth-gate hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <div>
+          <h2 id="authTitle">CelerisAgent Access</h2>
+          <p>Sign in with an approved account, or request access for the test group.</p>
+        </div>
+      </div>
+      <div class="auth-grid">
+        <form id="loginForm" class="auth-form">
+          <h3>Sign in</h3>
+          <label>Email<input id="loginEmail" name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label>
+          <button class="send" type="submit">Sign in</button>
+          <div id="loginMessage" class="form-message"></div>
+        </form>
+        <form id="requestAccessForm" class="auth-form">
+          <h3>Request access</h3>
+          <label>Name<input id="requestName" name="name" type="text" autocomplete="name" required></label>
+          <label>Email<input id="requestEmail" name="email" type="email" autocomplete="email" required></label>
+          <label>Comment<textarea id="requestComment" name="comment" rows="4" placeholder="Brief context for approval"></textarea></label>
+          <label class="honeypot">Website<input id="requestWebsite" name="website" type="text" tabindex="-1" autocomplete="off"></label>
+          <button class="secondary" type="submit">Request access</button>
+          <div id="requestMessage" class="form-message"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" src="/CelerisAgent/js/main.js?v=agent-thread-archive-20260614"></script>
+</body>
+</html>
