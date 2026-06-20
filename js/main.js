@@ -4,7 +4,9 @@ import { loadDepthSurface, loadInitCondSurface, loadFrictionSurface, loadHardBot
 import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+// import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+// Added by Codex: Import spherical metric upload helper for grid_type == 2.
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 // Added by Codex: Boundary-wave generators keep UI-created spectra outside the main orchestrator.
 import { GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY, buildSineWaveData, buildTmaWaveData } from './Wave_Generator.js?v=periodic-wave-fit-gated-20260611';
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
@@ -412,6 +414,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const dU_by_dt = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const dU_by_dt_Sed = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores d(state)/dt values output from Pass3 calls
     const txBoundaryForcing = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores ship pressure - not used in WebGPU yet
+    // Added by Codex: Spherical-grid metrics for Pass3_NLSW_Spherical.wgsl when grid_type == 2.
+    const txSphericalMetrics = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);
     const txModelVelocities = create_2D_Texture(device, calc_constants.WIDTH, calc_constants.HEIGHT, allTextures);  // stores the u,v velocities from the cell size averages - these are the proper u,v used by the flux scheme
     var txCW_groupings = null;  // stores the variables groupings for the coulwave implementation 
     var txCW_uvhuhv; var txCW_zalpha = null; var txCW_STval = null; var txCW_STgrad = null; var txCW_Eterms = null; var txCW_FGterms = null; // these are only used if COULWAVE is selected
@@ -472,6 +476,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // fill in the bathy texture
     let bathy2Dvec = copyBathyDataToTexture(calc_constants, bathy2D, device, txBottom);
+    // Added by Codex: Precompute latitude-dependent spherical metrics once per simulation initialization.
+    copySphericalMetricDataToTexture(calc_constants, device, txSphericalMetrics);
 
     // fill in the wave data texture
     // if (calc_constants.numberOfWaves > 0) {
@@ -713,39 +719,77 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const simWidth   = calc_constants.WIDTH  * calc_constants.dx;
     const simHeight  = calc_constants.HEIGHT * calc_constants.dy;
     const simDim = Math.sqrt(simWidth*simWidth + simHeight*simHeight);
+    // Added by Codex: Start Explorer camera scaling for spherical grids.
+    const explorerCameraDegToRad = Math.PI / 180.0;
+    const explorerCameraMidLat = calc_constants.lat_LL + 0.5 * calc_constants.HEIGHT * calc_constants.dy;
+    const explorerCameraCosLat = Math.max(Math.abs(Math.cos(explorerCameraMidLat * explorerCameraDegToRad)), 1.0e-6);
+    const explorerCameraScaleX = calc_constants.grid_type == 2 ? Math.max(calc_constants.R_earth, 1.0) * explorerCameraCosLat * explorerCameraDegToRad : 1.0;
+    const explorerCameraScaleY = calc_constants.grid_type == 2 ? Math.max(calc_constants.R_earth, 1.0) * explorerCameraDegToRad : 1.0;
+    const explorerCameraDx = calc_constants.dx * explorerCameraScaleX;
+    const explorerCameraDy = calc_constants.dy * explorerCameraScaleY;
+    const explorerSimWidth = calc_constants.grid_type == 2 ? calc_constants.WIDTH * explorerCameraDx : simWidth;
+    const explorerSimHeight = calc_constants.grid_type == 2 ? calc_constants.HEIGHT * explorerCameraDy : simHeight;
+    const explorerSimDim = Math.sqrt(explorerSimWidth*explorerSimWidth + explorerSimHeight*explorerSimHeight);
+    // Added by Codex: End Explorer camera scaling for spherical grids.
     
     // reset view (in case its stored in json already)
     calc_constants.shift_x = 0.;
     calc_constants.shift_y = 0.;
     calc_constants.forward = 1.0;
     // base eye & forward vector
+    // var baseEye    = vec3.fromValues(
+    //   0.1 * simWidth,
+    //   0.1 * simHeight,
+    //   10.0 * calc_constants.base_depth
+    // );
+    // var baseTarget = vec3.fromValues(
+    //   0.5 * simWidth,
+    //   0.5 * simHeight,
+    //    0.0
+    // );
+    // Added by Codex: Use Explorer camera dimensions so spherical lon/lat grids start in meter-like view coordinates.
     var baseEye    = vec3.fromValues(
-      0.1 * simWidth,
-      0.1 * simHeight,
+      0.1 * explorerSimWidth,
+      0.1 * explorerSimHeight,
       10.0 * calc_constants.base_depth
     );
     var baseTarget = vec3.fromValues(
-      0.5 * simWidth,
-      0.5 * simHeight,
+      0.5 * explorerSimWidth,
+      0.5 * explorerSimHeight,
        0.0
     );
 
     if (calc_constants.river_sim == 1) { // river simulation
+        // baseEye = vec3.fromValues(
+        //     0.5 * simWidth,
+        //     0.5 * simHeight,
+        //     400.0 * calc_constants.base_depth);
+        // baseTarget = vec3.fromValues(
+        //     0.5 * simWidth,
+        //     0.5 * simHeight,
+        //     0.0);
+        // Added by Codex: Keep river camera initialization on the same Explorer camera coordinate scale.
         baseEye = vec3.fromValues(
-            0.5 * simWidth,
-            0.5 * simHeight,
+            0.5 * explorerSimWidth,
+            0.5 * explorerSimHeight,
             400.0 * calc_constants.base_depth);
         baseTarget = vec3.fromValues(
-            0.5 * simWidth,
-            0.5 * simHeight,
+            0.5 * explorerSimWidth,
+            0.5 * explorerSimHeight,
             0.0);
     }
 
     // user override for initial camera position
     if (calc_constants.cameraInit_user == 1) {
+        // baseEye = vec3.fromValues(
+        //     calc_constants.cameraInit_x,
+        //     calc_constants.cameraInit_y,
+        //     calc_constants.cameraInit_z
+        // );
+        // Added by Codex: Interpret spherical cameraInit x/y in degree-domain units and convert to Explorer camera coordinates.
         baseEye = vec3.fromValues(
-            calc_constants.cameraInit_x,
-            calc_constants.cameraInit_y,
+            calc_constants.grid_type == 2 ? calc_constants.cameraInit_x * explorerCameraScaleX : calc_constants.cameraInit_x,
+            calc_constants.grid_type == 2 ? calc_constants.cameraInit_y * explorerCameraScaleY : calc_constants.cameraInit_y,
             calc_constants.cameraInit_z
         );
 
@@ -759,9 +803,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         );
         vec3.normalize(fwd, fwd);
 
+        // const lookDist = (calc_constants.cameraInit_lookDist && calc_constants.cameraInit_lookDist > 0.0)
+        //     ? calc_constants.cameraInit_lookDist
+        //     : 0.5 * simDim;   // reasonable default
+        // Added by Codex: Default spherical camera look distance must use the Explorer camera coordinate scale.
         const lookDist = (calc_constants.cameraInit_lookDist && calc_constants.cameraInit_lookDist > 0.0)
             ? calc_constants.cameraInit_lookDist
-            : 0.5 * simDim;   // reasonable default
+            : 0.5 * explorerSimDim;   // reasonable default
 
         baseTarget = vec3.create();
         vec3.scaleAndAdd(baseTarget, baseEye, fwd, lookDist);
@@ -825,8 +873,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass1_view.setFloat32(28, calc_constants.whiteWaterDecayRate, true);           // f32
     Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
     Pass1_view.setFloat32(36, calc_constants.base_depth, true);       // f32
-    Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
-    Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+    // Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
+    // Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+    // Added by Codex: Pass1 only uses these spacings for a bed-slope Froude limiter, so spherical mode supplies approximate meters.
+    const Pass1_dx_for_slope = calc_constants.grid_type == 2 ? Math.max(calc_constants.R_earth, 1.0) * Math.max(Math.abs(Math.cos(0.5 * (calc_constants.lat_LL + calc_constants.lat_UR) * Math.PI / 180.0)), 1.0e-6) * Math.max(Math.abs(calc_constants.dx) * Math.PI / 180.0, 1.0e-12) : calc_constants.dx;
+    const Pass1_dy_for_slope = calc_constants.grid_type == 2 ? Math.max(calc_constants.R_earth, 1.0) * Math.max(Math.abs(calc_constants.dy) * Math.PI / 180.0, 1.0e-12) : calc_constants.dy;
+    Pass1_view.setFloat32(40, Pass1_dx_for_slope, true);           // f32
+    Pass1_view.setFloat32(44, Pass1_dy_for_slope, true);           // f32
     Pass1_view.setFloat32(48, calc_constants.delta, true);           // f32
 
     //  SedTrans_Pass1 Bindings & Uniforms Config
@@ -844,8 +897,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     SedTrans_Pass1_view.setFloat32(28, calc_constants.whiteWaterDecayRate, true);           // f32
     SedTrans_Pass1_view.setFloat32(32, calc_constants.dt, true);           // f32
     SedTrans_Pass1_view.setFloat32(36, calc_constants.base_depth, true);       // f32
-    SedTrans_Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
-    SedTrans_Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+    // SedTrans_Pass1_view.setFloat32(40, calc_constants.dx, true);           // f32
+    // SedTrans_Pass1_view.setFloat32(44, calc_constants.dy, true);           // f32
+    // Added by Codex: Keep sediment reconstruction slope spacings consistent with Pass1 if this path is enabled outside spherical mode.
+    SedTrans_Pass1_view.setFloat32(40, Pass1_dx_for_slope, true);           // f32
+    SedTrans_Pass1_view.setFloat32(44, Pass1_dy_for_slope, true);           // f32
 
     // Pass2 Bindings & Uniforms Config
     const Pass2_BindGroupLayout = create_Pass2_BindGroupLayout(device);
@@ -910,7 +966,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Pass3 Bindings & Uniforms Config
     const Pass3_BindGroupLayout = create_Pass3_BindGroupLayout(device);
-    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txCW_groupings, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
+    // const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txCW_groupings, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, txDissipationFlux, txBottomFriction);
+    // Added by Codex: In spherical NLSW mode, reuse binding 19 for txSphericalMetrics because NLSW does not read txDissipationFlux.
+    const Pass3_BindGroup = create_Pass3_BindGroup(device, Pass3_uniformBuffer, txState, txBottom, txCW_groupings, txXFlux, txYFlux, oldGradients, oldOldGradients, predictedGradients, F_G_star_oldGradients, F_G_star_oldOldGradients, txstateUVstar, txBoundaryForcing, txNewState, dU_by_dt, predictedF_G_star, current_stateUVstar,txContSource,txBreaking, calc_constants.grid_type == 2 ? txSphericalMetrics : txDissipationFlux, txBottomFriction);
     const Pass3_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let Pass3_view = new DataView(Pass3_uniforms);
     Pass3_view.setInt32(0, calc_constants.WIDTH, true);          // u32
@@ -950,6 +1008,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     Pass3_view.setInt32(136, calc_constants.south_boundary_type, true);           // i32
     Pass3_view.setInt32(140, calc_constants.north_boundary_type, true);       // i32
     Pass3_view.setFloat32(144, calc_constants.vort_friction_factor, true);       // f32
+    // Added by Codex: Spherical NLSW shader reads one_over_R from the shared Pass3 uniform buffer tail.
+    Pass3_view.setFloat32(148, 1.0 / Math.max(calc_constants.R_earth, 1.0), true);       // f32
 
     // SedTrans_Pass3 Bindings & Uniforms Config
     const SedTrans_Pass3_BindGroupLayout = create_SedTrans_Pass3_BindGroupLayout(device);
@@ -1350,7 +1410,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const PassBreaking_ShaderCode = await fetchShader('/shaders/Pass_Breaking.wgsl'); 
     const Pass3A_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3A_COULWAVE.wgsl')
     const Pass3B_Coulwave_ShaderCode= await fetchShader('/shaders/Pass3B_COULWAVE.wgsl')
-    const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
+    // const Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl')
+    // Added by Codex: Select the spherical NLSW source/integration shader only for grid_type == 2.
+    var Pass3_ShaderCode_NLSW = null;
+    if (calc_constants.grid_type == 2) {
+        console.log("Using spherical-grid NLSW equations in Pass3");
+        Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW_Spherical.wgsl');
+    } else {
+        Pass3_ShaderCode_NLSW = await fetchShader('/shaders/Pass3_NLSW.wgsl');
+    }
     var Pass3_ShaderCode_Bous = await fetchShader('/shaders/Pass3_Bous.wgsl');
     if (calc_constants.NLSW_or_Bous == 1) {
         console.log("Using Celeris equations in Boussinesq mode");
@@ -1626,7 +1694,44 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // update simulation parameters in buffers if they have been changed by user through html
         if (calc_constants.html_update > 0) {
 
-            calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+            // calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+            // Added by Codex: Start grid-type-specific timestep refresh for HTML-driven updates.
+            if (calc_constants.grid_type == 2) {
+                if (calc_constants.NLSW_or_Bous != 0) {
+                    console.warn("Spherical grid mode is currently NLSW-only; forcing NLSW_or_Bous to 0.");
+                    calc_constants.NLSW_or_Bous = 0;
+                }
+                if (calc_constants.Accuracy_mode != 0) {
+                    console.warn("Spherical grid mode currently uses the standard second-order NLSW path; forcing Accuracy_mode to 0.");
+                    calc_constants.Accuracy_mode = 0;
+                }
+                if (calc_constants.useSedTransModel != 0) {
+                    console.warn("Spherical grid mode does not currently support sediment transport; forcing useSedTransModel to 0.");
+                    calc_constants.useSedTransModel = 0;
+                }
+                if (calc_constants.useBreakingModel != 0) {
+                    console.warn("Spherical grid mode does not currently support the Cartesian breaking model; forcing useBreakingModel to 0.");
+                    calc_constants.useBreakingModel = 0;
+                }
+
+                const degToRad = Math.PI / 180.0;
+                const dlonRad = Math.max(Math.abs(calc_constants.dx) * degToRad, 1.0e-12);
+                const dlatRad = Math.max(Math.abs(calc_constants.dy) * degToRad, 1.0e-12);
+                const earthRadius = Math.max(calc_constants.R_earth, 1.0);
+                let minPhysicalGridSpacing = earthRadius * dlatRad;
+                for (let y = 0; y < calc_constants.HEIGHT; y++) {
+                    // const latRad = (calc_constants.lat_LL + y * calc_constants.dy) * degToRad;
+                    // Added by Codex: Use cell-center latitude because lat_LL is the lower-left corner.
+                    const latRad = (calc_constants.lat_LL + (y + 0.5) * calc_constants.dy) * degToRad;
+                    const cosLat = Math.max(Math.abs(Math.cos(latRad)), 1.0e-6);
+                    minPhysicalGridSpacing = Math.min(minPhysicalGridSpacing, earthRadius * cosLat * dlonRad);
+                }
+                calc_constants.dt = calc_constants.Courant_num * minPhysicalGridSpacing / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+                copySphericalMetricDataToTexture(calc_constants, device, txSphericalMetrics);
+            } else {
+                calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+            }
+            // Added by Codex: End grid-type-specific timestep refresh for HTML-driven updates.
             calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
             calc_constants.render_step = Math.round(calc_constants.render_step);
 
@@ -1657,6 +1762,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             Pass3_view.setFloat32(116, calc_constants.infiltrationRate, true);           // f32
             Pass3_view.setInt32(120, calc_constants.useBreakingModel, true);           // i32
             Pass3_view.setInt32(124, calc_constants.showBreaking, true);           // i32
+            // Added by Codex: Keep spherical one_over_R current if a config/UI update changes R_earth.
+            Pass3_view.setFloat32(148, 1.0 / Math.max(calc_constants.R_earth, 1.0), true);       // f32
 
             SedTrans_Pass3_view.setFloat32(8, calc_constants.dt, true);             // f32
             SedTrans_Pass3_view.setInt32(28, calc_constants.timeScheme, true);       // f32
@@ -2373,8 +2480,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // 2. Perspective projection
             const fovY   = 45 * Math.PI / 180;
             const aspect = window_width / window_height;
-            const nearZ  = Math.min(0.1, Math.min(calc_constants.dx, calc_constants.dy) / 10);
-            const farZ   = 10 * (simWidth + simHeight);
+            // const nearZ  = Math.min(0.1, Math.min(calc_constants.dx, calc_constants.dy) / 10);
+            // const farZ   = 10 * (simWidth + simHeight);
+            // Added by Codex: Use Explorer camera spacing for clipping so spherical degree grids do not clip meter-scale elevations.
+            const explorerMinCell = Math.max(Math.min(Math.abs(explorerCameraDx), Math.abs(explorerCameraDy)), 1.0e-6);
+            const explorerHorizontalExtent = Math.max(Math.abs(explorerSimWidth) + Math.abs(explorerSimHeight), 1.0);
+            const explorerVerticalExtent = Math.max(Math.abs(baseEye[2]), Math.abs(calc_constants.renderZScale * calc_constants.base_depth), Math.abs(calc_constants.base_depth), 1.0);
+            const nearZ  = Math.min(0.1, explorerMinCell / 10);
+            const farZ   = calc_constants.grid_type == 2 ? 10 * Math.max(explorerHorizontalExtent, explorerVerticalExtent) : 10 * (simWidth + simHeight);
             const P      = mat4.perspective(mat4.create(), fovY, aspect, nearZ, farZ);
 
             // ─────────────────────────────────────────────────────────────
@@ -2399,8 +2512,11 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             camState.forward = calc_constants.forward;
 
             // bathy interp - find ground elevation at current position
-            const x = camState.position[0] / calc_constants.dx;
-            const y = camState.position[1] / calc_constants.dy;
+            // const x = camState.position[0] / calc_constants.dx;
+            // const y = camState.position[1] / calc_constants.dy;
+            // Added by Codex: Convert Explorer camera x/y back to grid indices for spherical camera coordinates.
+            const x = camState.position[0] / explorerCameraDx;
+            const y = camState.position[1] / explorerCameraDy;
             // clamp to [0 ... N-1]
             const Nx = bathy2D.length;
             const Ny = bathy2D[0].length;
@@ -2471,7 +2587,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 camState.position,
                 camState.position,
                 right,
-                deltaPanX * simDim
+                // deltaPanX * simDim
+                // Added by Codex: Explorer movement should use the same coordinate scale as camera initialization.
+                deltaPanX * explorerSimDim
                 );
             }
             
@@ -2486,15 +2604,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     camState.position,
                     camState.position,
                     horFwd,  // if locked to the ground, only forward in horizontal - jump if using forward here
-                    deltaPanY * simDim
+                    // deltaPanY * simDim
+                    // Added by Codex: Explorer movement should use the same coordinate scale as camera initialization.
+                    deltaPanY * explorerSimDim
                     );
                 } else {
                     vec3.scaleAndAdd(
                     camState.position,
                     camState.position,
                     forward,
-                    deltaPanY * simDim
-                    );   
+                    // deltaPanY * simDim
+                    // Added by Codex: Explorer movement should use the same coordinate scale as camera initialization.
+                    deltaPanY * explorerSimDim
+                    );
                 }
             }
             
@@ -2520,22 +2642,47 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             // ─────────────────────────────────────────────────────────────
             // 4. Model matrix (identity - we're handling movement in camera space)
+            // const model = mat4.create();
+            //
+            // // grid transformations:
+            // const T_unskew = mat4.fromScaling(mat4.create(), [
+            //     1 / calc_constants.dx,
+            //     1 / calc_constants.dy,
+            //     1
+            // ]);
+            //
+            // const T_reskew = mat4.fromScaling(mat4.create(), [
+            //     calc_constants.dx,
+            //     calc_constants.dy,
+            //     1
+            // ]);
+            //
+            // mat4.multiply(model, T_reskew, T_unskew);
+            // Added by Codex: Start Explorer view-projection model transform for spherical camera coordinates.
             const model = mat4.create();
+            if (calc_constants.grid_type == 2) {
+                mat4.fromScaling(model, [
+                    explorerCameraScaleX,
+                    explorerCameraScaleY,
+                    1
+                ]);
+            } else {
+                // Added by Codex: Preserve the existing Cartesian identity transform.
+                const T_unskew = mat4.fromScaling(mat4.create(), [
+                    1 / calc_constants.dx,
+                    1 / calc_constants.dy,
+                    1
+                ]);
 
-            // grid transformations:
-            const T_unskew = mat4.fromScaling(mat4.create(), [
-                1 / calc_constants.dx,
-                1 / calc_constants.dy,
-                1
-            ]);
+                const T_reskew = mat4.fromScaling(mat4.create(), [
+                    calc_constants.dx,
+                    calc_constants.dy,
+                    1
+                ]);
 
-            const T_reskew = mat4.fromScaling(mat4.create(), [
-                calc_constants.dx,
-                calc_constants.dy,
-                1
-            ]);
-
-            mat4.multiply(model, T_reskew, T_unskew);
+                mat4.multiply(model, T_reskew, T_unskew);
+            }
+            // Added by Codex: End Explorer view-projection model transform for spherical camera coordinates.
 
             // ─────────────────────────────────────────────────────────────
             // 5. Final view-projection matrix
@@ -3633,23 +3780,36 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function updateTooltip() {
         // Assuming x_position and y_position are updated elsewhere in your code and accessible here
-        
-        if (calc_constants.viewType == 1){ 
+
+        if (calc_constants.viewType == 1){
+            // Added by Codex: Start grid-aware tooltip coordinate labels.
+            let tooltipCoordinateText = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}`;
+            if (calc_constants.grid_type == 2) {
+                const tooltipLongitude = calc_constants.lon_LL + x_position;
+                const tooltipLatitude = calc_constants.lat_LL + y_position;
+                tooltipCoordinateText = `longitude (deg): ${tooltipLongitude.toFixed(6)}<br>latitude (deg): ${tooltipLatitude.toFixed(6)}`;
+            }
+            // Added by Codex: End grid-aware tooltip coordinate labels.
             if (calc_constants.river_sim == 1){
                 let flow_depth = calc_constants.tooltipVal_eta - calc_constants.tooltipVal_bottom;
-                tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bottom elevation (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>flow depth (m): ${flow_depth.toFixed(2)} <br>flow speed (m/s): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;    
+                // tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bottom elevation (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>flow depth (m): ${flow_depth.toFixed(2)} <br>flow speed (m/s): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+                // Added by Codex: Use grid-aware coordinates in tooltip output.
+                tooltip.innerHTML = `${tooltipCoordinateText}<br>bottom elevation (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>flow depth (m): ${flow_depth.toFixed(2)} <br>flow speed (m/s): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
             }
             else if (calc_constants.disturbanceType > 1) {
-                tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>max free surface (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+                // tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>max free surface (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+                // Added by Codex: Use grid-aware coordinates in tooltip output.
+                tooltip.innerHTML = `${tooltipCoordinateText}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>max free surface (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
             }
             else {
-                tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+                // tooltip.innerHTML = `x-coordinate (m): ${x_position.toFixed(2)}<br>y-coordinate (m): ${y_position.toFixed(2)}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
+                // Added by Codex: Use grid-aware coordinates in tooltip output.
+                tooltip.innerHTML = `${tooltipCoordinateText}<br>bathy/topo (m): ${calc_constants.tooltipVal_bottom.toFixed(2)} <br>friction factor: ${calc_constants.tooltipVal_friction.toFixed(3)}<br>surface elevation (m): ${calc_constants.tooltipVal_eta.toFixed(2)} <br>sig wave height (m): ${calc_constants.tooltipVal_Hs.toFixed(2)}`;
             }
          } else {
             tooltip.innerHTML = ``;
         }
     }
-    
     // Set this function to be called every 100 milliseconds
     const updateInterval = 100; // Adjust the interval as needed
     setInterval(updateTooltip, updateInterval);

@@ -15,6 +15,10 @@ var calc_constants = {
     // debugging parameters
     algochanges: 0, // set to 1 to test alternative algorithm for various parts of the code
     
+    // Added by Codex: Start spherical-grid configuration defaults.
+    // Grid type
+    grid_type: 1, // right now spherical when =2, otherwise cartesian
+    // Added by Codex: End spherical-grid configuration defaults.
     // Computational domain dimensions
     WIDTH: 800,  // Width of the computational domain.
     HEIGHT: 600,  // Height of the computational domain.
@@ -45,6 +49,8 @@ var calc_constants = {
     loadFriction: 0,  // Load friction from file when == 1
     loadetaIC: 0,  // Load initial free surface from file when == 1
     min_allowable_depth: 0.005, // min depth allowable, too large and runup accuracy is poor, too small and precision issues lead to model blowup (1/0)
+    // Added by Codex: Earth radius used for spherical-grid metrics.
+    R_earth: 6371000.0,  // radius of earth, only used for spherical coordinate system
 
     // breaking model parameters
     useBreakingModel: 1, // inlcude breaking model when == 1
@@ -189,7 +195,8 @@ var calc_constants = {
         "./examples/MC_Pendelton_H2_T15_SW/", 
         "./examples/MC_Newport_H3_T18_Normal/", 
         "./examples/MC_Newport_H3_T18_SW/",
-        "./examples/MC_PyramidRock_H2_T15_Normal/"
+        "./examples/MC_PyramidRock_H2_T15_Normal/",
+        "./examples/Japan2011_tsunami/"
       ],
 
     // plotting parameters
@@ -401,7 +408,43 @@ async function init_sim_parameters(canvas, configContent) {
     }
 
     // Add/update parameters in calc_constants
-    calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+    // calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+    // Added by Codex: Start grid-type-specific timestep support.
+    if (calc_constants.grid_type == 2) {
+        if (calc_constants.NLSW_or_Bous != 0) {
+            console.warn("Spherical grid mode is currently NLSW-only; forcing NLSW_or_Bous to 0.");
+            calc_constants.NLSW_or_Bous = 0;
+        }
+        if (calc_constants.Accuracy_mode != 0) {
+            console.warn("Spherical grid mode currently uses the standard second-order NLSW path; forcing Accuracy_mode to 0.");
+            calc_constants.Accuracy_mode = 0;
+        }
+        if (calc_constants.useSedTransModel != 0) {
+            console.warn("Spherical grid mode does not currently support sediment transport; forcing useSedTransModel to 0.");
+            calc_constants.useSedTransModel = 0;
+        }
+        if (calc_constants.useBreakingModel != 0) {
+            console.warn("Spherical grid mode does not currently support the Cartesian breaking model; forcing useBreakingModel to 0.");
+            calc_constants.useBreakingModel = 0;
+        }
+
+        const degToRad = Math.PI / 180.0;
+        const dlonRad = Math.max(Math.abs(calc_constants.dx) * degToRad, 1.0e-12);
+        const dlatRad = Math.max(Math.abs(calc_constants.dy) * degToRad, 1.0e-12);
+        const earthRadius = Math.max(calc_constants.R_earth, 1.0);
+        let minPhysicalGridSpacing = earthRadius * dlatRad;
+        for (let y = 0; y < calc_constants.HEIGHT; y++) {
+            // const latRad = (calc_constants.lat_LL + y * calc_constants.dy) * degToRad;
+            // Added by Codex: Use cell-center latitude because lat_LL is the lower-left corner.
+            const latRad = (calc_constants.lat_LL + (y + 0.5) * calc_constants.dy) * degToRad;
+            const cosLat = Math.max(Math.abs(Math.cos(latRad)), 1.0e-6);
+            minPhysicalGridSpacing = Math.min(minPhysicalGridSpacing, earthRadius * cosLat * dlonRad);
+        }
+        calc_constants.dt = calc_constants.Courant_num * minPhysicalGridSpacing / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+    } else {
+        calc_constants.dt = calc_constants.Courant_num * Math.min(calc_constants.dx,calc_constants.dy) / Math.sqrt(calc_constants.g * calc_constants.base_depth);
+    }
+    // Added by Codex: End grid-type-specific timestep support.
     calc_constants.TWO_THETA = calc_constants.Theta * 2.0;
     calc_constants.half_g = calc_constants.g / 2.0;
     calc_constants.Bcoef_g = calc_constants.Bcoef * calc_constants.g;
@@ -481,7 +524,8 @@ async function init_sim_parameters(canvas, configContent) {
         "./examples/MC_Pendelton_H2_T15_SW/",  //50
         "./examples/MC_Newport_H3_T18_Normal/", 
         "./examples/MC_Newport_H3_T18_SW/",
-        "./examples/MC_PyramidRock_H2_T15_Normal/"
+        "./examples/MC_PyramidRock_H2_T15_Normal/",
+        "./examples/Japan2011_tsunami/"
       ],
 
     calc_constants.setRenderStep = 0; // sim always starts trying to find best render step, eases into simulation

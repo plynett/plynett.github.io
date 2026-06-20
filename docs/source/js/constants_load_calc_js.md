@@ -23,7 +23,7 @@ There is no formal schema. This file is effectively the schema, and many fields 
 
 `init_sim_parameters()` computes values that should not be treated as independent user inputs:
 
-- Timestep and `TWO_THETA`.
+- Timestep and `TWO_THETA`. For `grid_type == 2`, `dx` is longitude spacing in degrees, `dy` is latitude spacing in degrees, and the timestep uses the minimum physical spherical spacing from `R_earth`, `lat_LL`, and the grid dimensions.
 - Dispatch counts from grid and workgroup size.
 - PCR iteration counts `Px` and `Py`.
 - Inverse grid spacing and higher-order inverse powers.
@@ -36,3 +36,5 @@ There is no formal schema. This file is effectively the schema, and many fields 
 ## Change Notes
 
 Adding a new config key usually requires more than adding a default here. Check whether it needs to be loaded from example JSON, shown in the UI, uploaded into a uniform buffer, and declared in WGSL. If a value is derived here, UI edits may overwrite a manually assigned value on the next `html_update`.
+
+`grid_type == 2` is currently constrained to standard NLSW. The setup path forces `NLSW_or_Bous = 0`, `Accuracy_mode = 0`, `useSedTransModel = 0`, and `useBreakingModel = 0` for that mode.

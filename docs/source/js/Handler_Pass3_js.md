@@ -29,7 +29,7 @@ Used by `Pass3_NLSW.wgsl`, `Pass3_Bous.wgsl`, and `Pass3_COULWAVE.wgsl`:
 - `16`: `current_stateUVstar` output.
 - `17`: `txBottomFriction`.
 - `18`: `txBreaking`.
-- `19`: `txDissipationFlux`.
+- `19`: `txDissipationFlux`; in spherical NLSW mode this same binding carries `txSphericalMetrics`.
 - `20`: `txContSource`.
 
 ## COULWAVE Auxiliary Bindings

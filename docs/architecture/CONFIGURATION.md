@@ -20,6 +20,9 @@ Grid and timestep:
 
 - `WIDTH`, `HEIGHT`
 - `dx`, `dy`
+- `grid_type`
+- `lat_LL`, `lon_LL`, `lat_UR`, `lon_UR`
+- `R_earth`
 - `Courant`
 - `dt`
 - `ThreadX`, `ThreadY`, `DispatchX`, `DispatchY`
@@ -72,7 +75,7 @@ The same config value can appear in multiple shader `Globals` structs. For examp
 
 `init_sim_parameters()` computes values that are not meant to be edited directly:
 
-- `dt` from grid spacing, gravity, base depth, and Courant-style settings.
+- `dt` from grid spacing, gravity, base depth, and Courant-style settings. For `grid_type == 2`, `dx` is `dlon` in degrees, `dy` is `dlat` in degrees, and the timestep uses the minimum spherical physical spacing across the latitude range.
 - `DispatchX`/`DispatchY` from grid size and workgroup size.
 - `Px`/`Py`, the PCR iteration counts.
 - Inverse grid spacing and powers such as `one_over_d2x`, `one_over_d3x`, and `one_over_dxdy`.
@@ -81,6 +84,8 @@ The same config value can appear in multiple shader `Globals` structs. For examp
 - Sediment settling/erosion coefficients from configured material properties.
 
 When a scenario behaves oddly, check whether the value is directly loaded from JSON or derived after loading. The latter may be overwritten every time UI changes trigger recalculation.
+
+For `grid_type == 2`, spherical-coordinate support is currently NLSW-only. The setup path forces Boussinesq/COULWAVE, high-order reconstruction, sediment transport, and the Cartesian breaking model off for that mode.
 
 ## Root Config Note
 

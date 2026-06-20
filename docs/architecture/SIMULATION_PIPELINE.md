@@ -29,7 +29,7 @@ The core timestep is a finite-volume update plus optional dispersive correction:
 4. `Pass2.wgsl`, `Pass2_HighOrder_HLLC.wgsl`, or `Pass2_HighOrder_HLLEM.wgsl` computes numerical fluxes through cell faces. The current high-order path selects HLLC.
 5. `Pass_Breaking.wgsl`, if enabled, computes breaking age/intensity and eddy-viscosity flux helpers.
 6. In COULWAVE mode, `Pass3A_COULWAVE.wgsl` and `Pass3B_COULWAVE.wgsl` build auxiliary terms and pack them into `txCW_groupings`.
-7. `Pass3_NLSW.wgsl`, `Pass3_Bous.wgsl`, or `Pass3_COULWAVE.wgsl` computes flux divergence, friction, pressure forcing, breaking/diffusion terms, scalar decay/dispersion, and the predictor/corrector update.
+7. `Pass3_NLSW.wgsl`, `Pass3_NLSW_Spherical.wgsl`, `Pass3_Bous.wgsl`, or `Pass3_COULWAVE.wgsl` computes flux divergence, friction, pressure forcing, breaking/diffusion terms, scalar decay/dispersion, and the predictor/corrector update.
 8. `BoundaryPass.wgsl` applies boundary conditions and wet/dry cleanup to the explicit/intermediate state.
 9. For Boussinesq/COULWAVE, `Update_TriDiag_coef*.wgsl` refreshes implicit-solver coefficients when required.
 10. `Run_Tridiag_Solver.js` dispatches `TriDiag_PCRx*.wgsl` then `TriDiag_PCRy*.wgsl`. NLSW mode skips the solve by copying the intermediate state to `txNewState`.
@@ -59,6 +59,7 @@ Boundary conditions are applied twice for a reason. The first boundary pass sani
 - Standard hydrodynamics: `Pass1.wgsl`, `Pass2.wgsl`.
 - High-order hydrodynamics: `Pass1_HighOrder.wgsl`, `Pass2_HighOrder_HLLC.wgsl`.
 - NLSW: `Pass3_NLSW.wgsl`, no PCR solve.
+- Spherical NLSW: `Pass3_NLSW_Spherical.wgsl` when `grid_type == 2`, no PCR solve.
 - Boussinesq: `Pass3_Bous.wgsl`, `Update_TriDiag_coef.wgsl`, `TriDiag_PCRx.wgsl`, `TriDiag_PCRy.wgsl`.
 - COULWAVE: `Pass3A_COULWAVE.wgsl`, `Pass3B_COULWAVE.wgsl`, `Pass3_COULWAVE.wgsl`, `Update_TriDiag_coef_COULWAVE.wgsl`, `TriDiag_PCRx_COULWAVE.wgsl`, `TriDiag_PCRy_COULWAVE.wgsl`.
 

@@ -15,7 +15,7 @@ The initialization path loads config, bathymetry, waves, optional overlays, opti
 - Requests the WebGPU adapter/device and configures the canvas.
 - Destroys old textures when a new scenario starts.
 - Creates uniform buffers for simulation, render, tridiagonal, and specialized pass constants.
-- Allocates simulation textures, diagnostics textures, sediment textures, COULWAVE textures, render textures, and time-series textures.
+- Allocates simulation textures, diagnostics textures, sediment textures, COULWAVE textures, optional spherical metric textures, render textures, and time-series textures.
 - Copies CPU-loaded data into GPU textures.
 - Attempts Google Maps overlay loading as an optional startup step; failures reset overlay flags and do not block local/example overlay loading.
 - Fetches WGSL shader source and creates compute/render pipelines.
@@ -91,9 +91,11 @@ Most DOM event listeners are registered in this file:
 - Explorer pointer controls use left-drag for pan and right-drag for rotation; `Ctrl + left-drag` is also accepted as a Mac-friendly rotation fallback.
 - In Explorer mode, one-finger touch drag rotates the camera using the same yaw/pitch path as right-drag.
 - In Explorer mode on touch devices, two-finger horizontal drag strafes left/right, and pinch maps to the same forward/back `shift_y` movement used by `W/S` and up/down keys.
+- In Explorer mode with `grid_type == 2`, the camera path converts longitude/latitude degree spacing into approximate meter-scale X/Y coordinates for initial position, clipping, movement, terrain lookup, and the view-projection model transform. This keeps spherical solver/render uniforms unchanged while avoiding a degree-horizontal/meter-vertical camera mismatch.
 - Fullscreen entry falls back to an inline pseudo-fullscreen canvas layout when the browser rejects or lacks `requestFullscreen`; the fullscreen button remains visible as the exit control, and mobile viewport resize events are debounced.
 - Time-series location management.
 - Pointer-to-domain coordinate conversion uses the visible `object-fit: contain` content rectangle rather than the raw canvas element rectangle. The helper respects CSS `object-position`, which lets the embedded Agent runner anchor the rendered simulation at the top-left of its split while keeping tooltip, time-series, and design-click mapping aligned.
+- For `grid_type == 2`, tooltip coordinates are displayed as longitude/latitude degrees by adding the pointer offsets to `lon_LL` and `lat_LL`.
 - Linear-structure management for the engineered-design panel. Crest elevation, crest width, side slope, current endpoint selection, and start/end coordinates are stored in `calc_constants`; right-clicking in Design mode while the engineered-design panel is open records the selected endpoint. The preview is plotted only while that panel is open. The Add Linear Structure button validates the endpoints and queues a `MouseClickChange.wgsl` bathy/topo edit; after the GPU copy-back and near-dry/tridiagonal refresh complete, the stored endpoints and preview are reset.
 - File input handlers.
 - Export buttons for images, GIFs, JSON config, and simulation surfaces.
@@ -102,8 +104,9 @@ The UI does not directly mutate GPU textures. It changes `calc_constants` and se
 
 ## Important Contracts
 
-- Shader selection is driven by `Accuracy_mode` and `NLSW_or_Bous`.
+- Shader selection is driven by `Accuracy_mode`, `NLSW_or_Bous`, and `grid_type`. When `grid_type == 2`, NLSW uses `Pass3_NLSW_Spherical.wgsl`.
 - Handler argument order is critical because `main.js` passes textures positionally.
+- In spherical NLSW mode, Pass3 binding `19` carries `txSphericalMetrics` instead of `txDissipationFlux`; the shared layout is unchanged to stay within WebGPU binding limits.
 - `txWaves` is normally loaded from `waves.txt`, but UI-selected sine and TMA forcing reuse the same texture contract. Sine sets `numberOfWaves` to 1, converts UI height to amplitude with `H / 2`, and converts UI direction from degrees to radians. Sine and TMA both fit directions so phase is periodic across the active forcing span only when the boundaries transverse to the wave boundary are periodic. TMA generates a cached spectrum from the incident-wave controls, updates `numberOfWaves`, and reuploads the wave texture without resetting wave-height diagnostics.
 - The PCR tridiagonal solver depends on the paired `BaseToA`, `AToB`, and `BToA` bind groups created here for both x and y directions.
 - The render bind group is shared by 2D and 3D rendering.

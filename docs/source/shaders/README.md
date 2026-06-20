@@ -13,6 +13,7 @@ The transect shader set is intentionally excluded from this guide.
 - `Pass2_HighOrder_HLLC.wgsl`: high-order HLLC flux variant currently selected by `main.js`.
 - `Pass2_HighOrder_HLLEM.wgsl`: alternative high-order HLLEM flux variant.
 - `Pass3_NLSW.wgsl`: nonlinear shallow-water source/time integration.
+- `Pass3_NLSW_Spherical.wgsl`: spherical-coordinate NLSW source/time integration for `grid_type == 2`.
 - `Pass3_Bous.wgsl`: Boussinesq source/time integration and dispersive terms.
 - `Pass3A_COULWAVE.wgsl`, `Pass3B_COULWAVE.wgsl`, `Pass3_COULWAVE.wgsl`: COULWAVE auxiliary and main integration passes.
 

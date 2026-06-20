@@ -294,6 +294,64 @@ function copyConstantValueToTexture(calc_constants, device, txState, constantval
 
 }
 
+// Added by Codex: Start spherical metric texture upload support.
+function copySphericalMetricDataToTexture(calc_constants, device, txSphericalMetrics) {
+    // copy spherical-grid metric factors into txSphericalMetrics
+    const actualBytesPerRow = calc_constants.WIDTH * 4 * 4; // 4 channels and 4 bytes per float
+    const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
+    const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
+    const degToRad = Math.PI / 180.0;
+    const earthRadius = Math.max(calc_constants.R_earth, 1.0);
+    const oneOverEarthRadius = 1.0 / earthRadius;
+    const dlat = calc_constants.dy;
+
+    for (let y = 0; y < calc_constants.HEIGHT; y++) {
+        // const phiCenter = (calc_constants.lat_LL + y * dlat) * degToRad;
+        // const phiNorthFace = (calc_constants.lat_LL + (y + 0.5) * dlat) * degToRad;
+        // const phiSouthFace = (calc_constants.lat_LL + (y - 0.5) * dlat) * degToRad;
+        // Added by Codex: lat_LL is the lower-left corner, so store cell-center and face metrics inside that corner-defined domain.
+        const phiCenter = (calc_constants.lat_LL + (y + 0.5) * dlat) * degToRad;
+        const phiNorthFace = (calc_constants.lat_LL + (y + 1.0) * dlat) * degToRad;
+        const phiSouthFace = (calc_constants.lat_LL + y * dlat) * degToRad;
+        const cosPhiCenter = Math.cos(phiCenter);
+        const safeCosPhiCenter = Math.sign(cosPhiCenter || 1.0) * Math.max(Math.abs(cosPhiCenter), 1.0e-6);
+        const invRcosPhi = oneOverEarthRadius / safeCosPhiCenter;
+        const cosPhiNorthFace = Math.cos(phiNorthFace);
+        const cosPhiSouthFace = Math.cos(phiSouthFace);
+        const tanPhiOverR = Math.tan(phiCenter) * oneOverEarthRadius;
+
+        for (let x = 0; x < calc_constants.WIDTH; x++) {
+            const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4;
+            paddedFlatData[paddedIndex] = invRcosPhi;
+            paddedFlatData[paddedIndex + 1] = cosPhiNorthFace;
+            paddedFlatData[paddedIndex + 2] = cosPhiSouthFace;
+            paddedFlatData[paddedIndex + 3] = tanPhiOverR;
+        }
+    }
+
+    const buffer = device.createBuffer({
+        size: paddedFlatData.byteLength,
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
+    buffer.unmap();
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyBufferToTexture({
+        buffer: buffer,
+        bytesPerRow: requiredBytesPerRow,
+        rowsPerImage: calc_constants.HEIGHT,
+    }, {
+        texture: txSphericalMetrics
+    }, {
+        width: calc_constants.WIDTH,
+        height: calc_constants.HEIGHT,
+        depthOrArrayLayers: 1
+    });
+    device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
+}
+// Added by Codex: End spherical metric texture upload support.
 
 function copyTridiagXDataToTexture(calc_constants, bathy2D, device, coefMatx, bathy2Dvec) {
     // copy Tridiag coef into coefMatx
@@ -524,4 +582,6 @@ export function copy2DDataTo3DTexture(device, src2D, dst3D, dstLayer, width, hei
 
 
 
-export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};
+// export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};
+// Added by Codex: Export spherical metric upload helper for grid_type == 2.
+export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};

@@ -10,6 +10,7 @@ This module converts CPU-loaded arrays into GPU texture payloads. It is where ra
 
 - `copyBathyDataToTexture()`: packs bathymetry/topography into `txBottom`. It computes north/east face bed elevations, center bed elevation, and the near-dry flag. It also removes isolated one-cell dry islands before upload.
 - `copyWaveDataToTexture()`: stores wave amplitude, period, direction, and phase rows into a texture read by `BoundaryPass.wgsl`.
+- `copySphericalMetricDataToTexture()`: stores latitude-dependent spherical-grid metric factors for `Pass3_NLSW_Spherical.wgsl`.
 - `copyTSlocsToTexture()`: writes time-series probe coordinates into the locations texture.
 - `copyInitialConditionDataToTexture()`: writes eta, u, or v initial-condition grids into a state-like texture based on `writeStateFlag`.
 - `copyConstantValueToTexture()`: fills an entire texture with one RGBA value.
@@ -28,6 +29,15 @@ Bathymetry channel meanings are fixed:
 - `a`: near-dry flag.
 
 The tridiagonal coefficient textures use channels `a,b,c,d` in the numerical sense, mapped to RGBA as lower, diagonal, upper, and right-hand side/placeholder.
+
+`txSphericalMetrics` channel meanings are:
+
+- `r`: `1 / (R * cos(phi_center))`
+- `g`: `cos(phi_north_face)`
+- `b`: `cos(phi_south_face)`
+- `a`: `tan(phi_center) / R`
+
+For `grid_type == 2`, `lat_LL` is treated as the lower-left domain corner. The metric upload therefore uses `lat_LL + (j + 0.5) * dy` for cell centers and `lat_LL + j * dy` / `lat_LL + (j + 1) * dy` for south/north faces.
 
 ## Change Notes
 
