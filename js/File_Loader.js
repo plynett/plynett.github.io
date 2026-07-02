@@ -300,6 +300,217 @@ export async function loadWaveData(waveContent, calc_constants) {
     }
 }
 
+// Added by Codex: Start boundary time-series forcing loaders.
+function createEmptyBoundaryTimeSeriesSide() {
+    return {
+        active: false,
+        numPoints: 0,
+        numTimes: 0,
+        textureWidth: 1,
+        textureHeight: 1,
+        locations: [],
+        times: [],
+        values: []
+    };
+}
+
+function cleanBoundaryTimeSeriesLines(fileContents) {
+    return fileContents
+        .split(/\r?\n/)
+        .map(line => line.replace(/\/\/.*$/g, "").replace(/%.*$/g, "").replace(/#.*$/g, "").trim())
+        .filter(line => line.length > 0);
+}
+
+function parseBoundaryTimeSeriesNumericLine(line, filePath, lineNumber) {
+    const values = line.split(/\s+/).filter(Boolean).map(Number);
+    if (values.some(value => !Number.isFinite(value))) {
+        throw new Error(`Could not parse numeric values in ${filePath} at data line ${lineNumber}.`);
+    }
+    return values;
+}
+
+function parseBoundaryTimeSeriesCountLine(line, filePath) {
+    const numericTokens = line.split(/\s+/).filter(Boolean).map(Number).filter(value => Number.isFinite(value));
+    if (numericTokens.length < 1) {
+        throw new Error(`Boundary time-series file ${filePath} must start with a station count.`);
+    }
+    return parseInt(numericTokens[numericTokens.length - 1], 10);
+}
+
+function resolveBoundaryTimeSeriesFilePath(calc_constants, fileName) {
+    if (/^(https?:|\.\/|\/)/i.test(fileName)) {
+        return fileName;
+    }
+    if (calc_constants.run_example >= 0 && calc_constants.exampleDirs && calc_constants.exampleDirs[calc_constants.run_example]) {
+        return calc_constants.exampleDirs[calc_constants.run_example] + fileName;
+    }
+    return fileName;
+}
+
+function parseBoundaryTimeSeriesText(fileContents, side, filePath) {
+    const lines = cleanBoundaryTimeSeriesLines(fileContents);
+    if (lines.length < 3) {
+        throw new Error(`Boundary time-series file ${filePath} does not contain enough data.`);
+    }
+
+    // const countTokens = parseBoundaryTimeSeriesNumericLine(lines[0], filePath, 1);
+    // const numPoints = parseInt(countTokens[countTokens.length - 1], 10);
+    // Added by Codex: Allow either "3" or a labeled first line such as "number_of_ts_along_boundary 3".
+    const numPoints = parseBoundaryTimeSeriesCountLine(lines[0], filePath);
+    if (!Number.isInteger(numPoints) || numPoints < 1) {
+        throw new Error(`Boundary time-series file ${filePath} must start with a positive station count.`);
+    }
+
+    const locations = [];
+    let lineIndex = 1;
+    while (locations.length < numPoints && lineIndex < lines.length) {
+        const locationTokens = parseBoundaryTimeSeriesNumericLine(lines[lineIndex], filePath, lineIndex + 1);
+        if (locations.length + locationTokens.length > numPoints) {
+            throw new Error(`Boundary time-series file ${filePath} has too many location values before the data rows.`);
+        }
+        locations.push(...locationTokens);
+        lineIndex += 1;
+    }
+    if (locations.length != numPoints) {
+        throw new Error(`Boundary time-series file ${filePath} did not provide ${numPoints} station locations.`);
+    }
+
+    const expectedColumns = 1 + 3 * numPoints;
+    const times = [];
+    const values = [];
+    for (; lineIndex < lines.length; lineIndex += 1) {
+        const row = parseBoundaryTimeSeriesNumericLine(lines[lineIndex], filePath, lineIndex + 1);
+        if (row.length != expectedColumns) {
+            throw new Error(`Boundary time-series file ${filePath} row ${lineIndex + 1} has ${row.length} columns; expected ${expectedColumns}.`);
+        }
+        times.push(row[0]);
+        const rowValues = [];
+        for (let pointIndex = 0; pointIndex < numPoints; pointIndex += 1) {
+            const sourceIndex = 1 + pointIndex * 3;
+            rowValues.push(row[sourceIndex], row[sourceIndex + 1], row[sourceIndex + 2]);
+        }
+        values.push(rowValues);
+    }
+
+    if (times.length < 1) {
+        throw new Error(`Boundary time-series file ${filePath} does not contain any time rows.`);
+    }
+    for (let timeIndex = 1; timeIndex < times.length; timeIndex += 1) {
+        if (times[timeIndex] <= times[timeIndex - 1]) {
+            throw new Error(`Boundary time-series file ${filePath} time values must be strictly increasing.`);
+        }
+    }
+
+    const sortedLocations = locations.map((location, index) => ({ location, index })).sort((a, b) => a.location - b.location);
+    for (let locationIndex = 1; locationIndex < sortedLocations.length; locationIndex += 1) {
+        if (sortedLocations[locationIndex].location <= sortedLocations[locationIndex - 1].location) {
+            throw new Error(`Boundary time-series file ${filePath} contains duplicate station locations.`);
+        }
+    }
+
+    const sortedValues = values.map(rowValues => {
+        const sortedRowValues = [];
+        for (const sortedLocation of sortedLocations) {
+            const sourceIndex = sortedLocation.index * 3;
+            sortedRowValues.push(rowValues[sourceIndex], rowValues[sourceIndex + 1], rowValues[sourceIndex + 2]);
+        }
+        return sortedRowValues;
+    });
+
+    console.log(`Boundary time-series ${side} data parsed successfully from ${filePath}.`);
+    return {
+        active: true,
+        numPoints,
+        numTimes: times.length,
+        textureWidth: Math.max(numPoints, 1),
+        textureHeight: Math.max(times.length + 2, 1),
+        locations: sortedLocations.map(item => item.location),
+        times,
+        values: sortedValues
+    };
+}
+
+function validateSharedBoundaryTimeVector(sharedTimes, candidateTimes, filePath) {
+    if (sharedTimes.length != candidateTimes.length) {
+        throw new Error(`Boundary time-series file ${filePath} does not match the shared time-vector length.`);
+    }
+    for (let timeIndex = 0; timeIndex < sharedTimes.length; timeIndex += 1) {
+        const tolerance = Math.max(1.0e-7, 1.0e-7 * Math.abs(sharedTimes[timeIndex]));
+        if (Math.abs(sharedTimes[timeIndex] - candidateTimes[timeIndex]) > tolerance) {
+            throw new Error(`Boundary time-series file ${filePath} does not share the same time vector at row ${timeIndex + 1}.`);
+        }
+    }
+}
+
+// export async function loadBoundaryTimeSeriesData(calc_constants) {
+// Added by Codex: Accept user-uploaded boundary time-series files for custom configs outside served example folders.
+export async function loadBoundaryTimeSeriesData(calc_constants, boundaryTimeSeriesFiles = {}) {
+    const boundaryTimeSeriesData = {
+        west: createEmptyBoundaryTimeSeriesSide(),
+        east: createEmptyBoundaryTimeSeriesSide(),
+        south: createEmptyBoundaryTimeSeriesSide(),
+        north: createEmptyBoundaryTimeSeriesSide(),
+        sharedTimes: [],
+        zeroTimeIndex: 0,
+        hasActive: false
+    };
+    // Added by Codex: Reset the global clock shift unless active type-5 files define one below.
+    calc_constants.start_time_shift = 0.0;
+
+    const sides = ["west", "east", "south", "north"];
+    let sharedTimes = null;
+    for (const side of sides) {
+        if (calc_constants[`${side}_boundary_type`] != 5) {
+            calc_constants[`ts_${side}_num_points`] = 0;
+            continue;
+        }
+
+        const fileName = calc_constants[`ts_${side}_file`];
+        const uploadedFile = boundaryTimeSeriesFiles[side];
+        if (!fileName && !uploadedFile) {
+            throw new Error(`Boundary type 5 on the ${side} boundary requires ts_${side}_file.`);
+        }
+
+        let filePath = fileName;
+        let fileContents = null;
+        // Added by Codex: Uploaded files are available to the browser even when the source path is outside the served web root.
+        if (uploadedFile && typeof uploadedFile.text == "function") {
+            filePath = uploadedFile.name || fileName || `uploaded_${side}_boundary_time_series.txt`;
+            calc_constants[`ts_${side}_file`] = filePath;
+            fileContents = await uploadedFile.text();
+        } else {
+            filePath = resolveBoundaryTimeSeriesFilePath(calc_constants, fileName);
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`Could not load boundary time-series file ${filePath}: ${response.statusText}`);
+            }
+            fileContents = await response.text();
+        }
+
+        const parsedData = parseBoundaryTimeSeriesText(fileContents, side, filePath);
+        if (sharedTimes == null) {
+            sharedTimes = parsedData.times.slice();
+        } else {
+            validateSharedBoundaryTimeVector(sharedTimes, parsedData.times, filePath);
+        }
+
+        boundaryTimeSeriesData[side] = parsedData;
+        boundaryTimeSeriesData.hasActive = true;
+        calc_constants[`ts_${side}_num_points`] = parsedData.numPoints;
+    }
+
+    if (sharedTimes != null) {
+        boundaryTimeSeriesData.sharedTimes = sharedTimes;
+        boundaryTimeSeriesData.zeroTimeIndex = sharedTimes.length;
+        // Added by Codex: Use the first boundary time as the absolute-clock offset for nested simulations.
+        calc_constants.start_time_shift = sharedTimes[0];
+        console.log(`Boundary time-series start_time_shift set to ${calc_constants.start_time_shift} seconds.`);
+    }
+
+    return boundaryTimeSeriesData;
+}
+// Added by Codex: End boundary time-series forcing loaders.
+
 // load overlay image, if it exists
 export async function loadOverlay(calc_constants) {
     console.log("Looking for server side overlay file...");

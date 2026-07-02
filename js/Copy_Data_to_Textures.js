@@ -133,6 +133,59 @@ function copyWaveDataToTexture(calc_constants, waveData, device, txWaves) {
     buffer.destroy();
 }
 
+// Added by Codex: Start boundary time-series forcing texture upload support.
+function copyBoundaryTimeSeriesDataToTexture(boundaryTimeSeriesSideData, device, txBoundaryTimeSeries) {
+    const sideData = boundaryTimeSeriesSideData || {};
+    const numPoints = Number.isFinite(sideData.numPoints) ? sideData.numPoints : 0;
+    const numTimes = Number.isFinite(sideData.numTimes) ? sideData.numTimes : 0;
+    const textureWidth = Math.max(Number.isFinite(sideData.textureWidth) ? sideData.textureWidth : numPoints, 1);
+    const textureHeight = Math.max(Number.isFinite(sideData.textureHeight) ? sideData.textureHeight : numTimes + 2, 1);
+    const actualBytesPerRow = textureWidth * 4 * 4; // 4 channels and 4 bytes per float
+    const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
+    const paddedFlatData = new Float32Array(textureHeight * requiredBytesPerRow / 4);
+
+    for (let pointIndex = 0; pointIndex < numPoints; pointIndex += 1) {
+        const paddedIndex = pointIndex * 4;
+        paddedFlatData[paddedIndex] = sideData.locations[pointIndex];
+    }
+
+    for (let timeIndex = 0; timeIndex < numTimes; timeIndex += 1) {
+        const rowStart = (timeIndex + 1) * requiredBytesPerRow / 4;
+        const rowValues = sideData.values[timeIndex];
+        for (let pointIndex = 0; pointIndex < numPoints; pointIndex += 1) {
+            const sourceIndex = pointIndex * 3;
+            const paddedIndex = rowStart + pointIndex * 4;
+            paddedFlatData[paddedIndex] = rowValues[sourceIndex];
+            paddedFlatData[paddedIndex + 1] = rowValues[sourceIndex + 1];
+            paddedFlatData[paddedIndex + 2] = rowValues[sourceIndex + 2];
+            paddedFlatData[paddedIndex + 3] = 0.0;
+        }
+    }
+
+    const buffer = device.createBuffer({
+        size: paddedFlatData.byteLength,
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
+    buffer.unmap();
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyBufferToTexture({
+        buffer: buffer,
+        bytesPerRow: requiredBytesPerRow,
+        rowsPerImage: textureHeight,
+    }, {
+        texture: txBoundaryTimeSeries
+    }, {
+        width: textureWidth,
+        height: textureHeight,
+        depthOrArrayLayers: 1
+    });
+    device.queue.submit([commandEncoder.finish()]);
+    buffer.destroy();
+}
+// Added by Codex: End boundary time-series forcing texture upload support.
+
 
 // Copies calc_constants.locationOfTimeSeries[] (x,y indices) into txTimeSeries_Locations.
 function copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) {
@@ -584,4 +637,6 @@ export function copy2DDataTo3DTexture(device, src2D, dst3D, dstLayer, width, hei
 
 // export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};
 // Added by Codex: Export spherical metric upload helper for grid_type == 2.
-export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};
+// export { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};
+// Added by Codex: Export boundary time-series forcing texture upload helper.
+export { copyBathyDataToTexture, copyWaveDataToTexture, copyBoundaryTimeSeriesDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture};

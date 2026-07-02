@@ -10,6 +10,7 @@ This module converts CPU-loaded arrays into GPU texture payloads. It is where ra
 
 - `copyBathyDataToTexture()`: packs bathymetry/topography into `txBottom`. It computes north/east face bed elevations, center bed elevation, and the near-dry flag. It also removes isolated one-cell dry islands before upload.
 - `copyWaveDataToTexture()`: stores wave amplitude, period, direction, and phase rows into a texture read by `BoundaryPass.wgsl`.
+- `copyBoundaryTimeSeriesDataToTexture()`: stores boundary type `5` station locations and `eta/hu/hv` rows into per-side textures read by `BoundaryPass.wgsl`.
 - `copySphericalMetricDataToTexture()`: stores latitude-dependent spherical-grid metric factors for `Pass3_NLSW_Spherical.wgsl`.
 - `copyTSlocsToTexture()`: writes time-series probe coordinates into the locations texture.
 - `copyInitialConditionDataToTexture()`: writes eta, u, or v initial-condition grids into a state-like texture based on `writeStateFlag`.
@@ -29,6 +30,8 @@ Bathymetry channel meanings are fixed:
 - `a`: near-dry flag.
 
 The tridiagonal coefficient textures use channels `a,b,c,d` in the numerical sense, mapped to RGBA as lower, diagonal, upper, and right-hand side/placeholder.
+
+Boundary type `5` forcing textures use row `0` for station locations in channel `r`, rows `1..N` for `[eta, hu, hv, 0]`, and one appended final zero row for times beyond the supplied series.
 
 `txSphericalMetrics` channel meanings are:
 

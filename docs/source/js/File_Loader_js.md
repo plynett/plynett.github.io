@@ -22,6 +22,8 @@ Each returns numeric grid data for later packing by `Copy_Data_to_Textures.js`.
 
 `loadWaveData()` reads `waves.txt`. The first line provides the number of waves; later rows contain wave parameters consumed by the boundary shader.
 
+`loadBoundaryTimeSeriesData()` loads active boundary type `5` files named by `ts_west_file`, `ts_east_file`, `ts_south_file`, and related side keys. User-uploaded boundary time-series files from the Start Here panel override the matching config path, which allows files outside the served example tree to be used. The parser accepts a station count, station locations, then rows of `time eta1 hu1 hv1 ...`; all active boundary files must share the same time vector. The first shared time value is copied into `calc_constants.start_time_shift`, so nested child simulations use the parent/global time clock directly.
+
 Overlay helpers load local overlay images or construct a Google Static Maps request from scenario coordinates. The Google map code computes Mercator-style scale/offset values used by the render shader to align image pixels with model coordinates.
 
 Google Static Maps fetches fail fast on HTTP errors, non-image payloads, or image decode failures. This lets the initialization path catch the problem and continue without a Google overlay, which is important for localhost runs where the API key may reject the origin.

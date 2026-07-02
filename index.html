@@ -117,6 +117,19 @@
            border-color: #030303; /* slightly darker border for hover */
         }
 
+        /* Added by Codex: Start compact boundary time-series upload controls. */
+        .boundary-time-series-upload-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .boundary-time-series-upload-row .custom-file-upload-button {
+            max-width: 145px;
+        }
+        /* Added by Codex: End compact boundary time-series upload controls. */
+
         .custom-window {
             border: 1px solid #ccc;
             border-radius: 5px;
@@ -240,6 +253,32 @@
                         </label>
                         <br />
                         <br />
+                        <!-- Added by Codex: Start boundary time-series upload inputs. -->
+                        <html4f>
+                            Boundary time-series files can be loaded for boundary type 5 and should contain station locations plus time, eta, hu, and hv columns.  
+                            See the Users Forum for details on how to construct these OPTIONAL boundary time series files.
+                        </html4f>
+                        <br />
+                        <div class="boundary-time-series-upload-row">
+                            <input type="file" id="westBoundaryTimeSeriesFile" accept="application/txt,.txt" style="display: none;" />
+                            <label for="westBoundaryTimeSeriesFile" class="custom-file-upload-button">
+                                Load West Boundary File
+                            </label>
+                            <input type="file" id="eastBoundaryTimeSeriesFile" accept="application/txt,.txt" style="display: none;" />
+                            <label for="eastBoundaryTimeSeriesFile" class="custom-file-upload-button">
+                                Load East Boundary File
+                            </label>
+                            <input type="file" id="southBoundaryTimeSeriesFile" accept="application/txt,.txt" style="display: none;" />
+                            <label for="southBoundaryTimeSeriesFile" class="custom-file-upload-button">
+                                Load South Boundary File
+                            </label>
+                            <input type="file" id="northBoundaryTimeSeriesFile" accept="application/txt,.txt" style="display: none;" />
+                            <label for="northBoundaryTimeSeriesFile" class="custom-file-upload-button">
+                                Load North Boundary File
+                            </label>
+                        </div>
+                        <br />
+                        <!-- Added by Codex: End boundary time-series upload inputs. -->
                         <html4f>
                             For image overlay, you have two choices.  
                             If you have a high-resolution satellite or aerial image, you can load that file below.  
@@ -763,6 +802,8 @@
                         <option value="1">Sponge Layer</option>
                         <option value="2">Incident Waves</option>
                         <option value="3">*Periodic Boundary</option>
+                        <!-- Added by Codex: Boundary type 5 uses eta/hu/hv from a configured time-series file. -->
+                        <option value="5">Time Series from loaded file</option>
                     </select>
                     <br />
                     <br />
@@ -774,6 +815,8 @@
                         <option value="1">Sponge Layer</option>
                         <option value="2">Incident Waves</option>
                         <option value="3">*Periodic Boundary</option>
+                        <!-- Added by Codex: Boundary type 5 uses eta/hu/hv from a configured time-series file. -->
+                        <option value="5">Time Series from loaded file</option>
                     </select>
                     <br />
                     <br />
@@ -785,6 +828,8 @@
                         <option value="1">Sponge Layer</option>
                         <option value="2">Incident Waves</option>
                         <option value="3">*Periodic Boundary</option>
+                        <!-- Added by Codex: Boundary type 5 uses eta/hu/hv from a configured time-series file. -->
+                        <option value="5">Time Series from loaded file</option>
                     </select>
                     <br />
                     <br />
@@ -796,6 +841,8 @@
                         <option value="1">Sponge Layer</option>
                         <option value="2">Incident Waves</option>
                         <option value="3">*Periodic Boundary</option>
+                        <!-- Added by Codex: Boundary type 5 uses eta/hu/hv from a configured time-series file. -->
+                        <option value="5">Time Series from loaded file</option>
                     </select>
                     <br />
                     <br />
@@ -1263,6 +1310,53 @@
                     <button id="stop2Dwrite-button">Stop Writing 2D Data to File</button>
                     <br />
                     <br />
+
+                    <!-- Added by Codex: Start nested-grid boundary time-series output controls. -->
+                    <html4f> Nested Grid Boundary Time Series Output Options: </html4f>
+                    <br />
+                    <html4f>
+                    Define a rectangle using 0-based lower-left and upper-right grid indices. The four rectangle edges
+                    will be saved as eta/hu/hv time-series boundary files for one-way nested grids.
+                    </html4f>
+                    <br />
+                    <label for="nestedGridOutput_i0-input">Lower-left i-index:</label>
+                    <input type="number" id="nestedGridOutput_i0-input" name="nestedGridOutput_i0Value" min="0" step="1">
+                    <button id="nestedGridOutput_i0-button" type="button">Update</button>
+                    <br />
+                    <label for="nestedGridOutput_j0-input">Lower-left j-index:</label>
+                    <input type="number" id="nestedGridOutput_j0-input" name="nestedGridOutput_j0Value" min="0" step="1">
+                    <button id="nestedGridOutput_j0-button" type="button">Update</button>
+                    <br />
+                    <label for="nestedGridOutput_i1-input">Upper-right i-index:</label>
+                    <input type="number" id="nestedGridOutput_i1-input" name="nestedGridOutput_i1Value" min="0" step="1">
+                    <button id="nestedGridOutput_i1-button" type="button">Update</button>
+                    <br />
+                    <label for="nestedGridOutput_j1-input">Upper-right j-index:</label>
+                    <input type="number" id="nestedGridOutput_j1-input" name="nestedGridOutput_j1Value" min="0" step="1">
+                    <button id="nestedGridOutput_j1-button" type="button">Update</button>
+                    <br />
+                    <label for="nestedGridOutput_start_time-input">Start output time (sec):</label>
+                    <input type="number" id="nestedGridOutput_start_time-input" name="nestedGridOutput_start_timeValue">
+                    <button id="nestedGridOutput_start_time-button" type="button">Update</button>
+                    <br />
+                    <label for="nestedGridOutput_end_time-input">End output time (sec):</label>
+                    <input type="number" id="nestedGridOutput_end_time-input" name="nestedGridOutput_end_timeValue">
+                    <button id="nestedGridOutput_end_time-button" type="button">Update</button>
+                    <br />
+                    <label for="nestedGridOutput_dt-input">Output interval (sec):</label>
+                    <input type="number" id="nestedGridOutput_dt-input" name="nestedGridOutput_dtValue" min="0">
+                    <button id="nestedGridOutput_dt-button" type="button">Update</button>
+                    <br />
+                    <!-- Added by Codex: Start nested-grid quiet-period trim threshold control. -->
+                    <label for="nestedEtaWriteThreshold-input">Eta write threshold (m):</label>
+                    <input type="number" id="nestedEtaWriteThreshold-input" name="nestedEtaWriteThresholdValue" min="0" step="0.001">
+                    <button id="nestedEtaWriteThreshold-button" type="button">Update</button>
+                    <br />
+                    <!-- Added by Codex: End nested-grid quiet-period trim threshold control. -->
+                    <button id="startNestedGridOutput-button">Start Nested Grid Boundary Time Series Output</button>
+                    <br />
+                    <br />
+                    <!-- Added by Codex: End nested-grid boundary time-series output controls. -->
 
                 </div>
 

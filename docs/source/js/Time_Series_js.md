@@ -15,7 +15,7 @@ This module reads small GPU outputs back to JavaScript for tooltips and point ti
 
 ## Important Contracts
 
-`ExtractTimeSeries.wgsl` reserves the first output pixel for tooltip values at the current mouse grid index. Time-series gauges start at pixel index 1. `timeSeriesData` is initialized in `constants_load_calc.js` and is indexed to match those gauge slots.
+`ExtractTimeSeries.wgsl` reserves the first output pixel for tooltip values at the current mouse grid index. Time-series gauges start at pixel index 1. `timeSeriesData` is initialized in `constants_load_calc.js` and is indexed to match those gauge slots. Gauge timestamps come from the same shifted/global `total_time` used by the solver, so nested runs loaded from boundary type `5` files preserve the parent-grid clock.
 
 ## Change Notes
 

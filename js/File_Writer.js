@@ -633,6 +633,206 @@ function blobCreationAndDownload(blob, filename) {
     });
   }
 
+// Added by Codex: Start nested-grid boundary time-series output writer.
+async function readRgbaTextureData(device, src_texture, width, height) {
+    const bytesPerPixel = 4 * 4; // rgba32float
+    const requiredBytesPerRow = Math.ceil((width * bytesPerPixel) / 256) * 256;
+    const floatsPerRow = requiredBytesPerRow >> 2;
+    const bufferSize = requiredBytesPerRow * height;
+
+    const readbackBuffer = device.createBuffer({
+        size: bufferSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyTextureToBuffer(
+        { texture: src_texture },
+        { buffer: readbackBuffer, bytesPerRow: requiredBytesPerRow, rowsPerImage: height },
+        { width, height, depthOrArrayLayers: 1 }
+    );
+    device.queue.submit([commandEncoder.finish()]);
+
+    await readbackBuffer.mapAsync(GPUMapMode.READ);
+    const paddedData = new Float32Array(readbackBuffer.getMappedRange());
+    const data = new Float32Array(width * height * 4);
+
+    for (let row = 0; row < height; row++) {
+        const paddedRowBase = row * floatsPerRow;
+        const outputRowBase = row * width * 4;
+        for (let col = 0; col < width; col++) {
+            const paddedBase = paddedRowBase + col * 4;
+            const outputBase = outputRowBase + col * 4;
+            data[outputBase] = paddedData[paddedBase];
+            data[outputBase + 1] = paddedData[paddedBase + 1];
+            data[outputBase + 2] = paddedData[paddedBase + 2];
+            data[outputBase + 3] = paddedData[paddedBase + 3];
+        }
+    }
+
+    readbackBuffer.unmap();
+    readbackBuffer.destroy();
+    return data;
+}
+
+function formatNestedGridBoundaryValue(value) {
+    if (!Number.isFinite(value)) {
+        return "0";
+    }
+    return Number(value).toPrecision(9);
+}
+
+// Added by Codex: Start nested-grid quiet-period trim helpers.
+function findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes) {
+    const threshold = Math.max(0.0, Number(calc_constants.nestedEtaWriteThreshold) || 0.0);
+    if (threshold <= 0.0) {
+        return 0;
+    }
+
+    for (let sampleIndex = 0; sampleIndex < capturedTimes.length; sampleIndex++) {
+        for (const side of sideReadbacks) {
+            for (let stationIndex = 0; stationIndex < side.width; stationIndex++) {
+                const baseIndex = (sampleIndex * side.width + stationIndex) * 4;
+                if (Math.abs(side.textureData[baseIndex]) > threshold) {
+                    return sampleIndex;
+                }
+            }
+        }
+    }
+
+    return -1;
+}
+
+// function createNestedGridStartTimeBlob(actualStartTime, threshold, triggerIndex) {
+//     // Added by Codex: Keep no-trigger metadata explicit instead of passing NaN through the zero-fallback formatter.
+//     const startTimeText = Number.isFinite(actualStartTime) ? formatNestedGridBoundaryValue(actualStartTime) : "NaN";
+//     // const pieces = [
+//     //     `% nested-grid boundary time-series absolute start time\n`,
+//     //     `start_time_series ${formatNestedGridBoundaryValue(actualStartTime)}\n`,
+//     //     `nestedEtaWriteThreshold ${formatNestedGridBoundaryValue(threshold)}\n`,
+//     //     `trigger_sample_index ${triggerIndex}\n`
+//     // ];
+//     // Added by Codex: Keep the start-time file as one simple ASCII value for downstream nested-grid scripts.
+//     const pieces = [`${startTimeText}\n`];
+//     return new Blob(pieces, { type: 'text/plain' });
+// }
+// Added by Codex: End nested-grid quiet-period trim helpers.
+
+// function createNestedGridBoundaryTimeSeriesBlob(sideData, textureData, capturedTimes) {
+// Added by Codex: Allow final nested-grid files to be trimmed without changing their shifted/global time values.
+function createNestedGridBoundaryTimeSeriesBlob(sideData, textureData, capturedTimes, startSampleIndex = 0) {
+    const pieces = [];
+    const numberOfStations = sideData.width;
+
+    pieces.push(`number_of_ts_along_boundary ${numberOfStations}\n`);
+    for (let stationIndex = 0; stationIndex < numberOfStations; stationIndex++) {
+        pieces.push(`${formatNestedGridBoundaryValue(sideData.locations[stationIndex])}\n`);
+    }
+
+    let header = "% time";
+    for (let stationIndex = 0; stationIndex < numberOfStations; stationIndex++) {
+        header += ` eta${stationIndex + 1} hu${stationIndex + 1} hv${stationIndex + 1}`;
+    }
+    pieces.push(`${header}\n`);
+
+    // for (let sampleIndex = 0; sampleIndex < capturedTimes.length; sampleIndex++) {
+    for (let sampleIndex = startSampleIndex; sampleIndex < capturedTimes.length; sampleIndex++) {
+        // const rowValues = [formatNestedGridBoundaryValue(capturedTimes[sampleIndex])];
+        // Added by Codex: Keep nested boundary output times on the shifted/global simulation clock.
+        const rowValues = [formatNestedGridBoundaryValue(capturedTimes[sampleIndex])];
+        for (let stationIndex = 0; stationIndex < numberOfStations; stationIndex++) {
+            const baseIndex = (sampleIndex * numberOfStations + stationIndex) * 4;
+            rowValues.push(formatNestedGridBoundaryValue(textureData[baseIndex]));
+            rowValues.push(formatNestedGridBoundaryValue(textureData[baseIndex + 1]));
+            rowValues.push(formatNestedGridBoundaryValue(textureData[baseIndex + 2]));
+        }
+        pieces.push(`${rowValues.join(" ")}\n`);
+    }
+
+    return new Blob(pieces, { type: 'text/plain' });
+}
+
+export async function writeNestedGridBoundaryTimeSeriesData(device, nestedGridOutputState) {
+    const capturedTimes = nestedGridOutputState.capturedTimes || [];
+    if (capturedTimes.length <= 0) {
+        console.warn("Nested-grid boundary output requested a download, but no samples were captured.");
+        return;
+    }
+
+    const prefix = calc_constants.nestedGridOutput_file_prefix || "nested";
+    const sides = [
+        {
+            name: "south",
+            texture: nestedGridOutputState.txSouth,
+            width: nestedGridOutputState.nx,
+            locations: nestedGridOutputState.southLocations
+        },
+        {
+            name: "north",
+            texture: nestedGridOutputState.txNorth,
+            width: nestedGridOutputState.nx,
+            locations: nestedGridOutputState.northLocations
+        },
+        {
+            name: "west",
+            texture: nestedGridOutputState.txWest,
+            width: nestedGridOutputState.ny,
+            locations: nestedGridOutputState.westLocations
+        },
+        {
+            name: "east",
+            texture: nestedGridOutputState.txEast,
+            width: nestedGridOutputState.ny,
+            locations: nestedGridOutputState.eastLocations
+        }
+    ];
+
+    // for (const side of sides) {
+    //     const textureData = await readRgbaTextureData(device, side.texture, side.width, capturedTimes.length);
+    //     const blob = createNestedGridBoundaryTimeSeriesBlob(side, textureData, capturedTimes);
+    //     await blobCreationAndDownload(blob, `${prefix}_time_series_bc_${side.name}.txt`);
+    //     await sleep(calc_constants.fileWritePause);
+    // }
+    // Added by Codex: Start threshold-trimmed nested-grid boundary file downloads.
+    const sideReadbacks = [];
+    for (const side of sides) {
+        sideReadbacks.push({
+            ...side,
+            textureData: await readRgbaTextureData(device, side.texture, side.width, capturedTimes.length)
+        });
+    }
+
+    const threshold = Math.max(0.0, Number(calc_constants.nestedEtaWriteThreshold) || 0.0);
+    // const startSampleIndex = findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes);
+    // const actualStartTime = startSampleIndex >= 0 ? capturedTimes[startSampleIndex] : Number.NaN;
+    // Added by Codex: Preserve shifted/global output times while still trimming leading quiet samples.
+    const thresholdActive = threshold > 0.0;
+    const startSampleIndex = thresholdActive ? findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes) : 0;
+    const actualStartTime = startSampleIndex >= 0 ? capturedTimes[startSampleIndex] : Number.NaN;
+    calc_constants.nestedGridOutput_actual_start_time = Number.isFinite(actualStartTime) ? actualStartTime : 0.0;
+
+    // const startTimeBlob = createNestedGridStartTimeBlob(actualStartTime, threshold, startSampleIndex);
+    // await blobCreationAndDownload(startTimeBlob, `${prefix}_time_series_start_time.txt`);
+    // await sleep(calc_constants.fileWritePause);
+    // Added by Codex: The first written boundary-file time now carries the start-time shift; no separate start-time file is needed.
+
+    // if (startSampleIndex < 0) {
+    if (thresholdActive && startSampleIndex < 0) {
+        console.warn(`Nested-grid boundary output did not exceed nestedEtaWriteThreshold=${threshold}; boundary time-series files were not written.`);
+        return;
+    }
+
+    for (const side of sideReadbacks) {
+        // const blob = createNestedGridBoundaryTimeSeriesBlob(side, side.textureData, capturedTimes, startSampleIndex, actualStartTime);
+        // Added by Codex: Write threshold-trimmed rows with their shifted/global simulation times unchanged.
+        const blob = createNestedGridBoundaryTimeSeriesBlob(side, side.textureData, capturedTimes, startSampleIndex);
+        await blobCreationAndDownload(blob, `${prefix}_time_series_bc_${side.name}.txt`);
+        await sleep(calc_constants.fileWritePause);
+    }
+    // Added by Codex: End threshold-trimmed nested-grid boundary file downloads.
+}
+// Added by Codex: End nested-grid boundary time-series output writer.
+
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }

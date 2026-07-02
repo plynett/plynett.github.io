@@ -92,12 +92,52 @@ export function create_BoundaryPass_BindGroupLayout(device) {
                     sampleType: 'unfilterable-float',
                     format: 'rgba32float'
                 }
+            },
+            // Added by Codex: Start boundary time-series forcing texture bindings.
+            {
+                // 10th binding: South boundary type-5 eta/hu/hv time-series texture.
+                binding: 10,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 11th binding: North boundary type-5 eta/hu/hv time-series texture.
+                binding: 11,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 12th binding: West boundary type-5 eta/hu/hv time-series texture.
+                binding: 12,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
+            },
+            {
+                // 13th binding: East boundary type-5 eta/hu/hv time-series texture.
+                binding: 13,
+                visibility: GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: 'unfilterable-float',
+                    format: 'rgba32float'
+                }
             }
+            // Added by Codex: End boundary time-series forcing texture bindings.
         ]
     });
 }
 
-export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing) {
+// export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing) {
+// Added by Codex: Add four optional boundary time-series textures for boundary_type == 5.
+export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp, txtemp_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing, txBoundaryTimeSeriesSouth, txBoundaryTimeSeriesNorth, txBoundaryTimeSeriesWest, txBoundaryTimeSeriesEast) {
     return device.createBindGroup({
         layout: create_BoundaryPass_BindGroupLayout(device),
         entries: [
@@ -142,7 +182,25 @@ export function create_BoundaryPass_BindGroup(device, uniformBuffer, current_sta
             {
                 binding: 9,
                 resource: txBoundaryForcing.createView()
+            },
+            // Added by Codex: Start boundary time-series forcing texture resources.
+            {
+                binding: 10,
+                resource: txBoundaryTimeSeriesSouth.createView()
+            },
+            {
+                binding: 11,
+                resource: txBoundaryTimeSeriesNorth.createView()
+            },
+            {
+                binding: 12,
+                resource: txBoundaryTimeSeriesWest.createView()
+            },
+            {
+                binding: 13,
+                resource: txBoundaryTimeSeriesEast.createView()
             }
+            // Added by Codex: End boundary time-series forcing texture resources.
         ]
     });
 }

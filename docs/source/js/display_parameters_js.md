@@ -14,6 +14,8 @@ This module updates DOM panels that show simulation parameters, status, time-ser
 - `displaySlideVolume()`: reports disturbance/slide volume information.
 - `ConsoleLogRedirection()`: monkey-patches `console.log` so messages also appear in the in-page console panel.
 
+Boundary type labels include type `5`, displayed as time-series forcing from a loaded file.
+
 ## Important Contracts
 
 This file is tightly coupled to DOM element IDs. It assumes the HTML contains specific containers and text fields. The console redirection keeps only a bounded number of entries so the page does not grow without limit.

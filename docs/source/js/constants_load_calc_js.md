@@ -15,6 +15,10 @@ This module owns the default simulation configuration and the derived constants 
 
 The config object includes grid size, numerical settings, physics options, boundary types, wave forcing, sediment parameters, design-component constants, linear-structure preview parameters, render settings, and export options. Example scenario configs override the defaults by key.
 
+Boundary type `5` uses configured external `eta/hu/hv` time-series files. The defaults include `ts_west_file`, `ts_east_file`, `ts_south_file`, `ts_north_file`, and per-side loaded station counts used by `BoundaryPass`. When active boundary time-series files are loaded, `start_time_shift` is set to the first shared time value so the model's `total_time` is referenced to the parent/global nested-grid clock.
+
+Nested-grid boundary output settings are also stored here under the save-data parameters. `nestedGridOutput_i0/j0/i1/j1`, `nestedGridOutput_start_time`, `nestedGridOutput_end_time`, and `nestedGridOutput_dt` define a rectangle-edge output capture. The runtime caps `nestedGridOutput_sample_count` to `nestedGridOutput_max_samples`, currently `8192`, by increasing `nestedGridOutput_dt` and logging a warning. `nestedEtaWriteThreshold` optionally trims leading quiet samples from the final boundary files when the readback finds that the eta magnitude on any rectangle edge first exceeds the threshold.
+
 Linear-structure state is stored in the same flat `calc_constants` object as the rest of the UI state. The fields include crest elevation, crest width, side slope, the currently selected endpoint, the shared x/y coordinate inputs, stored start/end coordinates, start/end-defined flags, a preview-enabled flag, and a pending add flag used to dispatch the bathy/topo edit through `MouseClickChange.wgsl`. This keeps the terrain-modification shader inputs and the current render preview tied to one source of truth.
 
 There is no formal schema. This file is effectively the schema, and many fields are coupled to uniform-buffer writers and WGSL `Globals` structs in `main.js` and `shaders/`.

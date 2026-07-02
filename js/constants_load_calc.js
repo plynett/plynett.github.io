@@ -78,6 +78,21 @@ var calc_constants = {
     incident_wave_T: 10.,  //Period (sec) of Sine Wave / Pulse, or Peak Period of Spectrum [not used for Solitary Wave]
     incident_wave_direction: 0.,  // Wave Direction (deg CCW from E [-180 to 180])
     numberOfWaves: 1., // number of wave components to be created
+    trough_factor: 1.0, // factor to increase or decrease the trough amplitude of the wave.  Needed in the ASCE-16 and 22 for incident waveform. ONLY used when globals.incident_wave_type == 2
+
+    // Added by Codex: Start boundary time-series forcing file defaults.
+    ts_west_file: "", // file for west boundary type 5 eta/hu/hv time-series forcing
+    ts_east_file: "", // file for east boundary type 5 eta/hu/hv time-series forcing
+    ts_south_file: "", // file for south boundary type 5 eta/hu/hv time-series forcing
+    ts_north_file: "", // file for north boundary type 5 eta/hu/hv time-series forcing
+    ts_west_num_points: 0, // number of loaded type-5 forcing stations on the west boundary
+    ts_east_num_points: 0, // number of loaded type-5 forcing stations on the east boundary
+    ts_south_num_points: 0, // number of loaded type-5 forcing stations on the south boundary
+    ts_north_num_points: 0, // number of loaded type-5 forcing stations on the north boundary
+    // Added by Codex: Start global time shift for nested boundary time-series forcing.
+    start_time_shift: 0.0, // added to model total_time when type-5 boundary files start at a nonzero parent-grid time
+    // Added by Codex: End global time shift for nested boundary time-series forcing.
+    // Added by Codex: End boundary time-series forcing file defaults.
 
     // Vessel motion parameters (initial development)
     ship_posx: -100.0,  // initial ship position, if initially inside domain, the initial free surface must include the ship displacement 
@@ -351,6 +366,25 @@ var calc_constants = {
     fileWritePause: 100, // time (ms) to pause during 2D surface write to not overload write buffer
     write_individual_surface: 0, // flag to write individual 2D surface
     which_surface_to_write: 0,  // flag for which surface to write 
+    // Added by Codex: Start nested-grid boundary time-series output parameters.
+    nestedGridOutput_i0: 0, // lower-left rectangle i-index for nested boundary output
+    nestedGridOutput_j0: 0, // lower-left rectangle j-index for nested boundary output
+    nestedGridOutput_i1: 100, // upper-right rectangle i-index for nested boundary output
+    nestedGridOutput_j1: 100, // upper-right rectangle j-index for nested boundary output
+    nestedGridOutput_start_time: 0.0, // simulation time to start nested boundary output
+    nestedGridOutput_end_time: 0.0, // simulation time to end nested boundary output
+    nestedGridOutput_dt: 1.0, // requested nested boundary output interval
+    nestedGridOutput_max_samples: 8192, // hard cap on stored output times
+    nestedGridOutput_trigger: 0, // set to 1 to allocate textures and start nested boundary output
+    nestedGridOutput_active: 0, // 1 while nested boundary output is actively sampling
+    nestedGridOutput_sample_count: 0, // derived number of output samples after dt cap
+    nestedGridOutput_sample_index: 0, // current output sample index
+    nestedGridOutput_file_prefix: "nested", // prefix for generated boundary time-series files
+    // Added by Codex: Start nested-grid boundary output threshold parameters.
+    nestedEtaWriteThreshold: 0.0, // eta magnitude threshold that trims leading quiet samples when > 0
+    nestedGridOutput_actual_start_time: 0.0, // absolute simulation time used as t=0 in trimmed nested files
+    // Added by Codex: End nested-grid boundary output threshold parameters.
+    // Added by Codex: End nested-grid boundary time-series output parameters.
 
     // save trigger parameters, for automatically saving data
     trigger_animation: 0, // user trigger / automation when = 1, 
@@ -533,6 +567,23 @@ async function init_sim_parameters(canvas, configContent) {
     calc_constants.n_write_interval = Math.ceil(calc_constants.write_dt / calc_constants.dt);
     calc_constants.write_dt = calc_constants.n_write_interval * calc_constants.dt;
     calc_constants.n_writes = Math.floor((calc_constants.end_write_time - calc_constants.start_write_time) / calc_constants.write_dt) + 1;
+    // Added by Codex: Start nested-grid boundary time-series sample cap.
+    const nestedOutputMaxSamples = Math.max(1, Math.floor(calc_constants.nestedGridOutput_max_samples || 8192));
+    const nestedOutputDuration = Math.max(0.0, calc_constants.nestedGridOutput_end_time - calc_constants.nestedGridOutput_start_time);
+    if (calc_constants.nestedGridOutput_dt <= 0.0) {
+        calc_constants.nestedGridOutput_dt = Math.max(calc_constants.dt, 1.0e-6);
+    }
+    let nestedOutputSampleCount = Math.floor(nestedOutputDuration / calc_constants.nestedGridOutput_dt) + 1;
+    if (nestedOutputDuration == 0.0) {
+        nestedOutputSampleCount = 1;
+    }
+    if (nestedOutputSampleCount > nestedOutputMaxSamples) {
+        calc_constants.nestedGridOutput_dt = nestedOutputDuration / Math.max(nestedOutputMaxSamples - 1, 1);
+        nestedOutputSampleCount = nestedOutputMaxSamples;
+        console.warn(`Nested-grid boundary output requested more than ${nestedOutputMaxSamples} samples; increasing nestedGridOutput_dt to ${calc_constants.nestedGridOutput_dt}.`);
+    }
+    calc_constants.nestedGridOutput_sample_count = nestedOutputSampleCount;
+    // Added by Codex: End nested-grid boundary time-series sample cap.
 
     calc_constants.ThreadX = 16;
     calc_constants.ThreadY = 16;

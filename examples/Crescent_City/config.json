@@ -25,5 +25,7 @@
   "lon_LL": -124.21932915, 
   "lat_UR": 41.75421595, 
   "lon_UR": -124.15461425, 
-  "GoogleMapOverlay": 1.00000000 
+  "GoogleMapOverlay": 1.00000000,
+  "trough_factor": 0.55,
+  "incident_wave_type": 2  
 } 

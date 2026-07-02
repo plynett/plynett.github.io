@@ -12,7 +12,7 @@ This is the file that turns the collection of shader passes into an actual coast
 
 The initialization path loads config, bathymetry, waves, optional overlays, optional initial surfaces, and model assets. It then:
 
-- Requests the WebGPU adapter/device and configures the canvas.
+- Requests the WebGPU adapter/device and configures the canvas. The device request asks for the adapter-supported `maxTextureDimension2D`, which allows long boundary time-series textures to exceed the default 8192 rows on GPUs that report a higher limit.
 - Destroys old textures when a new scenario starts.
 - Creates uniform buffers for simulation, render, tridiagonal, and specialized pass constants.
 - Allocates simulation textures, diagnostics textures, sediment textures, COULWAVE textures, optional spherical metric textures, render textures, and time-series textures.
@@ -60,6 +60,7 @@ faster-than-realtime ratio into `calc_constants.agent_total_time`,
 `calc_constants.agent_total_time_since_http_update`, and
 `calc_constants.agent_faster_than_realtime_ratio`. These are display/provenance values only; they do
 not drive solver behavior.
+When boundary type `5` files are loaded, `calc_constants.start_time_shift` is set from the first shared boundary-file time, and the render loop adds it directly to `total_time`. Boundary forcing, point time series, diagnostics, trigger checks, and nested outputs then all use the same parent/global clock.
 
 ## Main Simulation Loop
 
@@ -72,6 +73,7 @@ Important state transitions inside the loop:
 - `current_stateUVstar` holds the intermediate explicit/dispersive state.
 - Gradient history textures are shifted after each completed timestep.
 - Diagnostic textures are updated after the new state is accepted.
+- Nested-grid boundary time-series output, when active, samples rectangle-edge `eta/hu/hv` from the accepted `txNewState` before it is copied back into `txState`.
 
 The loop has separate branches for NLSW, Boussinesq, and COULWAVE modes. NLSW bypasses the tridiagonal solve, while Boussinesq and COULWAVE run the PCR solver after the explicit/source-term pass.
 
@@ -98,7 +100,8 @@ Most DOM event listeners are registered in this file:
 - For `grid_type == 2`, tooltip coordinates are displayed as longitude/latitude degrees by adding the pointer offsets to `lon_LL` and `lat_LL`.
 - Linear-structure management for the engineered-design panel. Crest elevation, crest width, side slope, current endpoint selection, and start/end coordinates are stored in `calc_constants`; right-clicking in Design mode while the engineered-design panel is open records the selected endpoint. The preview is plotted only while that panel is open. The Add Linear Structure button validates the endpoints and queues a `MouseClickChange.wgsl` bathy/topo edit; after the GPU copy-back and near-dry/tridiagonal refresh complete, the stored endpoints and preview are reset.
 - File input handlers.
-- Export buttons for images, GIFs, JSON config, and simulation surfaces.
+- Optional Start Here uploads for west/east/south/north boundary type `5` time-series files; uploaded files are passed into initialization and override the matching `ts_*_file` fetch path.
+- Export buttons for images, GIFs, JSON config, simulation surfaces, and nested-grid boundary time-series rectangle outputs. While nested-grid output is active, the selected rectangle is drawn as a black outline through the existing `txDraw` overlay. The rectangle uses lower-left model-grid `j` indices for capture, but the overlay y coordinate is inverted when drawing because the shared draw canvas is already vertically flipped before upload. The nested output UI also exposes `nestedEtaWriteThreshold`, which trims quiet leading samples from the final downloaded files during readback rather than changing the GPU sampling pass.
 
 The UI does not directly mutate GPU textures. It changes `calc_constants` and sets flags such as `html_update`, `click_update`, or `add_Disturbance`; the frame loop then dispatches the appropriate compute shader and texture copies.
 
@@ -108,6 +111,8 @@ The UI does not directly mutate GPU textures. It changes `calc_constants` and se
 - Handler argument order is critical because `main.js` passes textures positionally.
 - In spherical NLSW mode, Pass3 binding `19` carries `txSphericalMetrics` instead of `txDissipationFlux`; the shared layout is unchanged to stay within WebGPU binding limits.
 - `txWaves` is normally loaded from `waves.txt`, but UI-selected sine and TMA forcing reuse the same texture contract. Sine sets `numberOfWaves` to 1, converts UI height to amplitude with `H / 2`, and converts UI direction from degrees to radians. Sine and TMA both fit directions so phase is periodic across the active forcing span only when the boundaries transverse to the wave boundary are periodic. TMA generates a cached spectrum from the incident-wave controls, updates `numberOfWaves`, and reuploads the wave texture without resetting wave-height diagnostics.
+- Boundary type `5` loads per-side `eta/hu/hv` forcing files into `txBoundaryTimeSeriesSouth/North/West/East`. `main.js` computes one shared time bracket per simulation step using the shifted/global `total_time` and stores the bracket in the `BoundaryPass` uniform buffer; the shader performs station-space interpolation along the active boundary.
+- Nested-grid boundary output dynamically allocates four compact edge textures when the user starts capture. Requested sample counts above `nestedGridOutput_max_samples` are capped by increasing `nestedGridOutput_dt` and logging a warning. The final readback happens once after capture completes, and optional threshold trimming drops quiet leading rows while preserving shifted/global times in the boundary files.
 - The PCR tridiagonal solver depends on the paired `BaseToA`, `AToB`, and `BToA` bind groups created here for both x and y directions.
 - The render bind group is shared by 2D and 3D rendering.
 - Linear-structure preview uniforms are appended to the render uniform buffer and are populated from `calc_constants` before each render write. The preview is panel-gated and draws endpoint dots and the connecting segment in `fragment.wgsl`. Linear-structure bathy/topo edits are dispatched separately through `MouseClickChange.wgsl`, then copied into `txBottom` with the same near-dry and tridiagonal refresh sequence used by manual bathy/topo edits.

@@ -1,12 +1,18 @@
 ﻿// import source files
 import { calc_constants, timeSeriesData, loadConfig, init_sim_parameters } from './constants_load_calc.js';  // variables and functions needed for init_sim_parameters
-import { loadDepthSurface, loadInitCondSurface, loadFrictionSurface, loadHardBottomSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
-import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
+// import { loadDepthSurface, loadInitCondSurface, loadFrictionSurface, loadHardBottomSurface, loadWaveData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
+// Added by Codex: Import boundary time-series forcing loader for boundary_type == 5.
+import { loadDepthSurface, loadInitCondSurface, loadFrictionSurface, loadHardBottomSurface, loadWaveData, loadBoundaryTimeSeriesData, loadOverlay, CreateGoogleMapImage, calculateGoogleMapScaleAndOffset, loadImageBitmap, loadUserImage, loadCubeBitmaps} from './File_Loader.js';  // load depth surface and wave data file
+// import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, sleep} from './File_Writer.js';  // load depth surface and wave data file
+// Added by Codex: Import nested-grid boundary time-series output writer.
+import { readTextureData, downloadTextureData, downloadObjectAsFile, handleFileSelect, loadJsonIntoCalcConstants, saveRenderedImageAsJPEG, saveSingleValueToFile, saveTextureSlicesAsImages, createAnimatedGifFromTexture, writeSurfaceData, writeNestedGridBoundaryTimeSeriesData, sleep} from './File_Writer.js';  // load depth surface and wave data file
 import { readCornerPixelData, readToolTipTextureData, downloadTimeSeriesData, resetTimeSeriesData} from './Time_Series.js';  // time series functions
 import { create_2D_Texture, create_2D_F16Texture, create_2D_Image_Texture, create_3D_Image_Texture, create_3D_Data_Texture, create_1D_Texture, createUniformBuffer, create_Depth_Texture} from './Create_Textures.js';  // create texture function
 // import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 // Added by Codex: Import spherical metric upload helper for grid_type == 2.
-import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+// import { copyBathyDataToTexture, copyWaveDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
+// Added by Codex: Import boundary time-series forcing texture upload helper.
+import { copyBathyDataToTexture, copyWaveDataToTexture, copyBoundaryTimeSeriesDataToTexture, copyTSlocsToTexture, copyInitialConditionDataToTexture, copyConstantValueToTexture, copySphericalMetricDataToTexture, copyTridiagXDataToTexture, copyTridiagYDataToTexture, copyImageBitmapToTexture, copy2DDataTo3DTexture} from './Copy_Data_to_Textures.js';  // fills in channels of txBottom
 // Added by Codex: Boundary-wave generators keep UI-created spectra outside the main orchestrator.
 import { GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY, buildSineWaveData, buildTmaWaveData } from './Wave_Generator.js?v=periodic-wave-fit-gated-20260611';
 import { makeModelMatrix, loadSceneModels, loadglTFModel} from './Model_Loaders.js';  // functions to load 3D models
@@ -30,6 +36,8 @@ import { create_CalcWaveHeight_BindGroupLayout, create_CalcWaveHeight_BindGroup 
 import { create_AddDisturbance_BindGroupLayout, create_AddDisturbance_BindGroup } from './Handler_AddDisturbance.js';  // group bindings for adding a landslide or tsunami impulsive source
 import { create_MouseClickChange_BindGroupLayout, create_MouseClickChange_BindGroup } from './Handler_MouseClickChange.js';  // group bindings for mouse click changes
 import { create_ExtractTimeSeries_BindGroupLayout, create_ExtractTimeSeries_BindGroup } from './Handler_ExtractTimeSeries.js';  // group bindings for storing single pixel / time series values
+// Added by Codex: Import nested-grid boundary time-series extraction handler.
+import { create_ExtractNestedBoundaryTimeSeries_BindGroupLayout, create_ExtractNestedBoundaryTimeSeries_BindGroup } from './Handler_ExtractNestedBoundaryTimeSeries.js';
 import { create_Copytxf32_txf16_BindGroupLayout, create_Copytxf32_txf16_BindGroup } from './Handler_Copytxf32_txf16.js';  // group bindings for f32 to f16 copy shader
 import { createComputePipeline, createRenderPipeline, createRenderPipeline_vertexgrid, createSkyboxPipeline, createModelPipeline, createDuckPipeline} from './Config_Pipelines.js';  // pipeline config for ALL shaders
 import { fetchShader, runComputeShader, runCopyTextures, runComputeShader_EncStack, runCopyTextures_EncStack} from './Run_Compute_Shader.js';  // function to run shaders, works for all
@@ -184,7 +192,9 @@ async function loadAgentCaseFromUrl() {
 }
 
 // create an async function to handle configuration routines that must be performed in order, but also have imbedded async functions.
-async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
+// async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
+// Added by Codex: Carry optional uploaded boundary time-series files into the config-dependent loader.
+async function OrderedFunctions(configContent, bathymetryContent, waveContent, boundaryTimeSeriesFiles = {}) {
     // Set simulation parameters - this routine inits calc_constants to default values,
     // loads the json config file and places updated values in calc_constants, and then
     // sets and values of calc_constants that are dependent on inputs(e.g.dt)
@@ -195,12 +205,19 @@ async function OrderedFunctions(configContent, bathymetryContent, waveContent) {
     // Load wave data file, place into waveArray 
     let { numberOfWaves, waveData } = await loadWaveData(waveContent, calc_constants);  // Start this only after the first function completes
     calc_constants.numberOfWaves = numberOfWaves; 
-    return { bathy2D, waveData };
+    // return { bathy2D, waveData };
+    // Added by Codex: Load optional boundary_type == 5 eta/hu/hv time-series forcing files after config paths are known.
+    // let boundaryTimeSeriesData = await loadBoundaryTimeSeriesData(calc_constants);
+    // Added by Codex: Uploaded boundary time-series files override ts_*_file fetch paths for custom local runs.
+    let boundaryTimeSeriesData = await loadBoundaryTimeSeriesData(calc_constants, boundaryTimeSeriesFiles);
+    return { bathy2D, waveData, boundaryTimeSeriesData };
 }
 
 // This is an asynchronous function to set up and run the WebGPU context and resources.
 // All of the compute pipelines are included in this function
-async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile) {
+// async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile) {
+// Added by Codex: Optional boundary time-series upload files support custom configs outside served example folders.
+async function initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile, westBoundaryTimeSeriesFile, eastBoundaryTimeSeriesFile, southBoundaryTimeSeriesFile, northBoundaryTimeSeriesFile) {
     // Log a message indicating the start of the initialization process.
     console.log("Starting Celeris-WebGPU");
 
@@ -228,11 +245,20 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         console.log('Found high-performance GPU adapter.');
     }
 
+    // Added by Codex: Start elevated WebGPU texture-dimension request for long boundary time-series files.
+    const requestedMaxTextureDimension2D = adapter.limits?.maxTextureDimension2D || 8192;
+    console.log(`Requesting WebGPU maxTextureDimension2D limit: ${requestedMaxTextureDimension2D}`);
+    // Added by Codex: End elevated WebGPU texture-dimension request for long boundary time-series files.
+
     // Request a device. The device is a representation of the GPU and allows for resource creation and command submission.
     device = await adapter.requestDevice({
         // Enable built-in validation
         requiredFeatures: [],
-        requiredLimits: {},
+        // requiredLimits: {},
+        // Added by Codex: Ask for the adapter-supported 2D texture dimension so large boundary time-series textures can exceed the default 8192 rows when hardware allows.
+        requiredLimits: {
+            maxTextureDimension2D: requestedMaxTextureDimension2D,
+        },
         forceFallbackAdapter: false,
     });
     console.log("GPU Device acquired, starting resource creation...");
@@ -261,7 +287,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     });
 
     // load the simulation parameters, the 2D depth surface, and the wave data.  "Ordered" as the sequence of how these files are loaded is important
-    let { bathy2D, waveData } = await OrderedFunctions(configContent, bathymetryContent, waveContent);
+    // let { bathy2D, waveData } = await OrderedFunctions(configContent, bathymetryContent, waveContent);
+    // Added by Codex: Carry parsed boundary time-series data into texture allocation/upload.
+    // let { bathy2D, waveData, boundaryTimeSeriesData } = await OrderedFunctions(configContent, bathymetryContent, waveContent);
+    // Added by Codex: Group uploaded boundary time-series files by side for the loader.
+    const boundaryTimeSeriesFiles = {
+        west: westBoundaryTimeSeriesFile,
+        east: eastBoundaryTimeSeriesFile,
+        south: southBoundaryTimeSeriesFile,
+        north: northBoundaryTimeSeriesFile
+    };
+    let { bathy2D, waveData, boundaryTimeSeriesData } = await OrderedFunctions(configContent, bathymetryContent, waveContent, boundaryTimeSeriesFiles);
 
     // Added by Codex: Start UI boundary wave regeneration support.
     // Added by Codex: Preserve the loaded waves.txt data so UI-generated boundary waves can be toggled without losing the custom spectrum.
@@ -299,6 +335,58 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
     // Added by Codex: End UI boundary wave regeneration support.
 
+    // Added by Codex: Start boundary time-series forcing helpers.
+    function getBoundaryTimeSeriesTextureSize(sideData) {
+        return {
+            width: Math.max(sideData?.textureWidth || 1, 1),
+            height: Math.max(sideData?.textureHeight || 1, 1)
+        };
+    }
+
+    function getBoundaryTimeSeriesBracket(currentTime) {
+        const times = boundaryTimeSeriesData.sharedTimes || [];
+        if (!boundaryTimeSeriesData.hasActive || times.length < 1) {
+            return { idx0: 0, idx1: 0, alpha: 0.0 };
+        }
+
+        if (times.length == 1) {
+            if (currentTime > times[0]) {
+                return { idx0: boundaryTimeSeriesData.zeroTimeIndex, idx1: boundaryTimeSeriesData.zeroTimeIndex, alpha: 0.0 };
+            }
+            return { idx0: 0, idx1: 0, alpha: 0.0 };
+        }
+
+        if (currentTime <= times[0]) {
+            return { idx0: 0, idx1: 0, alpha: 0.0 };
+        }
+        if (currentTime > times[times.length - 1]) {
+            return { idx0: boundaryTimeSeriesData.zeroTimeIndex, idx1: boundaryTimeSeriesData.zeroTimeIndex, alpha: 0.0 };
+        }
+
+        let lower = 0;
+        let upper = times.length - 1;
+        while (upper - lower > 1) {
+            const middle = Math.floor(0.5 * (lower + upper));
+            if (times[middle] <= currentTime) {
+                lower = middle;
+            } else {
+                upper = middle;
+            }
+        }
+
+        const dtBoundary = times[upper] - times[lower];
+        const alpha = dtBoundary > 0.0 ? (currentTime - times[lower]) / dtBoundary : 0.0;
+        return { idx0: lower, idx1: upper, alpha };
+    }
+
+    function updateBoundaryTimeSeriesUniforms(BoundaryPass_view, currentTime) {
+        const bracket = getBoundaryTimeSeriesBracket(currentTime);
+        BoundaryPass_view.setInt32(204, bracket.idx0, true);              // i32
+        BoundaryPass_view.setInt32(208, bracket.idx1, true);              // i32
+        BoundaryPass_view.setFloat32(212, bracket.alpha, true);           // f32
+    }
+    // Added by Codex: End boundary time-series forcing helpers.
+
     // Create buffers for storing uniform data. This buffer will be used to send parameter data to shaders.
     const Pass0_uniformBuffer = createUniformBuffer(device);
     const Pass1_uniformBuffer = createUniformBuffer(device);
@@ -320,6 +408,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const AddDisturbance_uniformBuffer = createUniformBuffer(device);
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const ExtractTimeSeries_uniformBuffer = createUniformBuffer(device);
+    // Added by Codex: Uniform buffer for nested-grid boundary time-series edge extraction.
+    const ExtractNestedBoundaryTimeSeries_uniformBuffer = createUniformBuffer(device);
     // let Render_bufferSize = 272; // 272 bytes for render pipeline, 256 for compute pipeline
     // CODEX: Add room for linear-structure preview uniforms appended after the existing render globals.
     let Render_bufferSize = 304; // 304 bytes for render pipeline, 256 for compute pipeline
@@ -471,6 +561,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Added by Codex: Generated TMA spectra need more texture rows than a one-row sine waves.txt file.
     const txWaves = create_1D_Texture(device, Math.max(calc_constants.numberOfWaves, GENERATED_BOUNDARY_WAVE_TEXTURE_CAPACITY), allTextures);  // stores spectrum wave input
     // Added by Codex: End generated boundary wave texture capacity.
+    // Added by Codex: Start boundary time-series forcing texture allocation.
+    const boundaryTimeSeriesSouthSize = getBoundaryTimeSeriesTextureSize(boundaryTimeSeriesData.south);
+    const boundaryTimeSeriesNorthSize = getBoundaryTimeSeriesTextureSize(boundaryTimeSeriesData.north);
+    const boundaryTimeSeriesWestSize = getBoundaryTimeSeriesTextureSize(boundaryTimeSeriesData.west);
+    const boundaryTimeSeriesEastSize = getBoundaryTimeSeriesTextureSize(boundaryTimeSeriesData.east);
+    const txBoundaryTimeSeriesSouth = create_2D_Texture(device, boundaryTimeSeriesSouthSize.width, boundaryTimeSeriesSouthSize.height, allTextures);
+    const txBoundaryTimeSeriesNorth = create_2D_Texture(device, boundaryTimeSeriesNorthSize.width, boundaryTimeSeriesNorthSize.height, allTextures);
+    const txBoundaryTimeSeriesWest = create_2D_Texture(device, boundaryTimeSeriesWestSize.width, boundaryTimeSeriesWestSize.height, allTextures);
+    const txBoundaryTimeSeriesEast = create_2D_Texture(device, boundaryTimeSeriesEastSize.width, boundaryTimeSeriesEastSize.height, allTextures);
+    // Added by Codex: End boundary time-series forcing texture allocation.
     const txTimeSeries_Locations = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
     const txTimeSeries_Data = create_1D_Texture(device, calc_constants.maxNumberOfTimeSeries, allTextures);  // stores spectrum wave input
 
@@ -486,6 +586,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Added by Codex: Use one upload path for loaded spectra and UI-generated single-component sine waves.
     refreshBoundaryWaveTexture(txWaves);
     // Added by Codex: End startup boundary wave texture refresh.
+    // Added by Codex: Start boundary time-series forcing texture upload.
+    copyBoundaryTimeSeriesDataToTexture(boundaryTimeSeriesData.south, device, txBoundaryTimeSeriesSouth);
+    copyBoundaryTimeSeriesDataToTexture(boundaryTimeSeriesData.north, device, txBoundaryTimeSeriesNorth);
+    copyBoundaryTimeSeriesDataToTexture(boundaryTimeSeriesData.west, device, txBoundaryTimeSeriesWest);
+    copyBoundaryTimeSeriesDataToTexture(boundaryTimeSeriesData.east, device, txBoundaryTimeSeriesEast);
+    // Added by Codex: End boundary time-series forcing texture upload.
 
     // fill in the time series location texture
     copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations)  
@@ -1045,8 +1151,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // BoundaryPass Bindings & Uniforms Config
     const BoundaryPass_BindGroupLayout = create_BoundaryPass_BindGroupLayout(device);
-    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing);
-    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing);
+    // const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing);
+    // Added by Codex: Pass boundary time-series forcing textures into BoundaryPass.
+    const BoundaryPass_BindGroup = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, current_stateUVstar, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing, txBoundaryTimeSeriesSouth, txBoundaryTimeSeriesNorth, txBoundaryTimeSeriesWest, txBoundaryTimeSeriesEast);
+    // const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing);
+    // Added by Codex: Pass the same boundary time-series forcing textures to the post-tridiagonal BoundaryPass bind group.
+    const BoundaryPass_BindGroup_NewState = create_BoundaryPass_BindGroup(device, BoundaryPass_uniformBuffer, txNewState, txBottom, txWaves, txNewState_Sed, txtemp_boundary, txtemp_boundary_Sed, txBreaking, txtemp_Breaking, txBoundaryForcing, txBoundaryTimeSeriesSouth, txBoundaryTimeSeriesNorth, txBoundaryTimeSeriesWest, txBoundaryTimeSeriesEast);
     const BoundaryPass_uniforms = new ArrayBuffer(256);  // smallest multiple of 256
     let BoundaryPass_view = new DataView(BoundaryPass_uniforms);
     BoundaryPass_view.setInt32(0, calc_constants.WIDTH, true);          // i32
@@ -1092,6 +1202,19 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     BoundaryPass_view.setFloat32(160, calc_constants.stage_500, true);           // f32 
     BoundaryPass_view.setFloat32(164, calc_constants.river_inflow_angle, true);           // f32 
     BoundaryPass_view.setInt32(168, calc_constants.algochanges, true);           // i32
+    BoundaryPass_view.setFloat32(172,calc_constants.trough_factor, true);            // f32 
+    // Added by Codex: Start boundary time-series forcing uniforms.
+    BoundaryPass_view.setInt32(176, calc_constants.grid_type, true);              // i32
+    BoundaryPass_view.setFloat32(180, calc_constants.lon_LL, true);               // f32
+    BoundaryPass_view.setFloat32(184, calc_constants.lat_LL, true);               // f32
+    BoundaryPass_view.setInt32(188, calc_constants.ts_west_num_points, true);     // i32
+    BoundaryPass_view.setInt32(192, calc_constants.ts_east_num_points, true);     // i32
+    BoundaryPass_view.setInt32(196, calc_constants.ts_south_num_points, true);    // i32
+    BoundaryPass_view.setInt32(200, calc_constants.ts_north_num_points, true);    // i32
+    // updateBoundaryTimeSeriesUniforms(BoundaryPass_view, 0.0);
+    // Added by Codex: Initialize type-5 boundary lookup on the shifted/global model clock.
+    updateBoundaryTimeSeriesUniforms(BoundaryPass_view, calc_constants.start_time_shift);
+    // Added by Codex: End boundary time-series forcing uniforms.
     
     // TridiagX - Bindings & Uniforms Config
     const TridiagX_BindGroupLayout = create_Tridiag_BindGroupLayout(device);
@@ -1265,9 +1388,26 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     ExtractTimeSeries_view.setFloat32(12, calc_constants.dy, true);             // f32
     ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
     ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
-    ExtractTimeSeries_view.setFloat32(24, 0.0, true);             // f32, total_time 
+    // ExtractTimeSeries_view.setFloat32(24, 0.0, true);             // f32, total_time
+    // Added by Codex: Initialize point time-series extraction on the shifted/global model clock.
+    ExtractTimeSeries_view.setFloat32(24, calc_constants.start_time_shift, true);             // f32, total_time
     ExtractTimeSeries_view.setInt32(28, calc_constants.river_sim, true);             // i32
     ExtractTimeSeries_view.setInt32(32, calc_constants.disturbanceType, true);             // i32
+
+    // Added by Codex: Start nested-grid boundary time-series extraction uniforms.
+    const ExtractNestedBoundaryTimeSeries_BindGroupLayout = create_ExtractNestedBoundaryTimeSeries_BindGroupLayout(device);
+    const ExtractNestedBoundaryTimeSeries_uniforms = new ArrayBuffer(256);
+    let ExtractNestedBoundaryTimeSeries_view = new DataView(ExtractNestedBoundaryTimeSeries_uniforms);
+    ExtractNestedBoundaryTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    ExtractNestedBoundaryTimeSeries_view.setInt32(4, calc_constants.HEIGHT, true);         // i32
+    ExtractNestedBoundaryTimeSeries_view.setInt32(8, 0, true);                             // i32, i0
+    ExtractNestedBoundaryTimeSeries_view.setInt32(12, 0, true);                            // i32, j0
+    ExtractNestedBoundaryTimeSeries_view.setInt32(16, 0, true);                            // i32, i1
+    ExtractNestedBoundaryTimeSeries_view.setInt32(20, 0, true);                            // i32, j1
+    ExtractNestedBoundaryTimeSeries_view.setInt32(24, 1, true);                            // i32, nx
+    ExtractNestedBoundaryTimeSeries_view.setInt32(28, 1, true);                            // i32, ny
+    ExtractNestedBoundaryTimeSeries_view.setInt32(32, 0, true);                            // i32, sample_index
+    // Added by Codex: End nested-grid boundary time-series extraction uniforms.
 
     // Skybox Bindings
     const SkyboxBindGroupLayout = createSkyboxBindGroupLayout(device);
@@ -1456,6 +1596,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const AddDisturbance_ShaderCode = await fetchShader('/shaders/AddDisturbance.wgsl');
     const MouseClickChange_ShaderCode = await fetchShader('/shaders/MouseClickChange.wgsl');
     const ExtractTimeSeries_ShaderCode = await fetchShader('/shaders/ExtractTimeSeries.wgsl');
+    // Added by Codex: Fetch nested-grid boundary time-series extraction shader.
+    const ExtractNestedBoundaryTimeSeries_ShaderCode = await fetchShader('/shaders/ExtractNestedBoundaryTimeSeries.wgsl');
 
     const Skybox_vertexShaderCode = await fetchShader('/shaders/skybox.vertex.wgsl');
     const Skybox_fragmentShaderCode = await fetchShader('/shaders/skybox.fragment.wgsl');
@@ -1493,6 +1635,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const AddDisturbance_Pipeline = createComputePipeline(device, AddDisturbance_ShaderCode, AddDisturbance_BindGroupLayout, allComputePipelines);
     const MouseClickChange_Pipeline = createComputePipeline(device, MouseClickChange_ShaderCode, MouseClickChange_BindGroupLayout, allComputePipelines);
     const ExtractTimeSeries_Pipeline = createComputePipeline(device, ExtractTimeSeries_ShaderCode, ExtractTimeSeries_BindGroupLayout, allComputePipelines);
+    // Added by Codex: Pipeline for deferred nested-grid boundary time-series extraction.
+    const ExtractNestedBoundaryTimeSeries_Pipeline = createComputePipeline(device, ExtractNestedBoundaryTimeSeries_ShaderCode, ExtractNestedBoundaryTimeSeries_BindGroupLayout, allComputePipelines);
 
     const SkyboxPipeline = createSkyboxPipeline(device, Skybox_vertexShaderCode, Skybox_fragmentShaderCode, swapChainFormat, SkyboxBindGroupLayout);
     //const DuckPipeline = createDuckPipeline(device, Duck_vertexShaderCode, Duck_fragmentShaderCode, swapChainFormat, DuckBindGroupLayout);
@@ -1568,12 +1712,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Log that the buffers have been set up.
     console.log("Buffers set up.");
 
-    let total_time = 0;          // Initialize time, which might be used for animations or simulations.
+    // let total_time = 0;          // Initialize time, which might be used for animations or simulations.
+    // Added by Codex: Start total_time on the loaded boundary-file clock for nested simulations.
+    let total_time = calc_constants.start_time_shift;          // Initialize time, which might be used for animations or simulations.
+    // Added by Codex: End total_time on the loaded boundary-file clock for nested simulations.
     let frame_count = 0;   // Counter to keep track of the number of rendered frames.
     let frame_count_since_http_update = 0;   // Counter to keep track of the number of rendered frames.
     let total_time_since_http_update = 0;          // Initialize time, which might be used for animations or simulations.
     let frame_count_time_series = 0;   // Counter for time series
-    let total_time_time_series = 0;          // duration for time series
+    // let total_time_time_series = 0;          // duration for time series
+    // Added by Codex: Point time-series timestamps follow the same shifted/global clock as total_time.
+    let total_time_time_series = calc_constants.start_time_shift;          // duration for time series
     let frame_count_find_render_step = 0;   // Counter to keep track of the number of rendered frames.
     let frame_count_output = 0;   // Counter to keep track of the number of frames saved to file
     let dt_since_last_write = 0.0 // tracks amount of time since last file write
@@ -1609,6 +1758,252 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right)
+
+    // Added by Codex: Start nested-grid output rectangle overlay helpers.
+    async function uploadDrawOverlayCanvas() {
+        const imageBitmap = await createImageBitmap(offscreenCanvas);
+        device.queue.copyExternalImageToTexture({source: imageBitmap}, {texture: txDraw}, [imageBitmap.width, imageBitmap.height]);
+    }
+
+    function drawNestedGridOutputRectangleOutlinePath() {
+        if (calc_constants.nestedGridOutput_active != 1) {
+            return false;
+        }
+
+        const maxI = Math.max(calc_constants.WIDTH - 1, 1);
+        const maxJ = Math.max(calc_constants.HEIGHT - 1, 1);
+        const i0 = Math.max(0, Math.min(maxI, calc_constants.nestedGridOutput_i0));
+        const i1 = Math.max(0, Math.min(maxI, calc_constants.nestedGridOutput_i1));
+        const j0 = Math.max(0, Math.min(maxJ, calc_constants.nestedGridOutput_j0));
+        const j1 = Math.max(0, Math.min(maxJ, calc_constants.nestedGridOutput_j1));
+        const x0 = Math.min(i0, i1) / maxI * offscreenCanvas.width;
+        const x1 = Math.max(i0, i1) / maxI * offscreenCanvas.width;
+        // const y0 = Math.min(j0, j1) / maxJ * offscreenCanvas.height;
+        // const y1 = Math.max(j0, j1) / maxJ * offscreenCanvas.height;
+        // Added by Codex: Start nested-grid rectangle y-coordinate correction.
+        // The draw canvas is already vertically flipped, so invert model-space j only for the overlay.
+        const y0 = offscreenCanvas.height - Math.max(j0, j1) / maxJ * offscreenCanvas.height;
+        const y1 = offscreenCanvas.height - Math.min(j0, j1) / maxJ * offscreenCanvas.height;
+        // Added by Codex: End nested-grid rectangle y-coordinate correction.
+
+        ctx.save();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = Math.max(2, Math.round(Math.min(offscreenCanvas.width, offscreenCanvas.height) / 300));
+        ctx.strokeRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+        ctx.restore();
+        return true;
+    }
+
+    async function drawNestedGridOutputRectangleOutline() {
+        if (drawNestedGridOutputRectangleOutlinePath()) {
+            await uploadDrawOverlayCanvas();
+        }
+    }
+
+    async function redrawDrawOverlayBase() {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        await update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right);
+    }
+
+    async function redrawDrawOverlayWithNestedGridOutline() {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        await update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right);
+        await drawNestedGridOutputRectangleOutline();
+    }
+    // Added by Codex: End nested-grid output rectangle overlay helpers.
+
+    // Added by Codex: Start nested-grid boundary time-series output runtime.
+    let nestedGridOutputState = {
+        active: false,
+        pendingDownload: false,
+        bindGroup: null,
+        txSouth: null,
+        txNorth: null,
+        txWest: null,
+        txEast: null,
+        capturedTimes: [],
+        nx: 1,
+        ny: 1,
+        sampleCount: 0,
+        sampleIndex: 0,
+        startTime: 0.0,
+        endTime: 0.0,
+        outputDt: 1.0,
+        dispatchX: 1,
+        southLocations: [],
+        northLocations: [],
+        westLocations: [],
+        eastLocations: []
+    };
+
+    function destroyNestedGridOutputTextures() {
+        const textureKeys = ["txSouth", "txNorth", "txWest", "txEast"];
+        for (const key of textureKeys) {
+            if (nestedGridOutputState[key]) {
+                nestedGridOutputState[key].destroy();
+                allTextures.delete(nestedGridOutputState[key]);
+                nestedGridOutputState[key] = null;
+            }
+        }
+    }
+
+    function clampNestedGridOutputIndex(value, maxIndex) {
+        return Math.max(0, Math.min(maxIndex, Math.round(Number(value) || 0)));
+    }
+
+    function capNestedGridOutputSamples() {
+        const maxSamples = Math.max(1, Math.floor(calc_constants.nestedGridOutput_max_samples || 8192));
+        const startTime = Number(calc_constants.nestedGridOutput_start_time) || 0.0;
+        let endTime = Number(calc_constants.nestedGridOutput_end_time) || startTime;
+        if (endTime < startTime) {
+            console.warn("Nested-grid boundary output end time is before start time; setting end time equal to start time.");
+            endTime = startTime;
+            calc_constants.nestedGridOutput_end_time = endTime;
+        }
+
+        let outputDt = Number(calc_constants.nestedGridOutput_dt) || calc_constants.dt;
+        if (outputDt <= 0.0) {
+            outputDt = calc_constants.dt;
+            console.warn(`Nested-grid boundary output dt must be positive; setting nestedGridOutput_dt to model dt ${outputDt}.`);
+        }
+        if (outputDt < calc_constants.dt) {
+            outputDt = calc_constants.dt;
+            console.warn(`Nested-grid boundary output dt is smaller than the model dt; increasing nestedGridOutput_dt to ${outputDt}.`);
+        }
+
+        const duration = Math.max(0.0, endTime - startTime);
+        let sampleCount = Math.floor(duration / outputDt) + 1;
+        if (duration == 0.0) {
+            sampleCount = 1;
+        }
+        if (sampleCount > maxSamples) {
+            const requestedSampleCount = sampleCount;
+            outputDt = duration / Math.max(maxSamples - 1, 1);
+            sampleCount = maxSamples;
+            console.warn(`Nested-grid boundary output requested ${requestedSampleCount} samples; capping at ${maxSamples} by increasing nestedGridOutput_dt to ${outputDt}.`);
+        }
+
+        calc_constants.nestedGridOutput_start_time = startTime;
+        calc_constants.nestedGridOutput_end_time = endTime;
+        calc_constants.nestedGridOutput_dt = outputDt;
+        calc_constants.nestedGridOutput_sample_count = sampleCount;
+        return { startTime, endTime, outputDt, sampleCount };
+    }
+
+    function buildNestedGridOutputLocations(count, startIndex, spacing, origin, useAbsoluteGridCoordinates) {
+        const locations = new Array(count);
+        for (let n = 0; n < count; n++) {
+            locations[n] = useAbsoluteGridCoordinates ? origin + (startIndex + n) * spacing : n * spacing;
+        }
+        return locations;
+    }
+
+    function initializeNestedGridBoundaryOutputCapture(currentTime) {
+        destroyNestedGridOutputTextures();
+
+        const iLower = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_i0, calc_constants.WIDTH - 1);
+        const iUpper = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_i1, calc_constants.WIDTH - 1);
+        const jLower = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_j0, calc_constants.HEIGHT - 1);
+        const jUpper = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_j1, calc_constants.HEIGHT - 1);
+        const i0 = Math.min(iLower, iUpper);
+        const i1 = Math.max(iLower, iUpper);
+        const j0 = Math.min(jLower, jUpper);
+        const j1 = Math.max(jLower, jUpper);
+        const nx = Math.max(1, i1 - i0 + 1);
+        const ny = Math.max(1, j1 - j0 + 1);
+        let sampleInfo = capNestedGridOutputSamples();
+        if (sampleInfo.startTime < currentTime) {
+            console.warn(`Nested-grid boundary output start time ${sampleInfo.startTime} is before the current simulation time ${currentTime}; starting output at the current time.`);
+            calc_constants.nestedGridOutput_start_time = currentTime;
+            if (calc_constants.nestedGridOutput_end_time < currentTime) {
+                calc_constants.nestedGridOutput_end_time = currentTime;
+            }
+            sampleInfo = capNestedGridOutputSamples();
+        }
+
+        calc_constants.nestedGridOutput_i0 = i0;
+        calc_constants.nestedGridOutput_i1 = i1;
+        calc_constants.nestedGridOutput_j0 = j0;
+        calc_constants.nestedGridOutput_j1 = j1;
+        calc_constants.nestedGridOutput_sample_index = 0;
+
+        const maxTextureDimension2D = device.limits?.maxTextureDimension2D || 8192;
+        if (nx > maxTextureDimension2D || ny > maxTextureDimension2D || sampleInfo.sampleCount > maxTextureDimension2D) {
+            console.error("Nested-grid boundary output texture dimensions exceed this device's maxTextureDimension2D.");
+            calc_constants.nestedGridOutput_trigger = 0;
+            calc_constants.nestedGridOutput_active = 0;
+            return;
+        }
+
+        const useAbsoluteGridCoordinates = calc_constants.grid_type == 2;
+        nestedGridOutputState = {
+            active: true,
+            pendingDownload: false,
+            bindGroup: null,
+            txSouth: create_2D_Texture(device, nx, sampleInfo.sampleCount, allTextures),
+            txNorth: create_2D_Texture(device, nx, sampleInfo.sampleCount, allTextures),
+            txWest: create_2D_Texture(device, ny, sampleInfo.sampleCount, allTextures),
+            txEast: create_2D_Texture(device, ny, sampleInfo.sampleCount, allTextures),
+            capturedTimes: [],
+            nx,
+            ny,
+            sampleCount: sampleInfo.sampleCount,
+            sampleIndex: 0,
+            startTime: sampleInfo.startTime,
+            endTime: sampleInfo.endTime,
+            outputDt: sampleInfo.outputDt,
+            dispatchX: Math.max(1, Math.ceil(Math.max(nx, ny) / 16)),
+            southLocations: buildNestedGridOutputLocations(nx, i0, calc_constants.dx, calc_constants.lon_LL, useAbsoluteGridCoordinates),
+            northLocations: buildNestedGridOutputLocations(nx, i0, calc_constants.dx, calc_constants.lon_LL, useAbsoluteGridCoordinates),
+            westLocations: buildNestedGridOutputLocations(ny, j0, calc_constants.dy, calc_constants.lat_LL, useAbsoluteGridCoordinates),
+            eastLocations: buildNestedGridOutputLocations(ny, j0, calc_constants.dy, calc_constants.lat_LL, useAbsoluteGridCoordinates)
+        };
+        // nestedGridOutputState.bindGroup = create_ExtractNestedBoundaryTimeSeries_BindGroup(device, ExtractNestedBoundaryTimeSeries_uniformBuffer, txNewState, nestedGridOutputState.txSouth, nestedGridOutputState.txNorth, nestedGridOutputState.txWest, nestedGridOutputState.txEast);
+        // Added by Codex: Pass txBottom so dry nested-output samples are written as zero eta/hu/hv.
+        nestedGridOutputState.bindGroup = create_ExtractNestedBoundaryTimeSeries_BindGroup(device, ExtractNestedBoundaryTimeSeries_uniformBuffer, txNewState, nestedGridOutputState.txSouth, nestedGridOutputState.txNorth, nestedGridOutputState.txWest, nestedGridOutputState.txEast, txBottom);
+
+        ExtractNestedBoundaryTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(4, calc_constants.HEIGHT, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(8, i0, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(12, j0, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(16, i1, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(20, j1, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(24, nx, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(28, ny, true);
+        ExtractNestedBoundaryTimeSeries_view.setInt32(32, 0, true);
+
+        calc_constants.nestedGridOutput_trigger = 0;
+        calc_constants.nestedGridOutput_active = 1;
+        redrawDrawOverlayWithNestedGridOutline();
+        console.log(`Nested-grid boundary output started: i=${i0}:${i1}, j=${j0}:${j1}, samples=${sampleInfo.sampleCount}, dt=${sampleInfo.outputDt}.`);
+    }
+
+    function captureNestedGridBoundaryOutputIfNeeded(commandEncoderStack, currentTime) {
+        if (!nestedGridOutputState.active || nestedGridOutputState.sampleIndex >= nestedGridOutputState.sampleCount) {
+            return;
+        }
+
+        const targetTime = nestedGridOutputState.startTime + nestedGridOutputState.sampleIndex * nestedGridOutputState.outputDt;
+        if (currentTime + 0.5 * calc_constants.dt < targetTime) {
+            return;
+        }
+
+        ExtractNestedBoundaryTimeSeries_view.setInt32(32, nestedGridOutputState.sampleIndex, true);
+        runComputeShader_EncStack(device, commandEncoderStack, ExtractNestedBoundaryTimeSeries_uniformBuffer, ExtractNestedBoundaryTimeSeries_uniforms, ExtractNestedBoundaryTimeSeries_Pipeline, nestedGridOutputState.bindGroup, nestedGridOutputState.dispatchX, 1);
+        nestedGridOutputState.capturedTimes.push(currentTime);
+        nestedGridOutputState.sampleIndex += 1;
+        calc_constants.nestedGridOutput_sample_index = nestedGridOutputState.sampleIndex;
+
+        if (nestedGridOutputState.sampleIndex >= nestedGridOutputState.sampleCount) {
+            nestedGridOutputState.active = false;
+            nestedGridOutputState.pendingDownload = true;
+            calc_constants.nestedGridOutput_active = 0;
+            console.log("Nested-grid boundary output sampling complete; preparing files for download.");
+        }
+    }
+    // Added by Codex: End nested-grid boundary time-series output runtime.
 
     console.log("Compute / Render loop starting.");
     // This function, `frame`, serves as the main loop of the application,
@@ -1808,6 +2203,14 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             BoundaryPass_view.setFloat32(92, calc_constants.incident_wave_H, true);           // f32 
             BoundaryPass_view.setFloat32(96, calc_constants.incident_wave_T, true);           // f32 
             BoundaryPass_view.setFloat32(100, calc_constants.incident_wave_direction, true);   
+            // Added by Codex: Keep grid-origin and station-count uniforms available for boundary_type == 5 forcing.
+            BoundaryPass_view.setInt32(176, calc_constants.grid_type, true);              // i32
+            BoundaryPass_view.setFloat32(180, calc_constants.lon_LL, true);               // f32
+            BoundaryPass_view.setFloat32(184, calc_constants.lat_LL, true);               // f32
+            BoundaryPass_view.setInt32(188, calc_constants.ts_west_num_points, true);     // i32
+            BoundaryPass_view.setInt32(192, calc_constants.ts_east_num_points, true);     // i32
+            BoundaryPass_view.setInt32(196, calc_constants.ts_south_num_points, true);    // i32
+            BoundaryPass_view.setInt32(200, calc_constants.ts_north_num_points, true);    // i32
             
             Pass3_view.setInt32(128, calc_constants.west_boundary_type, true);       // i32
             Pass3_view.setInt32(132, calc_constants.east_boundary_type, true);           // i32
@@ -1877,7 +2280,13 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             // reset canvas
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-            update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right) // update colorbar with new climits
+            // update_colorbar(device, offscreenCanvas, ctx, calc_constants, txDraw, logo_left, logo_right) // update colorbar with new climits
+            // Added by Codex: Redraw the colorbar and nested-grid output rectangle in upload order.
+            if (calc_constants.nestedGridOutput_active == 1) {
+                await redrawDrawOverlayWithNestedGridOutline();
+            } else {
+                await redrawDrawOverlayBase();
+            }
 
             startTime_update = new Date();  // This captures the current time, or the time at the start of rendering
             frame_count_since_http_update = 0;
@@ -1988,6 +2397,12 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             calc_constants.add_Disturbance = -1;
         }
 
+        // Added by Codex: Start nested-grid boundary time-series output trigger.
+        if (calc_constants.nestedGridOutput_trigger == 1) {
+            initializeNestedGridBoundaryOutputCapture(total_time);
+        }
+        // Added by Codex: End nested-grid boundary time-series output trigger.
+
 
          // loop through the compute shaders "render_step" times.  
         var commandEncoder;  // init the encoder
@@ -2000,12 +2415,16 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 frame_count_since_http_update += 1;
                 frame_count_time_series += 1;
 
-                total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
+                // total_time = frame_count * calc_constants.dt;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
+                // Added by Codex: Reference all physical model times to the first loaded boundary time-series time when nested forcing is active.
+                total_time = frame_count * calc_constants.dt + calc_constants.start_time_shift;  //simulation time - at this point, we know values at times n-1 and previous.  We are predicted values at n
                 total_time_since_http_update = frame_count_since_http_update * calc_constants.dt; // simulation time sinze last change to interface
 
                 // set time in uniform buffers for compute shaders here, so that command encoders can be stacked
                 PassBreaking_view.setFloat32(36, total_time - calc_constants.dt, true);   //f32 - update time, minus dt as we are here finding dissipation at the previous time level
                 BoundaryPass_view.setFloat32(20, total_time, true);           // set current time
+                // Added by Codex: Update the shared type-5 boundary time-series bracket once per simulation step.
+                updateBoundaryTimeSeriesUniforms(BoundaryPass_view, total_time);
                 AddDisturbance_view.setFloat32(64, total_time ,true);             // f32   - stores time
 
                 // create command encoder for compute shaders and texture copy operations
@@ -2264,6 +2683,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                     }
                 }
 
+                // Added by Codex: Store rectangle-edge eta/hu/hv on the GPU only at requested nested-output times.
+                captureNestedGridBoundaryOutputIfNeeded(commandEncoderStack, total_time);
+
                 // shift gradient textures
                 runCopyTextures_EncStack(commandEncoderStack, calc_constants, oldGradients, oldOldGradients)
                 runCopyTextures_EncStack(commandEncoderStack, calc_constants, predictedGradients, oldGradients)
@@ -2301,6 +2723,25 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
             }
         }
+
+        // Added by Codex: Start deferred nested-grid boundary output readback and download.
+        if (nestedGridOutputState.pendingDownload) {
+            nestedGridOutputState.pendingDownload = false;
+            try {
+                await writeNestedGridBoundaryTimeSeriesData(device, nestedGridOutputState);
+                console.log("Nested-grid boundary output files downloaded.");
+            } catch (error) {
+                console.error("Failed to write nested-grid boundary output files:", error);
+            } finally {
+                destroyNestedGridOutputTextures();
+                nestedGridOutputState.bindGroup = null;
+                nestedGridOutputState.capturedTimes = [];
+                // redrawDrawOverlayBase();
+                // Added by Codex: Clear the nested-grid rectangle only after capture/download completes.
+                await redrawDrawOverlayBase();
+            }
+        }
+        // Added by Codex: End deferred nested-grid boundary output readback and download.
 
         // copy eta and bottom data to the f16 texture for filtered rendering
         runComputeShader(device, Copytxf32_txf16_uniformBuffer, Copytxf32_txf16_uniforms, Copytxf32_txf16_Pipeline, Copytxf32_txf16_BindGroup, calc_constants.DispatchX, calc_constants.DispatchY);
@@ -2794,18 +3235,24 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         if(calc_constants.updateTimeSeriesTx == 1 || calc_constants.chartDataUpdate == 1) {  // update the time series locations texture, and reset plot
             copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) 
             frame_count_time_series = 0; 
-            total_time_time_series = 0.0;
+            // total_time_time_series = 0.0;
+            // Added by Codex: Reset displayed point-series timestamps to the shifted/global clock, not local zero.
+            total_time_time_series = total_time;
             calc_constants.updateTimeSeriesTx = 0;
         }
 
-        total_time_time_series = frame_count_time_series * calc_constants.dt; // step up time series time vector
-        if(total_time_time_series > calc_constants.maxdurationTimeSeries ){  // reset display if greater than max time
+        // total_time_time_series = frame_count_time_series * calc_constants.dt; // step up time series time vector
+        // Added by Codex: Point time-series output uses the shifted/global model clock.
+        total_time_time_series = total_time; // step up time series time vector
+        if(frame_count_time_series * calc_constants.dt > calc_constants.maxdurationTimeSeries ){  // reset display if greater than max time
             if(calc_constants.NumberOfTimeSeries > 0) {
                 console.log('Reseting time series chart data, and saving time series to file')
                 downloadTimeSeriesData();
             }
             frame_count_time_series = 0; 
-            total_time_time_series = 0.0;
+            // total_time_time_series = 0.0;
+            // Added by Codex: Keep point-series timestamps on the shifted/global clock after chunk rollover.
+            total_time_time_series = total_time;
         }
         
         ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
@@ -3944,6 +4391,18 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'designcomponent_Fric_Seawall-button', input: 'designcomponent_Fric_Seawall-input', property: 'designcomponent_Fric_Seawall' },
         { id: 'changeSeaLevel-button', input: 'changeSeaLevel-input', property: 'changeSeaLevel' },
         { id: 'dt_writesurface-button', input: 'dt_writesurface-input', property: 'dt_writesurface' },
+        // Added by Codex: Start nested-grid boundary time-series output controls.
+        { id: 'nestedGridOutput_i0-button', input: 'nestedGridOutput_i0-input', property: 'nestedGridOutput_i0' },
+        { id: 'nestedGridOutput_j0-button', input: 'nestedGridOutput_j0-input', property: 'nestedGridOutput_j0' },
+        { id: 'nestedGridOutput_i1-button', input: 'nestedGridOutput_i1-input', property: 'nestedGridOutput_i1' },
+        { id: 'nestedGridOutput_j1-button', input: 'nestedGridOutput_j1-input', property: 'nestedGridOutput_j1' },
+        { id: 'nestedGridOutput_start_time-button', input: 'nestedGridOutput_start_time-input', property: 'nestedGridOutput_start_time' },
+        { id: 'nestedGridOutput_end_time-button', input: 'nestedGridOutput_end_time-input', property: 'nestedGridOutput_end_time' },
+        { id: 'nestedGridOutput_dt-button', input: 'nestedGridOutput_dt-input', property: 'nestedGridOutput_dt' },
+        // Added by Codex: Start nested-grid quiet-period trim threshold control.
+        { id: 'nestedEtaWriteThreshold-button', input: 'nestedEtaWriteThreshold-input', property: 'nestedEtaWriteThreshold' },
+        // Added by Codex: End nested-grid quiet-period trim threshold control.
+        // Added by Codex: End nested-grid boundary time-series output controls.
         { id: 'incident_wave_H-button', input: 'incident_wave_H-input', property: 'incident_wave_H' },
         { id: 'incident_wave_T-button', input: 'incident_wave_T-input', property: 'incident_wave_T' },
         { id: 'incident_wave_direction-button', input: 'incident_wave_direction-input', property: 'incident_wave_direction' },
@@ -4439,6 +4898,13 @@ document.addEventListener('DOMContentLoaded', function () {
         calc_constants.writesurfaces = 0;  // stop writing 2D data to file
     });
 
+    // Added by Codex: Start nested-grid boundary time-series output button.
+    document.getElementById('startNestedGridOutput-button').addEventListener('click', function () {
+        calc_constants.nestedGridOutput_trigger = 1;
+        console.log('Nested-grid boundary time-series output requested.');
+    });
+    // Added by Codex: End nested-grid boundary time-series output button.
+
     // start simulation
 
     // Ensure to bind this function to your button's 'click' event in the HTML or here in the JS.
@@ -4471,6 +4937,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var hardbottomFile = document.getElementById('hardbottomFile').files[0];
         var OverlayFile = document.getElementById('satimageFile').files[0];
         var modelFile = document.getElementById('modelFile').files[0];
+        // Added by Codex: Start optional boundary time-series upload files.
+        var westBoundaryTimeSeriesFile = document.getElementById('westBoundaryTimeSeriesFile').files[0];
+        var eastBoundaryTimeSeriesFile = document.getElementById('eastBoundaryTimeSeriesFile').files[0];
+        var southBoundaryTimeSeriesFile = document.getElementById('southBoundaryTimeSeriesFile').files[0];
+        var northBoundaryTimeSeriesFile = document.getElementById('northBoundaryTimeSeriesFile').files[0];
+        // Added by Codex: End optional boundary time-series upload files.
     
         // Check if the required files are not uploaded
         if (!configFile || !bathymetryFile) {
@@ -4496,7 +4968,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetch('/no_waves.txt')
                         .then(response => response.text())
                         .then(defaultWaveContent => {
-                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile);
+                            // startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile);
+                            // Added by Codex: Pass optional boundary time-series files with custom startup.
+                            startSimulationWithWave(configContent, bathymetryContent, defaultWaveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile, westBoundaryTimeSeriesFile, eastBoundaryTimeSeriesFile, southBoundaryTimeSeriesFile, northBoundaryTimeSeriesFile);
                         })
                         .catch(error => {
                             console.error("Failed to load the default wave file:", error);
@@ -4504,7 +4978,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     waveReader.onload = function (e) {
                         var waveContent = e.target.result;
-                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile);
+                        // startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile);
+                        // Added by Codex: Pass optional boundary time-series files with custom startup.
+                        startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile, westBoundaryTimeSeriesFile, eastBoundaryTimeSeriesFile, southBoundaryTimeSeriesFile, northBoundaryTimeSeriesFile);
                     };
                     waveReader.readAsText(waveFile);
                 }
@@ -4516,7 +4992,9 @@ document.addEventListener('DOMContentLoaded', function () {
         configReader.readAsText(configFile);
     }
     
-    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile) {
+    // function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile) {
+    // Added by Codex: Optional boundary time-series upload files flow into initializeWebGPUApp.
+    function startSimulationWithWave(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile, westBoundaryTimeSeriesFile, eastBoundaryTimeSeriesFile, southBoundaryTimeSeriesFile, northBoundaryTimeSeriesFile) {
         // Here you could do the actual simulation initialization
     //    console.log("Starting simulation with the following data:");
     //    console.log("Config:", configContent);
@@ -4525,7 +5003,9 @@ document.addEventListener('DOMContentLoaded', function () {
     //    console.log("Overlay:", OverlayFile);
     
         // Initialize your WebGPU application here
-        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile).catch(error => {
+        // initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile).catch(error => {
+        // Added by Codex: Pass optional boundary time-series upload files to initialization.
+        initializeWebGPUApp(configContent, bathymetryContent, waveContent, OverlayFile, modelFile, etaInitialConditionFile, frictionFile, hardbottomFile, westBoundaryTimeSeriesFile, eastBoundaryTimeSeriesFile, southBoundaryTimeSeriesFile, northBoundaryTimeSeriesFile).catch(error => {
              console.error("Initialization failed:", error);
         });
     }

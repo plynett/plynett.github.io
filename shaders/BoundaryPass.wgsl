@@ -42,6 +42,19 @@ struct Globals {
     stage_500: f32,
     river_inflow_angle: f32,
     algochanges: i32,
+    trough_factor: f32,
+    // Added by Codex: Start boundary time-series forcing uniforms.
+    grid_type: i32,
+    lon_LL: f32,
+    lat_LL: f32,
+    ts_num_points_west: i32,
+    ts_num_points_east: i32,
+    ts_num_points_south: i32,
+    ts_num_points_north: i32,
+    ts_time_idx0: i32,
+    ts_time_idx1: i32,
+    ts_time_alpha: f32
+    // Added by Codex: End boundary time-series forcing uniforms.
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -57,6 +70,12 @@ struct Globals {
 @group(0) @binding(8) var txtemp_Breaking: texture_storage_2d<rgba32float, write>;
 
 @group(0) @binding(9) var txBoundaryForcing: texture_2d<f32>;
+// Added by Codex: Start boundary time-series forcing textures.
+@group(0) @binding(10) var txBoundaryTimeSeriesSouth: texture_2d<f32>;
+@group(0) @binding(11) var txBoundaryTimeSeriesNorth: texture_2d<f32>;
+@group(0) @binding(12) var txBoundaryTimeSeriesWest: texture_2d<f32>;
+@group(0) @binding(13) var txBoundaryTimeSeriesEast: texture_2d<f32>;
+// Added by Codex: End boundary time-series forcing textures.
 
 fn WestBoundarySolid(idx: vec2<i32>) -> vec4<f32> {
     let real_idx = vec2<i32>(globals.boundary_shift  - idx.x, idx.y); 
@@ -154,11 +173,13 @@ fn sineWave(x: f32, y: f32, t: f32, d: f32, amplitude: f32, period: f32, theta: 
     var eta = amplitude * sin(omega * t - kx - ky + phase) * min(1.0, t / period);
     var num_waves = 0;
     if (globals.incident_wave_type == 2){ // transient pulse
-        num_waves = 4;
-    }
-    if(num_waves > 0){
+        num_waves = 5;
+        if (eta < 0.0) {
+            eta = eta * globals.trough_factor;
+        }
         eta = eta * max(0.0, min(1.0, ((f32(num_waves) * period - t)/(period))));
     }
+
     let speed = globals.boundary_g * eta / (c * k) * tanh(k * d);
     let hu = speed * cos(theta_mod);
     let hv = speed * sin(theta_mod);
@@ -180,6 +201,81 @@ fn BoundarySineWave(idx: vec2<i32>, iBC: i32, jBC: i32, current_boundary: i32) -
     }
     return vec4<f32>(result, 0.0);
 }
+
+// Added by Codex: Start boundary time-series forcing support.
+fn LoadBoundaryTimeSeriesValue(side: i32, station_index: i32, row_index: i32) -> vec4<f32> {
+    if (side == 0) {
+        return textureLoad(txBoundaryTimeSeriesSouth, vec2<i32>(station_index, row_index), 0);
+    }
+    if (side == 1) {
+        return textureLoad(txBoundaryTimeSeriesNorth, vec2<i32>(station_index, row_index), 0);
+    }
+    if (side == 2) {
+        return textureLoad(txBoundaryTimeSeriesWest, vec2<i32>(station_index, row_index), 0);
+    }
+    return textureLoad(txBoundaryTimeSeriesEast, vec2<i32>(station_index, row_index), 0);
+}
+
+fn BoundaryTimeSeriesXCoordinate(idx: vec2<i32>) -> f32 {
+    var coordinate = f32(idx.x) * globals.dx;
+    if (globals.grid_type == 2) {
+        coordinate = globals.lon_LL + coordinate;
+    }
+    return coordinate;
+}
+
+fn BoundaryTimeSeriesYCoordinate(idx: vec2<i32>) -> f32 {
+    var coordinate = f32(idx.y) * globals.dy;
+    if (globals.grid_type == 2) {
+        coordinate = globals.lat_LL + coordinate;
+    }
+    return coordinate;
+}
+
+fn BoundaryTimeSeriesState(side: i32, coordinate: f32, num_points: i32) -> vec4<f32> {
+    if (num_points <= 0) {
+        return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+
+    var left_station = 0;
+    var right_station = 0;
+    var space_alpha = 0.0;
+    if (num_points > 1) {
+        let first_location = LoadBoundaryTimeSeriesValue(side, 0, 0).r;
+        let last_location = LoadBoundaryTimeSeriesValue(side, num_points - 1, 0).r;
+        if (coordinate <= first_location) {
+            left_station = 0;
+            right_station = 0;
+            space_alpha = 0.0;
+        } else if (coordinate >= last_location) {
+            left_station = num_points - 1;
+            right_station = num_points - 1;
+            space_alpha = 0.0;
+        } else {
+            for (var station_index = 0; station_index < num_points - 1; station_index = station_index + 1) {
+                let location_left = LoadBoundaryTimeSeriesValue(side, station_index, 0).r;
+                let location_right = LoadBoundaryTimeSeriesValue(side, station_index + 1, 0).r;
+                if (coordinate >= location_left && coordinate <= location_right) {
+                    left_station = station_index;
+                    right_station = station_index + 1;
+                    space_alpha = (coordinate - location_left) / max(location_right - location_left, 1.0e-12);
+                    break;
+                }
+            }
+        }
+    }
+
+    let time_row0 = 1 + globals.ts_time_idx0;
+    let time_row1 = 1 + globals.ts_time_idx1;
+    let value_left0 = LoadBoundaryTimeSeriesValue(side, left_station, time_row0).rgb;
+    let value_right0 = LoadBoundaryTimeSeriesValue(side, right_station, time_row0).rgb;
+    let value_left1 = LoadBoundaryTimeSeriesValue(side, left_station, time_row1).rgb;
+    let value_right1 = LoadBoundaryTimeSeriesValue(side, right_station, time_row1).rgb;
+    let space_value0 = mix(value_left0, value_right0, space_alpha);
+    let space_value1 = mix(value_left1, value_right1, space_alpha);
+    return vec4<f32>(mix(space_value0, space_value1, globals.ts_time_alpha), 0.0);
+}
+// Added by Codex: End boundary time-series forcing support.
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -415,6 +511,40 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             BCState_Sed = zero;
         }
     }
+
+    // Added by Codex: Start boundary time-series forcing conditions.
+    // west boundary
+    if (globals.west_boundary_type == 5 && idx.x <= 2) {
+        let coordinate = BoundaryTimeSeriesYCoordinate(idx);
+        BCState = BoundaryTimeSeriesState(2, coordinate, globals.ts_num_points_west);
+        BCState_Sed = zero;
+        BCState_Breaking = zero;
+    }
+
+    // east boundary
+    if (globals.east_boundary_type == 5 && idx.x >= globals.width - 3) {
+        let coordinate = BoundaryTimeSeriesYCoordinate(idx);
+        BCState = BoundaryTimeSeriesState(3, coordinate, globals.ts_num_points_east);
+        BCState_Sed = zero;
+        BCState_Breaking = zero;
+    }
+
+    // south boundary
+    if (globals.south_boundary_type == 5 && idx.y <= 2) {
+        let coordinate = BoundaryTimeSeriesXCoordinate(idx);
+        BCState = BoundaryTimeSeriesState(0, coordinate, globals.ts_num_points_south);
+        BCState_Sed = zero;
+        BCState_Breaking = zero;
+    }
+
+    // north boundary
+    if (globals.north_boundary_type == 5 && idx.y >= globals.height - 3) {
+        let coordinate = BoundaryTimeSeriesXCoordinate(idx);
+        BCState = BoundaryTimeSeriesState(1, coordinate, globals.ts_num_points_north);
+        BCState_Sed = zero;
+        BCState_Breaking = zero;
+    }
+    // Added by Codex: End boundary time-series forcing conditions.
 
     // Constant elevation boundary conditions
     // west boundary

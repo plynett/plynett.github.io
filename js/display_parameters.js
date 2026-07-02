@@ -219,6 +219,11 @@ function addBoundaryDescription(direction, boundaryType, container) {
     } else if (boundaryType == 3) {
         boundaryDescription = `${direction} Boundary: Periodic Boundary`;
     }
+    // Added by Codex: Start display label for boundary time-series forcing.
+    else if (boundaryType == 5) {
+        boundaryDescription = `${direction} Boundary: Time Series from loaded file`;
+    }
+    // Added by Codex: End display label for boundary time-series forcing.
 
     // Use the utility function to add the text to the container
     addTextToContainer(boundaryDescription, container);

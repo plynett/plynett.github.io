@@ -15,7 +15,10 @@ The shader handles:
 - Periodic two-cell overlap regions.
 - Incoming sine/transient wave forcing from `txWaves`.
 - Solitary wave forcing.
+- Boundary type `5` forcing from per-side `eta/hu/hv` time-series textures.
 - Constant stage/discharge river boundaries.
+
+For boundary type `5`, `BoundaryPass` linearly interpolates station values along the boundary and linearly blends the two time rows selected by JavaScript. South/north use x or longitude coordinates; west/east use y or latitude coordinates. In `grid_type == 2`, `lon_LL` and `lat_LL` shift the shader coordinates into absolute degrees.
 
 ## Wet/Dry Cleanup
 

@@ -18,10 +18,14 @@ Creates the bind group for `BoundaryPass.wgsl`, which enforces model boundary co
 - `7`: input `txBreaking`.
 - `8`: temporary breaking output.
 - `9`: `txBoundaryForcing`.
+- `10`: south boundary type `5` time-series forcing texture.
+- `11`: north boundary type `5` time-series forcing texture.
+- `12`: west boundary type `5` time-series forcing texture.
+- `13`: east boundary type `5` time-series forcing texture.
 
 ## Pipeline Role
 
-The boundary pass handles solid walls, sponge layers, periodic overlap, incident waves, river stage/discharge boundaries, sediment reset at boundaries, and shoreline cleanup. JavaScript copies its temporary outputs into canonical textures after dispatch.
+The boundary pass handles solid walls, sponge layers, periodic overlap, incident waves, boundary time-series forcing, river stage/discharge boundaries, sediment reset at boundaries, and shoreline cleanup. JavaScript copies its temporary outputs into canonical textures after dispatch.
 
 ## Change Notes
 

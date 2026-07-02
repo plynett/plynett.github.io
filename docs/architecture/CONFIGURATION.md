@@ -45,9 +45,21 @@ Boundary and forcing:
 - `incident_wave_type`
 - `incident_wave_H`, `incident_wave_T`, `incident_wave_direction`
 - `numberOfWaves`
+- `ts_west_file`, `ts_east_file`, `ts_south_file`, `ts_north_file` for boundary type `5`
 - river stage/discharge fields for flood scenarios
 
 For `incident_wave_type == 0`, `main.js` treats the UI values as a single sine-wave component, converts height to amplitude with `H / 2`, converts direction from degrees to radians, sets `numberOfWaves` to 1, and reuploads `txWaves`. For `incident_wave_type == 1`, `Wave_Generator.js` builds a cached TMA directional spectrum from the same height, period, and direction controls, sets `numberOfWaves` to the generated component count, and reuploads `txWaves`.
+
+Boundary type `5` reads `eta`, `hu`, and `hv` from side-specific text files. In custom local runs, the Start Here panel can upload west/east/south/north boundary time-series files directly; uploaded files override the matching `ts_*_file` path. All active type-5 boundary files must use the same time vector. Station locations are interpreted as model x/y coordinates for Cartesian grids and absolute longitude/latitude degrees for `grid_type == 2`.
+
+Nested-grid boundary output:
+
+- `nestedGridOutput_i0`, `nestedGridOutput_j0`, `nestedGridOutput_i1`, `nestedGridOutput_j1`
+- `nestedGridOutput_start_time`, `nestedGridOutput_end_time`, `nestedGridOutput_dt`
+- `nestedGridOutput_max_samples`, `nestedGridOutput_sample_count`, `nestedGridOutput_sample_index`
+- `nestedGridOutput_trigger`, `nestedGridOutput_active`
+
+These settings define a rectangle whose four edges are sampled as `eta/hu/hv` output files compatible with boundary type `5`. The sample count is capped at `8192` by increasing `nestedGridOutput_dt` and logging a warning.
 
 Sediment:
 

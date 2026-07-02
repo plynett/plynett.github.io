@@ -113,3 +113,19 @@ Other render textures:
 ## Time Series Textures
 
 `txTimeSeries_Locations` stores selected grid coordinates. `ExtractTimeSeries.wgsl` writes sampled values into `txTimeSeries_Data`, where element 0 is reserved for tooltip data and elements 1..N are time-series probes.
+
+## Boundary Time-Series Forcing Textures
+
+Boundary type `5` uses four optional `rgba32float` textures: `txBoundaryTimeSeriesSouth`, `txBoundaryTimeSeriesNorth`, `txBoundaryTimeSeriesWest`, and `txBoundaryTimeSeriesEast`.
+
+Each active side texture stores station locations in row `0`, one time row per supplied time in rows `1..N`, and an appended final zero row used after the supplied series ends. Data rows store `[eta, hu, hv, 0]` per station. JavaScript uploads one shared time bracket to `BoundaryPass`; the shader handles interpolation along the boundary coordinate.
+
+## Nested-Grid Boundary Output Textures
+
+Nested-grid boundary output dynamically allocates four temporary `rgba32float` textures when capture starts:
+
+- South and north output textures have width equal to the rectangle x-edge station count and height equal to the capped number of output samples.
+- West and east output textures have width equal to the rectangle y-edge station count and height equal to the capped number of output samples.
+- Each pixel stores `[eta, hu, hv, 0]`.
+
+`ExtractNestedBoundaryTimeSeries.wgsl` writes these textures only at requested output times. JavaScript records the actual sampled time values separately, reads the textures once when capture is complete, and writes text files compatible with boundary type `5`.
