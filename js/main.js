@@ -3730,7 +3730,7 @@ document.addEventListener('DOMContentLoaded', function () {
             && event.clientY <= rect.bottom;
     }
 
-    // CODEX: Convert a pointer location on the canvas to the same meter coordinates used by the tooltip and time-series UI.
+    // CODEX: Convert a pointer location on the canvas to lower-left-relative model coordinates used by design and time-series UI.
     function getCanvasWorldCoordinates(event) {
         const bounds = getCanvasContentRect();
         if (!bounds || !isPointerInCanvasContent(event, bounds)) {
@@ -3743,6 +3743,79 @@ document.addEventListener('DOMContentLoaded', function () {
             y: normalizedY * calc_constants.HEIGHT * calc_constants.dy
         };
     }
+
+    // Added by Codex: Start time-series coordinate conversion helpers.
+    function isSphericalGrid() {
+        return Math.round(calc_constants.grid_type) == 2;
+    }
+
+    function timeSeriesOffsetToDisplayX(xOffset) {
+        if (isSphericalGrid()) {
+            return calc_constants.lon_LL + xOffset;
+        }
+        return xOffset;
+    }
+
+    function timeSeriesOffsetToDisplayY(yOffset) {
+        if (isSphericalGrid()) {
+            return calc_constants.lat_LL + yOffset;
+        }
+        return yOffset;
+    }
+
+    function timeSeriesDisplayToOffsetX(xDisplay) {
+        if (isSphericalGrid()) {
+            return xDisplay - calc_constants.lon_LL;
+        }
+        return xDisplay;
+    }
+
+    function timeSeriesDisplayToOffsetY(yDisplay) {
+        if (isSphericalGrid()) {
+            return yDisplay - calc_constants.lat_LL;
+        }
+        return yDisplay;
+    }
+
+    function getSelectedTimeSeriesLocation() {
+        const index = Math.round(calc_constants.changethisTimeSeries);
+        return calc_constants.locationOfTimeSeries[index] || null;
+    }
+
+    function updateTimeSeriesCoordinateLabels() {
+        const xLabel = document.querySelector('label[for="changeXTimeSeries-input"]');
+        const yLabel = document.querySelector('label[for="changeYTimeSeries-input"]');
+        if (!xLabel || !yLabel) {
+            return;
+        }
+        if (isSphericalGrid()) {
+            xLabel.textContent = 'New Time Series longitude (deg) :';
+            yLabel.textContent = 'New Time Series latitude (deg) :';
+        } else {
+            xLabel.textContent = 'New Time Series x-location (m) :';
+            yLabel.textContent = 'New Time Series y-location (m) :';
+        }
+    }
+
+    function syncTimeSeriesInputsFromSelectedLocation() {
+        const selectedLocation = getSelectedTimeSeriesLocation();
+        if (!selectedLocation) {
+            return;
+        }
+
+        calc_constants.changeXTimeSeries = timeSeriesOffsetToDisplayX(selectedLocation.xts);
+        calc_constants.changeYTimeSeries = timeSeriesOffsetToDisplayY(selectedLocation.yts);
+
+        const xInput = document.getElementById('changeXTimeSeries-input');
+        const yInput = document.getElementById('changeYTimeSeries-input');
+        if (xInput) {
+            xInput.value = calc_constants.changeXTimeSeries;
+        }
+        if (yInput) {
+            yInput.value = calc_constants.changeYTimeSeries;
+        }
+    }
+    // Added by Codex: End time-series coordinate conversion helpers.
 
     // CODEX: Refresh the visible start/end coordinate summary from calc_constants.
     function updateLinearStructureLocationsDisplay() {
@@ -3947,6 +4020,8 @@ document.addEventListener('DOMContentLoaded', function () {
             lastMouseY_right = event.clientY;
             calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = x_position;
             calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].yts = y_position;
+            // Added by Codex: Display lon/lat in the time-series inputs for spherical grids while storing lower-left-relative offsets internally.
+            syncTimeSeriesInputsFromSelectedLocation();
             calc_constants.click_update = 2;
             calc_constants.updateTimeSeriesTx = 1;  // by setting to one, will tell timesereies shader to run and update chart
         } else if (event.button === 2 && calc_constants.viewType == 2) { // right mouse button, Explorer mode
@@ -4332,6 +4407,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         // CODEX: Keep the linear-structure start/end status display synchronized with calc_constants.
         updateLinearStructureLocationsDisplay();
+        // Added by Codex: Keep time-series inputs/labels in lon/lat for spherical grids and x/y for Cartesian grids.
+        updateTimeSeriesCoordinateLabels();
+        syncTimeSeriesInputsFromSelectedLocation();
     }
 
     // Parameters for each button/input pair which has some numerical input value, and an associated "Update" button
@@ -4788,11 +4866,17 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // add time series listener, to update time series location texture changeXTimeSeries-button
     document.getElementById('changeXTimeSeries-button').addEventListener('click', function () {
-        calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = calc_constants.changeXTimeSeries;
+        // calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = calc_constants.changeXTimeSeries;
+        // Added by Codex: Convert displayed lon/lat input to lower-left-relative model offset for spherical grids.
+        calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].xts = timeSeriesDisplayToOffsetX(calc_constants.changeXTimeSeries);
+        syncTimeSeriesInputsFromSelectedLocation();
         calc_constants.updateTimeSeriesTx = 1;  // by setting to one, will tell timesereies shader to run
     });
     document.getElementById('changeYTimeSeries-button').addEventListener('click', function () {
-        calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].yts = calc_constants.changeYTimeSeries;
+        // calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].yts = calc_constants.changeYTimeSeries;
+        // Added by Codex: Convert displayed lon/lat input to lower-left-relative model offset for spherical grids.
+        calc_constants.locationOfTimeSeries[calc_constants.changethisTimeSeries].yts = timeSeriesDisplayToOffsetY(calc_constants.changeYTimeSeries);
+        syncTimeSeriesInputsFromSelectedLocation();
         calc_constants.updateTimeSeriesTx = 1;  // by setting to one, will tell timesereies shader to run
     });
     document.getElementById('NumberOfTimeSeries-select').addEventListener('change', function () {

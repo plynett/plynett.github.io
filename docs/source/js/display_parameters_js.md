@@ -20,6 +20,8 @@ Boundary type labels include type `5`, displayed as time-series forcing from a l
 
 This file is tightly coupled to DOM element IDs. It assumes the HTML contains specific containers and text fields. The console redirection keeps only a bounded number of entries so the page does not grow without limit.
 
+For `grid_type == 2`, `displayTimeSeriesLocations()` reports active point gauges as absolute longitude/latitude by adding `lon_LL` and `lat_LL` to the internally stored lower-left-relative probe offsets.
+
 ## Change Notes
 
 Because this module only affects display, avoid adding simulation side effects here. If a UI control should change model behavior, update `calc_constants` or an explicit flag in `main.js`, then let the frame loop apply the change through the normal GPU path.

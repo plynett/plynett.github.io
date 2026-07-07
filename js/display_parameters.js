@@ -120,9 +120,22 @@ export function displayTimeSeriesLocations(calc_constants) {
     container.innerHTML = ''; // Clear previous contents
 
     for (let i = 1; i < calc_constants.NumberOfTimeSeries+1; i++) {
+        // Added by Codex: Display absolute lon/lat for spherical grids while internal time-series storage remains lower-left-relative.
+        const isSphericalGrid = Math.round(calc_constants.grid_type) == 2;
+        const xDisplay = isSphericalGrid
+            ? calc_constants.lon_LL + calc_constants.locationOfTimeSeries[i].xts
+            : calc_constants.locationOfTimeSeries[i].xts;
+        const yDisplay = isSphericalGrid
+            ? calc_constants.lat_LL + calc_constants.locationOfTimeSeries[i].yts
+            : calc_constants.locationOfTimeSeries[i].yts;
+        const xLabel = isSphericalGrid ? 'Lon' : 'X';
+        const yLabel = isSphericalGrid ? 'Lat' : 'Y';
         const locationInfo = `Location ${Math.round(i)}, ` +
-                             `X: ${Math.round(calc_constants.locationOfTimeSeries[i].xts * 100) / 100}, ` +
-                             `Y: ${Math.round(calc_constants.locationOfTimeSeries[i].yts * 100) / 100}<br>`;
+                             // `X: ${Math.round(calc_constants.locationOfTimeSeries[i].xts * 100) / 100}, ` +
+                             // `Y: ${Math.round(calc_constants.locationOfTimeSeries[i].yts * 100) / 100}<br>`;
+                             // Added by Codex: Use grid-aware labels and values in the time-series location list.
+                             `${xLabel}: ${Math.round(xDisplay * 1000000) / 1000000}, ` +
+                             `${yLabel}: ${Math.round(yDisplay * 1000000) / 1000000}<br>`;
         container.innerHTML += locationInfo; // Append location info directly with line breaks
     }
 }
