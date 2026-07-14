@@ -683,8 +683,11 @@ function formatNestedGridBoundaryValue(value) {
 }
 
 // Added by Codex: Start nested-grid quiet-period trim helpers.
-function findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes) {
-    const threshold = Math.max(0.0, Number(calc_constants.nestedEtaWriteThreshold) || 0.0);
+// function findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes) {
+//     const threshold = Math.max(0.0, Number(calc_constants.nestedEtaWriteThreshold) || 0.0);
+// Added by Codex: Allow each nested-grid output rectangle to use its own threshold while preserving the global fallback.
+function findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes, thresholdOverride = null) {
+    const threshold = Math.max(0.0, Number(thresholdOverride ?? calc_constants.nestedEtaWriteThreshold) || 0.0);
     if (threshold <= 0.0) {
         return 0;
     }
@@ -759,7 +762,9 @@ export async function writeNestedGridBoundaryTimeSeriesData(device, nestedGridOu
         return;
     }
 
-    const prefix = calc_constants.nestedGridOutput_file_prefix || "nested";
+    // const prefix = calc_constants.nestedGridOutput_file_prefix || "nested";
+    // Added by Codex: Use per-rectangle file prefixes when multi-rectangle nested output is active.
+    const prefix = nestedGridOutputState.filePrefix || calc_constants.nestedGridOutput_file_prefix || "nested";
     const sides = [
         {
             name: "south",
@@ -802,12 +807,14 @@ export async function writeNestedGridBoundaryTimeSeriesData(device, nestedGridOu
         });
     }
 
-    const threshold = Math.max(0.0, Number(calc_constants.nestedEtaWriteThreshold) || 0.0);
+    // const threshold = Math.max(0.0, Number(calc_constants.nestedEtaWriteThreshold) || 0.0);
+    // Added by Codex: Prefer the rectangle-specific threshold and fall back to the legacy global threshold.
+    const threshold = Math.max(0.0, Number(nestedGridOutputState.etaThreshold ?? calc_constants.nestedEtaWriteThreshold) || 0.0);
     // const startSampleIndex = findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes);
     // const actualStartTime = startSampleIndex >= 0 ? capturedTimes[startSampleIndex] : Number.NaN;
     // Added by Codex: Preserve shifted/global output times while still trimming leading quiet samples.
     const thresholdActive = threshold > 0.0;
-    const startSampleIndex = thresholdActive ? findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes) : 0;
+    const startSampleIndex = thresholdActive ? findNestedGridThresholdStartIndex(sideReadbacks, capturedTimes, threshold) : 0;
     const actualStartTime = startSampleIndex >= 0 ? capturedTimes[startSampleIndex] : Number.NaN;
     calc_constants.nestedGridOutput_actual_start_time = Number.isFinite(actualStartTime) ? actualStartTime : 0.0;
 
@@ -818,7 +825,7 @@ export async function writeNestedGridBoundaryTimeSeriesData(device, nestedGridOu
 
     // if (startSampleIndex < 0) {
     if (thresholdActive && startSampleIndex < 0) {
-        console.warn(`Nested-grid boundary output did not exceed nestedEtaWriteThreshold=${threshold}; boundary time-series files were not written.`);
+        console.warn(`Nested-grid boundary output ${prefix} did not exceed nestedEtaWriteThreshold=${threshold}; boundary time-series files were not written.`);
         return;
     }
 

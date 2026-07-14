@@ -380,6 +380,9 @@ var calc_constants = {
     nestedGridOutput_sample_count: 0, // derived number of output samples after dt cap
     nestedGridOutput_sample_index: 0, // current output sample index
     nestedGridOutput_file_prefix: "nested", // prefix for generated boundary time-series files
+    // Added by Codex: Optional multi-rectangle nested-grid output specs; absent/empty keeps legacy scalar config behavior.
+    nestedGridOutput_rectangles: [],
+    nestedGridOutput_rectangle_count: 0, // number of active nested-grid output rectangles after normalization
     // Added by Codex: Start nested-grid boundary output threshold parameters.
     nestedEtaWriteThreshold: 0.0, // eta magnitude threshold that trims leading quiet samples when > 0
     nestedGridOutput_actual_start_time: 0.0, // absolute simulation time used as t=0 in trimmed nested files
@@ -583,6 +586,12 @@ async function init_sim_parameters(canvas, configContent) {
         console.warn(`Nested-grid boundary output requested more than ${nestedOutputMaxSamples} samples; increasing nestedGridOutput_dt to ${calc_constants.nestedGridOutput_dt}.`);
     }
     calc_constants.nestedGridOutput_sample_count = nestedOutputSampleCount;
+    // Added by Codex: Report configured rectangle count while keeping scalar sample-count behavior for legacy configs.
+    if (Array.isArray(calc_constants.nestedGridOutput_rectangles) && calc_constants.nestedGridOutput_rectangles.length > 0) {
+        calc_constants.nestedGridOutput_rectangle_count = calc_constants.nestedGridOutput_rectangles.filter((rectangle) => Number(rectangle?.enabled ?? 1) != 0).length;
+    } else {
+        calc_constants.nestedGridOutput_rectangle_count = 1;
+    }
     // Added by Codex: End nested-grid boundary time-series sample cap.
 
     calc_constants.ThreadX = 16;

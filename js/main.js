@@ -409,7 +409,8 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     const MouseClickChange_uniformBuffer = createUniformBuffer(device);
     const ExtractTimeSeries_uniformBuffer = createUniformBuffer(device);
     // Added by Codex: Uniform buffer for nested-grid boundary time-series edge extraction.
-    const ExtractNestedBoundaryTimeSeries_uniformBuffer = createUniformBuffer(device);
+    // const ExtractNestedBoundaryTimeSeries_uniformBuffer = createUniformBuffer(device);
+    // Added by Codex: Nested-grid output now allocates one uniform buffer per output rectangle at capture start.
     // let Render_bufferSize = 272; // 272 bytes for render pipeline, 256 for compute pipeline
     // CODEX: Add room for linear-structure preview uniforms appended after the existing render globals.
     let Render_bufferSize = 304; // 304 bytes for render pipeline, 256 for compute pipeline
@@ -1396,17 +1397,18 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
 
     // Added by Codex: Start nested-grid boundary time-series extraction uniforms.
     const ExtractNestedBoundaryTimeSeries_BindGroupLayout = create_ExtractNestedBoundaryTimeSeries_BindGroupLayout(device);
-    const ExtractNestedBoundaryTimeSeries_uniforms = new ArrayBuffer(256);
-    let ExtractNestedBoundaryTimeSeries_view = new DataView(ExtractNestedBoundaryTimeSeries_uniforms);
-    ExtractNestedBoundaryTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);          // i32
-    ExtractNestedBoundaryTimeSeries_view.setInt32(4, calc_constants.HEIGHT, true);         // i32
-    ExtractNestedBoundaryTimeSeries_view.setInt32(8, 0, true);                             // i32, i0
-    ExtractNestedBoundaryTimeSeries_view.setInt32(12, 0, true);                            // i32, j0
-    ExtractNestedBoundaryTimeSeries_view.setInt32(16, 0, true);                            // i32, i1
-    ExtractNestedBoundaryTimeSeries_view.setInt32(20, 0, true);                            // i32, j1
-    ExtractNestedBoundaryTimeSeries_view.setInt32(24, 1, true);                            // i32, nx
-    ExtractNestedBoundaryTimeSeries_view.setInt32(28, 1, true);                            // i32, ny
-    ExtractNestedBoundaryTimeSeries_view.setInt32(32, 0, true);                            // i32, sample_index
+    // const ExtractNestedBoundaryTimeSeries_uniforms = new ArrayBuffer(256);
+    // let ExtractNestedBoundaryTimeSeries_view = new DataView(ExtractNestedBoundaryTimeSeries_uniforms);
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);          // i32
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(4, calc_constants.HEIGHT, true);         // i32
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(8, 0, true);                             // i32, i0
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(12, 0, true);                            // i32, j0
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(16, 0, true);                            // i32, i1
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(20, 0, true);                            // i32, j1
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(24, 1, true);                            // i32, nx
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(28, 1, true);                            // i32, ny
+    // ExtractNestedBoundaryTimeSeries_view.setInt32(32, 0, true);                            // i32, sample_index
+    // Added by Codex: Per-rectangle extraction uniforms are created and packed in initializeNestedGridBoundaryOutputCapture().
     // Added by Codex: End nested-grid boundary time-series extraction uniforms.
 
     // Skybox Bindings
@@ -1766,30 +1768,34 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     }
 
     function drawNestedGridOutputRectangleOutlinePath() {
-        if (calc_constants.nestedGridOutput_active != 1) {
+        // if (calc_constants.nestedGridOutput_active != 1) {
+        // Added by Codex: Draw every active/pending nested-grid output rectangle instead of only the legacy scalar rectangle.
+        const drawableRectangles = getNestedGridOutputDrawableRectangles();
+        if (calc_constants.nestedGridOutput_active != 1 || drawableRectangles.length <= 0) {
             return false;
         }
 
         const maxI = Math.max(calc_constants.WIDTH - 1, 1);
         const maxJ = Math.max(calc_constants.HEIGHT - 1, 1);
-        const i0 = Math.max(0, Math.min(maxI, calc_constants.nestedGridOutput_i0));
-        const i1 = Math.max(0, Math.min(maxI, calc_constants.nestedGridOutput_i1));
-        const j0 = Math.max(0, Math.min(maxJ, calc_constants.nestedGridOutput_j0));
-        const j1 = Math.max(0, Math.min(maxJ, calc_constants.nestedGridOutput_j1));
-        const x0 = Math.min(i0, i1) / maxI * offscreenCanvas.width;
-        const x1 = Math.max(i0, i1) / maxI * offscreenCanvas.width;
-        // const y0 = Math.min(j0, j1) / maxJ * offscreenCanvas.height;
-        // const y1 = Math.max(j0, j1) / maxJ * offscreenCanvas.height;
-        // Added by Codex: Start nested-grid rectangle y-coordinate correction.
-        // The draw canvas is already vertically flipped, so invert model-space j only for the overlay.
-        const y0 = offscreenCanvas.height - Math.max(j0, j1) / maxJ * offscreenCanvas.height;
-        const y1 = offscreenCanvas.height - Math.min(j0, j1) / maxJ * offscreenCanvas.height;
-        // Added by Codex: End nested-grid rectangle y-coordinate correction.
-
         ctx.save();
         ctx.strokeStyle = 'black';
         ctx.lineWidth = Math.max(2, Math.round(Math.min(offscreenCanvas.width, offscreenCanvas.height) / 300));
-        ctx.strokeRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+        for (const rectangle of drawableRectangles) {
+            const i0 = Math.max(0, Math.min(maxI, rectangle.i0));
+            const i1 = Math.max(0, Math.min(maxI, rectangle.i1));
+            const j0 = Math.max(0, Math.min(maxJ, rectangle.j0));
+            const j1 = Math.max(0, Math.min(maxJ, rectangle.j1));
+            const x0 = Math.min(i0, i1) / maxI * offscreenCanvas.width;
+            const x1 = Math.max(i0, i1) / maxI * offscreenCanvas.width;
+            // const y0 = Math.min(j0, j1) / maxJ * offscreenCanvas.height;
+            // const y1 = Math.max(j0, j1) / maxJ * offscreenCanvas.height;
+            // Added by Codex: Start nested-grid rectangle y-coordinate correction.
+            // The draw canvas is already vertically flipped, so invert model-space j only for the overlay.
+            const y0 = offscreenCanvas.height - Math.max(j0, j1) / maxJ * offscreenCanvas.height;
+            const y1 = offscreenCanvas.height - Math.min(j0, j1) / maxJ * offscreenCanvas.height;
+            // Added by Codex: End nested-grid rectangle y-coordinate correction.
+            ctx.strokeRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+        }
         ctx.restore();
         return true;
     }
@@ -1815,62 +1821,197 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     // Added by Codex: End nested-grid output rectangle overlay helpers.
 
     // Added by Codex: Start nested-grid boundary time-series output runtime.
-    let nestedGridOutputState = {
-        active: false,
-        pendingDownload: false,
-        bindGroup: null,
-        txSouth: null,
-        txNorth: null,
-        txWest: null,
-        txEast: null,
-        capturedTimes: [],
-        nx: 1,
-        ny: 1,
-        sampleCount: 0,
-        sampleIndex: 0,
-        startTime: 0.0,
-        endTime: 0.0,
-        outputDt: 1.0,
-        dispatchX: 1,
-        southLocations: [],
-        northLocations: [],
-        westLocations: [],
-        eastLocations: []
-    };
+    // let nestedGridOutputState = {
+    //     active: false,
+    //     pendingDownload: false,
+    //     bindGroup: null,
+    //     txSouth: null,
+    //     txNorth: null,
+    //     txWest: null,
+    //     txEast: null,
+    //     capturedTimes: [],
+    //     nx: 1,
+    //     ny: 1,
+    //     sampleCount: 0,
+    //     sampleIndex: 0,
+    //     startTime: 0.0,
+    //     endTime: 0.0,
+    //     outputDt: 1.0,
+    //     dispatchX: 1,
+    //     southLocations: [],
+    //     northLocations: [],
+    //     westLocations: [],
+    //     eastLocations: []
+    // };
+    // Added by Codex: Multi-rectangle output stores one independent state per requested rectangle.
+    let nestedGridOutputStates = [];
 
-    function destroyNestedGridOutputTextures() {
+    function createEmptyNestedGridOutputState() {
+        return {
+            active: false,
+            pendingDownload: false,
+            bindGroup: null,
+            uniformBuffer: null,
+            uniforms: null,
+            view: null,
+            txSouth: null,
+            txNorth: null,
+            txWest: null,
+            txEast: null,
+            capturedTimes: [],
+            nx: 1,
+            ny: 1,
+            sampleCount: 0,
+            sampleIndex: 0,
+            startTime: 0.0,
+            endTime: 0.0,
+            outputDt: 1.0,
+            dispatchX: 1,
+            i0: 0,
+            j0: 0,
+            i1: 0,
+            j1: 0,
+            isLegacy: false,
+            filePrefix: "nested",
+            etaThreshold: 0.0,
+            southLocations: [],
+            northLocations: [],
+            westLocations: [],
+            eastLocations: []
+        };
+    }
+
+    function destroyNestedGridOutputStateTextures(state) {
         const textureKeys = ["txSouth", "txNorth", "txWest", "txEast"];
         for (const key of textureKeys) {
-            if (nestedGridOutputState[key]) {
-                nestedGridOutputState[key].destroy();
-                allTextures.delete(nestedGridOutputState[key]);
-                nestedGridOutputState[key] = null;
+            if (state[key]) {
+                state[key].destroy();
+                allTextures.delete(state[key]);
+                state[key] = null;
             }
         }
+        if (state.uniformBuffer) {
+            state.uniformBuffer.destroy();
+            state.uniformBuffer = null;
+        }
+    }
+
+    // function destroyNestedGridOutputTextures() {
+    //     const textureKeys = ["txSouth", "txNorth", "txWest", "txEast"];
+    //     for (const key of textureKeys) {
+    //         if (nestedGridOutputState[key]) {
+    //             nestedGridOutputState[key].destroy();
+    //             allTextures.delete(nestedGridOutputState[key]);
+    //             nestedGridOutputState[key] = null;
+    //         }
+    //     }
+    // }
+    // Added by Codex: Destroy all rectangle output resources instead of a single legacy state.
+    function destroyNestedGridOutputTextures() {
+        for (const state of nestedGridOutputStates) {
+            destroyNestedGridOutputStateTextures(state);
+        }
+        nestedGridOutputStates = [];
     }
 
     function clampNestedGridOutputIndex(value, maxIndex) {
         return Math.max(0, Math.min(maxIndex, Math.round(Number(value) || 0)));
     }
 
-    function capNestedGridOutputSamples() {
-        const maxSamples = Math.max(1, Math.floor(calc_constants.nestedGridOutput_max_samples || 8192));
-        const startTime = Number(calc_constants.nestedGridOutput_start_time) || 0.0;
-        let endTime = Number(calc_constants.nestedGridOutput_end_time) || startTime;
-        if (endTime < startTime) {
-            console.warn("Nested-grid boundary output end time is before start time; setting end time equal to start time.");
-            endTime = startTime;
-            calc_constants.nestedGridOutput_end_time = endTime;
+    function readNestedGridOutputValue(rectangle, keys, fallback) {
+        for (const key of keys) {
+            if (rectangle && rectangle[key] !== undefined && rectangle[key] !== null) {
+                return rectangle[key];
+            }
+        }
+        return fallback;
+    }
+
+    function nestedGridOutputDefaultPrefix(basePrefix, rectangleIndex) {
+        return rectangleIndex === 0 ? basePrefix : `${basePrefix}${rectangleIndex + 1}`;
+    }
+
+    function getNestedGridOutputRectangleSpecs() {
+        const basePrefix = String(calc_constants.nestedGridOutput_file_prefix || "nested");
+        const configuredRectangles = Array.isArray(calc_constants.nestedGridOutput_rectangles)
+            ? calc_constants.nestedGridOutput_rectangles
+            : [];
+        const enabledConfiguredRectangles = configuredRectangles
+            .map((rectangle, index) => ({ rectangle: rectangle || {}, index }))
+            .filter(({ rectangle }) => Number(readNestedGridOutputValue(rectangle, ["enabled"], 1)) != 0);
+
+        if (enabledConfiguredRectangles.length > 0) {
+            return enabledConfiguredRectangles.map(({ rectangle, index }) => {
+                const defaultPrefix = nestedGridOutputDefaultPrefix(basePrefix, index);
+                const filePrefix = String(readNestedGridOutputValue(rectangle, ["file_prefix", "filePrefix", "name"], defaultPrefix) || defaultPrefix);
+                return {
+                    isLegacy: false,
+                    rectangleIndex: index,
+                    name: String(readNestedGridOutputValue(rectangle, ["name"], filePrefix) || filePrefix),
+                    filePrefix,
+                    i0: readNestedGridOutputValue(rectangle, ["i0", "nestedGridOutput_i0"], calc_constants.nestedGridOutput_i0),
+                    j0: readNestedGridOutputValue(rectangle, ["j0", "nestedGridOutput_j0"], calc_constants.nestedGridOutput_j0),
+                    i1: readNestedGridOutputValue(rectangle, ["i1", "nestedGridOutput_i1"], calc_constants.nestedGridOutput_i1),
+                    j1: readNestedGridOutputValue(rectangle, ["j1", "nestedGridOutput_j1"], calc_constants.nestedGridOutput_j1),
+                    startTime: readNestedGridOutputValue(rectangle, ["start_time", "startTime", "nestedGridOutput_start_time"], calc_constants.nestedGridOutput_start_time),
+                    endTime: readNestedGridOutputValue(rectangle, ["end_time", "endTime", "nestedGridOutput_end_time"], calc_constants.nestedGridOutput_end_time),
+                    outputDt: readNestedGridOutputValue(rectangle, ["dt", "output_dt", "outputDt", "nestedGridOutput_dt"], calc_constants.nestedGridOutput_dt),
+                    maxSamples: readNestedGridOutputValue(rectangle, ["max_samples", "maxSamples", "nestedGridOutput_max_samples"], calc_constants.nestedGridOutput_max_samples),
+                    etaThreshold: readNestedGridOutputValue(rectangle, ["eta_threshold", "etaThreshold", "nestedEtaWriteThreshold"], calc_constants.nestedEtaWriteThreshold)
+                };
+            });
         }
 
-        let outputDt = Number(calc_constants.nestedGridOutput_dt) || calc_constants.dt;
+        return [{
+            isLegacy: true,
+            rectangleIndex: 0,
+            name: basePrefix,
+            filePrefix: basePrefix,
+            i0: calc_constants.nestedGridOutput_i0,
+            j0: calc_constants.nestedGridOutput_j0,
+            i1: calc_constants.nestedGridOutput_i1,
+            j1: calc_constants.nestedGridOutput_j1,
+            startTime: calc_constants.nestedGridOutput_start_time,
+            endTime: calc_constants.nestedGridOutput_end_time,
+            outputDt: calc_constants.nestedGridOutput_dt,
+            maxSamples: calc_constants.nestedGridOutput_max_samples,
+            etaThreshold: calc_constants.nestedEtaWriteThreshold
+        }];
+    }
+
+    function getNestedGridOutputDrawableRectangles() {
+        return nestedGridOutputStates
+            .filter((state) => state.active || state.pendingDownload)
+            .map((state) => ({
+                i0: state.i0,
+                j0: state.j0,
+                i1: state.i1,
+                j1: state.j1
+            }));
+    }
+
+    // function capNestedGridOutputSamples() {
+    //     const maxSamples = Math.max(1, Math.floor(calc_constants.nestedGridOutput_max_samples || 8192));
+    //     const startTime = Number(calc_constants.nestedGridOutput_start_time) || 0.0;
+    //     let endTime = Number(calc_constants.nestedGridOutput_end_time) || startTime;
+    // Added by Codex: Cap sample count independently for each rectangle spec.
+    function capNestedGridOutputSamples(spec) {
+        const maxSamples = Math.max(1, Math.floor(Number(spec.maxSamples) || 8192));
+        const startTime = Number(spec.startTime) || 0.0;
+        let endTime = Number(spec.endTime) || startTime;
+        if (endTime < startTime) {
+            console.warn(`Nested-grid boundary output ${spec.filePrefix} end time is before start time; setting end time equal to start time.`);
+            endTime = startTime;
+        }
+
+        let outputDt = Number(spec.outputDt) || calc_constants.dt;
         if (outputDt <= 0.0) {
             outputDt = calc_constants.dt;
-            console.warn(`Nested-grid boundary output dt must be positive; setting nestedGridOutput_dt to model dt ${outputDt}.`);
+            console.warn(`Nested-grid boundary output ${spec.filePrefix} dt must be positive; setting output dt to model dt ${outputDt}.`);
         }
         if (outputDt < calc_constants.dt) {
             outputDt = calc_constants.dt;
-            console.warn(`Nested-grid boundary output dt is smaller than the model dt; increasing nestedGridOutput_dt to ${outputDt}.`);
+            console.warn(`Nested-grid boundary output ${spec.filePrefix} dt is smaller than the model dt; increasing output dt to ${outputDt}.`);
         }
 
         const duration = Math.max(0.0, endTime - startTime);
@@ -1882,13 +2023,15 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
             const requestedSampleCount = sampleCount;
             outputDt = duration / Math.max(maxSamples - 1, 1);
             sampleCount = maxSamples;
-            console.warn(`Nested-grid boundary output requested ${requestedSampleCount} samples; capping at ${maxSamples} by increasing nestedGridOutput_dt to ${outputDt}.`);
+            console.warn(`Nested-grid boundary output ${spec.filePrefix} requested ${requestedSampleCount} samples; capping at ${maxSamples} by increasing output dt to ${outputDt}.`);
         }
 
-        calc_constants.nestedGridOutput_start_time = startTime;
-        calc_constants.nestedGridOutput_end_time = endTime;
-        calc_constants.nestedGridOutput_dt = outputDt;
-        calc_constants.nestedGridOutput_sample_count = sampleCount;
+        if (spec.isLegacy) {
+            calc_constants.nestedGridOutput_start_time = startTime;
+            calc_constants.nestedGridOutput_end_time = endTime;
+            calc_constants.nestedGridOutput_dt = outputDt;
+            calc_constants.nestedGridOutput_sample_count = sampleCount;
+        }
         return { startTime, endTime, outputDt, sampleCount };
     }
 
@@ -1900,108 +2043,159 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         return locations;
     }
 
+    function updateNestedGridOutputUniforms(state, sampleIndex) {
+        state.view.setInt32(0, calc_constants.WIDTH, true);
+        state.view.setInt32(4, calc_constants.HEIGHT, true);
+        state.view.setInt32(8, state.i0, true);
+        state.view.setInt32(12, state.j0, true);
+        state.view.setInt32(16, state.i1, true);
+        state.view.setInt32(20, state.j1, true);
+        state.view.setInt32(24, state.nx, true);
+        state.view.setInt32(28, state.ny, true);
+        state.view.setInt32(32, sampleIndex, true);
+    }
+
+    function syncLegacyNestedGridOutputFieldsFromState(state) {
+        if (!state) {
+            calc_constants.nestedGridOutput_sample_index = 0;
+            calc_constants.nestedGridOutput_sample_count = 0;
+            return;
+        }
+        calc_constants.nestedGridOutput_i0 = state.i0;
+        calc_constants.nestedGridOutput_i1 = state.i1;
+        calc_constants.nestedGridOutput_j0 = state.j0;
+        calc_constants.nestedGridOutput_j1 = state.j1;
+        calc_constants.nestedGridOutput_start_time = state.startTime;
+        calc_constants.nestedGridOutput_end_time = state.endTime;
+        calc_constants.nestedGridOutput_dt = state.outputDt;
+        calc_constants.nestedGridOutput_sample_count = state.sampleCount;
+        calc_constants.nestedGridOutput_sample_index = state.sampleIndex;
+        if (state.isLegacy) {
+            calc_constants.nestedGridOutput_file_prefix = state.filePrefix;
+            calc_constants.nestedEtaWriteThreshold = state.etaThreshold;
+        }
+    }
+
     function initializeNestedGridBoundaryOutputCapture(currentTime) {
         destroyNestedGridOutputTextures();
 
-        const iLower = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_i0, calc_constants.WIDTH - 1);
-        const iUpper = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_i1, calc_constants.WIDTH - 1);
-        const jLower = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_j0, calc_constants.HEIGHT - 1);
-        const jUpper = clampNestedGridOutputIndex(calc_constants.nestedGridOutput_j1, calc_constants.HEIGHT - 1);
-        const i0 = Math.min(iLower, iUpper);
-        const i1 = Math.max(iLower, iUpper);
-        const j0 = Math.min(jLower, jUpper);
-        const j1 = Math.max(jLower, jUpper);
-        const nx = Math.max(1, i1 - i0 + 1);
-        const ny = Math.max(1, j1 - j0 + 1);
-        let sampleInfo = capNestedGridOutputSamples();
-        if (sampleInfo.startTime < currentTime) {
-            console.warn(`Nested-grid boundary output start time ${sampleInfo.startTime} is before the current simulation time ${currentTime}; starting output at the current time.`);
-            calc_constants.nestedGridOutput_start_time = currentTime;
-            if (calc_constants.nestedGridOutput_end_time < currentTime) {
-                calc_constants.nestedGridOutput_end_time = currentTime;
-            }
-            sampleInfo = capNestedGridOutputSamples();
-        }
-
-        calc_constants.nestedGridOutput_i0 = i0;
-        calc_constants.nestedGridOutput_i1 = i1;
-        calc_constants.nestedGridOutput_j0 = j0;
-        calc_constants.nestedGridOutput_j1 = j1;
-        calc_constants.nestedGridOutput_sample_index = 0;
-
+        const rectangleSpecs = getNestedGridOutputRectangleSpecs();
         const maxTextureDimension2D = device.limits?.maxTextureDimension2D || 8192;
-        if (nx > maxTextureDimension2D || ny > maxTextureDimension2D || sampleInfo.sampleCount > maxTextureDimension2D) {
-            console.error("Nested-grid boundary output texture dimensions exceed this device's maxTextureDimension2D.");
-            calc_constants.nestedGridOutput_trigger = 0;
-            calc_constants.nestedGridOutput_active = 0;
-            return;
-        }
-
         const useAbsoluteGridCoordinates = calc_constants.grid_type == 2;
-        nestedGridOutputState = {
-            active: true,
-            pendingDownload: false,
-            bindGroup: null,
-            txSouth: create_2D_Texture(device, nx, sampleInfo.sampleCount, allTextures),
-            txNorth: create_2D_Texture(device, nx, sampleInfo.sampleCount, allTextures),
-            txWest: create_2D_Texture(device, ny, sampleInfo.sampleCount, allTextures),
-            txEast: create_2D_Texture(device, ny, sampleInfo.sampleCount, allTextures),
-            capturedTimes: [],
-            nx,
-            ny,
-            sampleCount: sampleInfo.sampleCount,
-            sampleIndex: 0,
-            startTime: sampleInfo.startTime,
-            endTime: sampleInfo.endTime,
-            outputDt: sampleInfo.outputDt,
-            dispatchX: Math.max(1, Math.ceil(Math.max(nx, ny) / 16)),
-            southLocations: buildNestedGridOutputLocations(nx, i0, calc_constants.dx, calc_constants.lon_LL, useAbsoluteGridCoordinates),
-            northLocations: buildNestedGridOutputLocations(nx, i0, calc_constants.dx, calc_constants.lon_LL, useAbsoluteGridCoordinates),
-            westLocations: buildNestedGridOutputLocations(ny, j0, calc_constants.dy, calc_constants.lat_LL, useAbsoluteGridCoordinates),
-            eastLocations: buildNestedGridOutputLocations(ny, j0, calc_constants.dy, calc_constants.lat_LL, useAbsoluteGridCoordinates)
-        };
-        // nestedGridOutputState.bindGroup = create_ExtractNestedBoundaryTimeSeries_BindGroup(device, ExtractNestedBoundaryTimeSeries_uniformBuffer, txNewState, nestedGridOutputState.txSouth, nestedGridOutputState.txNorth, nestedGridOutputState.txWest, nestedGridOutputState.txEast);
-        // Added by Codex: Pass txBottom so dry nested-output samples are written as zero eta/hu/hv.
-        nestedGridOutputState.bindGroup = create_ExtractNestedBoundaryTimeSeries_BindGroup(device, ExtractNestedBoundaryTimeSeries_uniformBuffer, txNewState, nestedGridOutputState.txSouth, nestedGridOutputState.txNorth, nestedGridOutputState.txWest, nestedGridOutputState.txEast, txBottom);
+        let totalEstimatedBytes = 0;
 
-        ExtractNestedBoundaryTimeSeries_view.setInt32(0, calc_constants.WIDTH, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(4, calc_constants.HEIGHT, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(8, i0, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(12, j0, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(16, i1, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(20, j1, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(24, nx, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(28, ny, true);
-        ExtractNestedBoundaryTimeSeries_view.setInt32(32, 0, true);
+        for (const spec of rectangleSpecs) {
+            const iLower = clampNestedGridOutputIndex(spec.i0, calc_constants.WIDTH - 1);
+            const iUpper = clampNestedGridOutputIndex(spec.i1, calc_constants.WIDTH - 1);
+            const jLower = clampNestedGridOutputIndex(spec.j0, calc_constants.HEIGHT - 1);
+            const jUpper = clampNestedGridOutputIndex(spec.j1, calc_constants.HEIGHT - 1);
+            const i0 = Math.min(iLower, iUpper);
+            const i1 = Math.max(iLower, iUpper);
+            const j0 = Math.min(jLower, jUpper);
+            const j1 = Math.max(jLower, jUpper);
+            const nx = Math.max(1, i1 - i0 + 1);
+            const ny = Math.max(1, j1 - j0 + 1);
+            let sampleInfo = capNestedGridOutputSamples(spec);
+            if (sampleInfo.startTime < currentTime) {
+                console.warn(`Nested-grid boundary output ${spec.filePrefix} start time ${sampleInfo.startTime} is before the current simulation time ${currentTime}; starting output at the current time.`);
+                spec.startTime = currentTime;
+                if (sampleInfo.endTime < currentTime) {
+                    spec.endTime = currentTime;
+                }
+                sampleInfo = capNestedGridOutputSamples(spec);
+            }
+
+            if (nx > maxTextureDimension2D || ny > maxTextureDimension2D || sampleInfo.sampleCount > maxTextureDimension2D) {
+                console.error(`Nested-grid boundary output ${spec.filePrefix} texture dimensions exceed this device's maxTextureDimension2D; skipping this rectangle.`);
+                continue;
+            }
+
+            const state = createEmptyNestedGridOutputState();
+            state.active = true;
+            state.txSouth = create_2D_Texture(device, nx, sampleInfo.sampleCount, allTextures);
+            state.txNorth = create_2D_Texture(device, nx, sampleInfo.sampleCount, allTextures);
+            state.txWest = create_2D_Texture(device, ny, sampleInfo.sampleCount, allTextures);
+            state.txEast = create_2D_Texture(device, ny, sampleInfo.sampleCount, allTextures);
+            state.nx = nx;
+            state.ny = ny;
+            state.sampleCount = sampleInfo.sampleCount;
+            state.startTime = sampleInfo.startTime;
+            state.endTime = sampleInfo.endTime;
+            state.outputDt = sampleInfo.outputDt;
+            state.dispatchX = Math.max(1, Math.ceil(Math.max(nx, ny) / 16));
+            state.i0 = i0;
+            state.i1 = i1;
+            state.j0 = j0;
+            state.j1 = j1;
+            state.filePrefix = spec.filePrefix;
+            state.isLegacy = spec.isLegacy;
+            state.etaThreshold = Math.max(0.0, Number(spec.etaThreshold) || 0.0);
+            state.southLocations = buildNestedGridOutputLocations(nx, i0, calc_constants.dx, calc_constants.lon_LL, useAbsoluteGridCoordinates);
+            state.northLocations = buildNestedGridOutputLocations(nx, i0, calc_constants.dx, calc_constants.lon_LL, useAbsoluteGridCoordinates);
+            state.westLocations = buildNestedGridOutputLocations(ny, j0, calc_constants.dy, calc_constants.lat_LL, useAbsoluteGridCoordinates);
+            state.eastLocations = buildNestedGridOutputLocations(ny, j0, calc_constants.dy, calc_constants.lat_LL, useAbsoluteGridCoordinates);
+            state.uniformBuffer = createUniformBuffer(device);
+            state.uniforms = new ArrayBuffer(256);
+            state.view = new DataView(state.uniforms);
+            updateNestedGridOutputUniforms(state, 0);
+            // nestedGridOutputState.bindGroup = create_ExtractNestedBoundaryTimeSeries_BindGroup(device, ExtractNestedBoundaryTimeSeries_uniformBuffer, txNewState, nestedGridOutputState.txSouth, nestedGridOutputState.txNorth, nestedGridOutputState.txWest, nestedGridOutputState.txEast);
+            // Added by Codex: Pass txBottom so dry nested-output samples are written as zero eta/hu/hv.
+            state.bindGroup = create_ExtractNestedBoundaryTimeSeries_BindGroup(device, state.uniformBuffer, txNewState, state.txSouth, state.txNorth, state.txWest, state.txEast, txBottom);
+            nestedGridOutputStates.push(state);
+            totalEstimatedBytes += (2 * nx + 2 * ny) * sampleInfo.sampleCount * 16;
+        }
 
         calc_constants.nestedGridOutput_trigger = 0;
+        calc_constants.nestedGridOutput_rectangle_count = nestedGridOutputStates.length;
+        if (nestedGridOutputStates.length <= 0) {
+            calc_constants.nestedGridOutput_active = 0;
+            syncLegacyNestedGridOutputFieldsFromState(null);
+            console.warn("Nested-grid boundary output did not start because no valid rectangles were available.");
+            return;
+        }
+
         calc_constants.nestedGridOutput_active = 1;
+        syncLegacyNestedGridOutputFieldsFromState(nestedGridOutputStates[0]);
         redrawDrawOverlayWithNestedGridOutline();
-        console.log(`Nested-grid boundary output started: i=${i0}:${i1}, j=${j0}:${j1}, samples=${sampleInfo.sampleCount}, dt=${sampleInfo.outputDt}.`);
+        if (totalEstimatedBytes > 512 * 1024 * 1024) {
+            console.warn(`Nested-grid boundary output allocated approximately ${(totalEstimatedBytes / (1024 * 1024)).toFixed(1)} MB of GPU texture storage across ${nestedGridOutputStates.length} rectangle(s).`);
+        }
+        console.log(`Nested-grid boundary output started for ${nestedGridOutputStates.length} rectangle(s): ${nestedGridOutputStates.map((state) => state.filePrefix).join(", ")}.`);
     }
 
-    function captureNestedGridBoundaryOutputIfNeeded(commandEncoderStack, currentTime) {
-        if (!nestedGridOutputState.active || nestedGridOutputState.sampleIndex >= nestedGridOutputState.sampleCount) {
-            return;
-        }
+    // function captureNestedGridBoundaryOutputIfNeeded(commandEncoderStack, currentTime) {
+    //     if (!nestedGridOutputState.active || nestedGridOutputState.sampleIndex >= nestedGridOutputState.sampleCount) {
+    //         return;
+    //     }
+    // Added by Codex: Capture all active rectangle outputs with independent sample clocks.
+    function captureNestedGridBoundaryOutputsIfNeeded(commandEncoderStack, currentTime) {
+        let maxSampleIndex = 0;
+        for (const state of nestedGridOutputStates) {
+            if (!state.active || state.sampleIndex >= state.sampleCount) {
+                maxSampleIndex = Math.max(maxSampleIndex, state.sampleIndex);
+                continue;
+            }
 
-        const targetTime = nestedGridOutputState.startTime + nestedGridOutputState.sampleIndex * nestedGridOutputState.outputDt;
-        if (currentTime + 0.5 * calc_constants.dt < targetTime) {
-            return;
-        }
+            const targetTime = state.startTime + state.sampleIndex * state.outputDt;
+            if (currentTime + 0.5 * calc_constants.dt < targetTime) {
+                maxSampleIndex = Math.max(maxSampleIndex, state.sampleIndex);
+                continue;
+            }
 
-        ExtractNestedBoundaryTimeSeries_view.setInt32(32, nestedGridOutputState.sampleIndex, true);
-        runComputeShader_EncStack(device, commandEncoderStack, ExtractNestedBoundaryTimeSeries_uniformBuffer, ExtractNestedBoundaryTimeSeries_uniforms, ExtractNestedBoundaryTimeSeries_Pipeline, nestedGridOutputState.bindGroup, nestedGridOutputState.dispatchX, 1);
-        nestedGridOutputState.capturedTimes.push(currentTime);
-        nestedGridOutputState.sampleIndex += 1;
-        calc_constants.nestedGridOutput_sample_index = nestedGridOutputState.sampleIndex;
+            updateNestedGridOutputUniforms(state, state.sampleIndex);
+            runComputeShader_EncStack(device, commandEncoderStack, state.uniformBuffer, state.uniforms, ExtractNestedBoundaryTimeSeries_Pipeline, state.bindGroup, state.dispatchX, 1);
+            state.capturedTimes.push(currentTime);
+            state.sampleIndex += 1;
+            maxSampleIndex = Math.max(maxSampleIndex, state.sampleIndex);
 
-        if (nestedGridOutputState.sampleIndex >= nestedGridOutputState.sampleCount) {
-            nestedGridOutputState.active = false;
-            nestedGridOutputState.pendingDownload = true;
-            calc_constants.nestedGridOutput_active = 0;
-            console.log("Nested-grid boundary output sampling complete; preparing files for download.");
+            if (state.sampleIndex >= state.sampleCount) {
+                state.active = false;
+                state.pendingDownload = true;
+                console.log(`Nested-grid boundary output ${state.filePrefix} sampling complete; preparing files for download.`);
+            }
         }
+        calc_constants.nestedGridOutput_sample_index = maxSampleIndex;
+        calc_constants.nestedGridOutput_active = nestedGridOutputStates.some((state) => state.active) ? 1 : 0;
     }
     // Added by Codex: End nested-grid boundary time-series output runtime.
 
@@ -2684,7 +2878,9 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
                 }
 
                 // Added by Codex: Store rectangle-edge eta/hu/hv on the GPU only at requested nested-output times.
-                captureNestedGridBoundaryOutputIfNeeded(commandEncoderStack, total_time);
+                // captureNestedGridBoundaryOutputIfNeeded(commandEncoderStack, total_time);
+                // Added by Codex: Capture every active nested-grid output rectangle at its own requested output time.
+                captureNestedGridBoundaryOutputsIfNeeded(commandEncoderStack, total_time);
 
                 // shift gradient textures
                 runCopyTextures_EncStack(commandEncoderStack, calc_constants, oldGradients, oldOldGradients)
@@ -2725,19 +2921,46 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         }
 
         // Added by Codex: Start deferred nested-grid boundary output readback and download.
-        if (nestedGridOutputState.pendingDownload) {
-            nestedGridOutputState.pendingDownload = false;
-            try {
-                await writeNestedGridBoundaryTimeSeriesData(device, nestedGridOutputState);
-                console.log("Nested-grid boundary output files downloaded.");
-            } catch (error) {
-                console.error("Failed to write nested-grid boundary output files:", error);
-            } finally {
-                destroyNestedGridOutputTextures();
-                nestedGridOutputState.bindGroup = null;
-                nestedGridOutputState.capturedTimes = [];
-                // redrawDrawOverlayBase();
-                // Added by Codex: Clear the nested-grid rectangle only after capture/download completes.
+        // if (nestedGridOutputState.pendingDownload) {
+        //     nestedGridOutputState.pendingDownload = false;
+        //     try {
+        //         await writeNestedGridBoundaryTimeSeriesData(device, nestedGridOutputState);
+        //         console.log("Nested-grid boundary output files downloaded.");
+        //     } catch (error) {
+        //         console.error("Failed to write nested-grid boundary output files:", error);
+        //     } finally {
+        //         destroyNestedGridOutputTextures();
+        //         nestedGridOutputState.bindGroup = null;
+        //         nestedGridOutputState.capturedTimes = [];
+        //         // redrawDrawOverlayBase();
+        //         // Added by Codex: Clear the nested-grid rectangle only after capture/download completes.
+        //         await redrawDrawOverlayBase();
+        //     }
+        // }
+        // Added by Codex: Write and release completed rectangle outputs independently so other active rectangles can continue.
+        const pendingNestedOutputStates = nestedGridOutputStates.filter((state) => state.pendingDownload);
+        // Added by Codex: Avoid CPU readback/download stalls while any rectangle is still actively sampling.
+        const hasActiveNestedOutputStates = nestedGridOutputStates.some((state) => state.active);
+        if (pendingNestedOutputStates.length > 0 && !hasActiveNestedOutputStates) {
+            for (const state of pendingNestedOutputStates) {
+                state.pendingDownload = false;
+                try {
+                    await writeNestedGridBoundaryTimeSeriesData(device, state);
+                    console.log(`Nested-grid boundary output files downloaded for ${state.filePrefix}.`);
+                } catch (error) {
+                    console.error(`Failed to write nested-grid boundary output files for ${state.filePrefix}:`, error);
+                } finally {
+                    destroyNestedGridOutputStateTextures(state);
+                    state.bindGroup = null;
+                    state.capturedTimes = [];
+                }
+            }
+            nestedGridOutputStates = nestedGridOutputStates.filter((state) => state.active || state.pendingDownload);
+            calc_constants.nestedGridOutput_rectangle_count = nestedGridOutputStates.length;
+            calc_constants.nestedGridOutput_active = nestedGridOutputStates.some((state) => state.active) ? 1 : 0;
+            if (nestedGridOutputStates.length > 0) {
+                await redrawDrawOverlayWithNestedGridOutline();
+            } else {
                 await redrawDrawOverlayBase();
             }
         }
