@@ -58,8 +58,9 @@ Nested-grid boundary output:
 - `nestedGridOutput_start_time`, `nestedGridOutput_end_time`, `nestedGridOutput_dt`
 - `nestedGridOutput_max_samples`, `nestedGridOutput_sample_count`, `nestedGridOutput_sample_index`
 - `nestedGridOutput_trigger`, `nestedGridOutput_active`
+- `nestedGridOutput_rectangles` for optional multi-rectangle output specs
 
-These settings define a rectangle whose four edges are sampled as `eta/hu/hv` output files compatible with boundary type `5`. The sample count is capped at `8192` by increasing `nestedGridOutput_dt` and logging a warning.
+The scalar settings define the legacy rectangle whose four edges are sampled as `eta/hu/hv` output files compatible with boundary type `5`. Existing configs that only use these scalar fields remain valid. When `nestedGridOutput_rectangles` contains enabled entries, each entry can define `i0`, `j0`, `i1`, `j1`, `start_time`, `end_time`, `dt`, `eta_threshold`, and `file_prefix`/`name`. If a rectangle omits `file_prefix`, the default is `nestedGridOutput_file_prefix` for the first rectangle, then that base plus numeric suffixes for later rectangles, for example `gridD`, `gridD2`, `gridD3`. Each rectangle's sample count is capped at `8192` by increasing its output `dt` and logging a warning.
 
 Sediment:
 

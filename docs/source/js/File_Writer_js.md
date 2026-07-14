@@ -11,7 +11,7 @@ This module reads GPU textures back to the CPU and writes browser-downloadable o
 - `readTextureData()`: copies an `rgba32float` texture into a padded GPU buffer, maps it, and extracts one 1-based channel into a flat `Float32Array`.
 - `downloadTextureData()`: wraps `readTextureData()` for user downloads.
 - `writeSurfaceData()`: writes selected simulation surfaces such as bathymetry, eta, momentum, velocity, and turbulence.
-- `writeNestedGridBoundaryTimeSeriesData()`: reads the four deferred nested-grid boundary output textures once at the end of capture and writes boundary type `5` compatible text files. When `nestedEtaWriteThreshold > 0`, it trims leading samples until eta magnitude on at least one rectangle-edge point exceeds the threshold. The written time columns remain on the shifted/global simulation clock, so no separate start-time metadata file is needed.
+- `writeNestedGridBoundaryTimeSeriesData()`: reads one rectangle state's four deferred nested-grid boundary output textures once at the end of capture and writes boundary type `5` compatible text files. Multi-rectangle runs call this once per completed rectangle using that state's `filePrefix`. When the rectangle-specific threshold, or fallback `nestedEtaWriteThreshold`, is greater than zero, it trims leading samples until eta magnitude on at least one rectangle-edge point exceeds the threshold. The written time columns remain on the shifted/global simulation clock, so no separate start-time metadata file is needed.
 - `TexturetoImageData()`: converts a BGRA WebGPU texture readback into browser `ImageData`.
 
 ## Rendered Outputs

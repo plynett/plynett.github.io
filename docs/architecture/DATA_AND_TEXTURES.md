@@ -122,10 +122,10 @@ Each active side texture stores station locations in row `0`, one time row per s
 
 ## Nested-Grid Boundary Output Textures
 
-Nested-grid boundary output dynamically allocates four temporary `rgba32float` textures when capture starts:
+Nested-grid boundary output dynamically allocates four temporary `rgba32float` textures per active output rectangle when capture starts:
 
 - South and north output textures have width equal to the rectangle x-edge station count and height equal to the capped number of output samples.
 - West and east output textures have width equal to the rectangle y-edge station count and height equal to the capped number of output samples.
 - Each pixel stores `[eta, hu, hv, 0]`.
 
-`ExtractNestedBoundaryTimeSeries.wgsl` writes these textures only at requested output times. JavaScript records the actual sampled time values separately, reads the textures once when capture is complete, and writes text files compatible with boundary type `5`.
+`ExtractNestedBoundaryTimeSeries.wgsl` writes these textures only at requested output times. Multi-rectangle output reuses the same shader and texture layout once per active rectangle, with independent uniform buffers, sample indices, thresholds, prefixes, and deferred readbacks. JavaScript records the actual sampled time values separately, waits until no rectangles are still actively sampling, then reads each completed rectangle's textures once and writes text files compatible with boundary type `5`.
