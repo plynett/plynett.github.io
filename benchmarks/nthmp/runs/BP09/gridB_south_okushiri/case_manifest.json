@@ -1,0 +1,196 @@
+{
+  "benchmark": "BP09",
+  "variant": "gridB_south_okushiri",
+  "grid_key": "grid_b",
+  "grid_label": "B",
+  "status": "generated",
+  "setup_style": "MATLAB Pearl Harbor master_nested_config.m style",
+  "grid": {
+    "base_refinement": 4,
+    "grid_refinement": 4,
+    "cumulative_refinement": 4,
+    "width": 826,
+    "height": 1108,
+    "dx_degrees": 0.00033898989897807041,
+    "dy_degrees": 0.00025353809093786595,
+    "dx_m_approx": 27.9490318364458,
+    "dy_m_approx": 28.192149423437467,
+    "spacing_m_approx": 28.070590629941634,
+    "lon_ll": 139.387,
+    "lat_ll": 42.00266666666667,
+    "lon_ur": 139.66666666666666,
+    "lat_ur": 42.283333333333331,
+    "requested_bounds": {
+      "lon_min": 139.387,
+      "lat_min": 42.00266666666667,
+      "lon_max": 139.66666666666666,
+      "lat_max": 42.283333333333331
+    },
+    "base_depth_m": 1916.8123242299193,
+    "bottom_min_m": -1916.8123242299193,
+    "bottom_max_m": 100
+  },
+  "parent": "grid_a",
+  "boundary_prefix": "gridB",
+  "children": [
+    "grid_c_aonae",
+    "grid_c_monai"
+  ],
+  "pmel_link": {
+    "parent": "grid_a",
+    "i": 165,
+    "j": 365,
+    "base": "1-based west-south"
+  },
+  "nested_output_rectangles": [
+    {
+      "enabled": 1,
+      "name": "gridC_aonae",
+      "file_prefix": "gridC_aonae",
+      "i0": 137,
+      "j0": 154,
+      "i1": 333,
+      "j1": 318,
+      "start_time": 0,
+      "end_time": 3600,
+      "dt": 10,
+      "max_samples": 8192,
+      "eta_threshold": 0.01,
+      "target_grid": "grid_c_aonae",
+      "target_variant": "gridC_aonae",
+      "target_lon_min": 139.43333333333334,
+      "target_lat_min": 42.041666666666664,
+      "target_lon_max": 139.5,
+      "target_lat_max": 42.083333333333336
+    },
+    {
+      "enabled": 1,
+      "name": "gridC_monai",
+      "file_prefix": "gridC_monai",
+      "i0": 63,
+      "j0": 252,
+      "i1": 137,
+      "j1": 614,
+      "start_time": 0,
+      "end_time": 3600,
+      "dt": 10,
+      "max_samples": 8192,
+      "eta_threshold": 0.01,
+      "target_grid": "grid_c_monai",
+      "target_variant": "gridC_monai",
+      "target_lon_min": 139.40833333333333,
+      "target_lat_min": 42.06666666666667,
+      "target_lon_max": 139.43333333333334,
+      "target_lat_max": 42.158333333333331
+    }
+  ],
+  "source_priority": [
+    "pmel_b1",
+    "pmel_b2",
+    "pmel_b3",
+    "pmel_a"
+  ],
+  "bathy_source_coverage": [
+    {
+      "source": "pmel_b1",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D154-124-150m.txt",
+      "covered_cells": 534422,
+      "available_cells": 534422
+    },
+    {
+      "source": "pmel_b2",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D94-85-150m.txt",
+      "covered_cells": 226812,
+      "available_cells": 226812
+    },
+    {
+      "source": "pmel_b3",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D61-49-150m.txt",
+      "covered_cells": 87842,
+      "available_cells": 87842
+    },
+    {
+      "source": "pmel_a",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D379-687-450m.txt",
+      "covered_cells": 66132,
+      "available_cells": 915208
+    }
+  ],
+  "initial_condition_source": [
+    "pmel_i_b1",
+    "pmel_i_b2",
+    "pmel_i_b3",
+    "pmel_i_a"
+  ],
+  "initial_condition_coverage": [
+    {
+      "source": "pmel_i_b1",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I154-124-150m-17a.txt",
+      "covered_cells": 534422,
+      "available_cells": 534422
+    },
+    {
+      "source": "pmel_i_b2",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I94-85-150m-17a.txt",
+      "covered_cells": 226812,
+      "available_cells": 226812
+    },
+    {
+      "source": "pmel_i_b3",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I61-49-150m-17a.txt",
+      "covered_cells": 87842,
+      "available_cells": 87842
+    },
+    {
+      "source": "pmel_i_a",
+      "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I379-687-450m-17a.txt",
+      "covered_cells": 66132,
+      "available_cells": 915208
+    }
+  ],
+  "gauges": [
+    {
+      "id": "aonae",
+      "label": "Aonae",
+      "lon": 139.44916666666668,
+      "lat": 42.0625,
+      "xts": 0.062166666666684023,
+      "yts": 0.059833333333330074
+    },
+    {
+      "id": "aonae_lighthouse",
+      "label": "Aonae lighthouse",
+      "lon": 139.44944444444445,
+      "lat": 42.055833333333332,
+      "xts": 0.062444444444452074,
+      "yts": 0.053166666666662366
+    },
+    {
+      "id": "monai_camping",
+      "label": "Monai Camping Site",
+      "lon": 139.41972222222222,
+      "lat": 42.112222222222222,
+      "xts": 0.032722222222218988,
+      "yts": 0.10955555555555208
+    },
+    {
+      "id": "monai_river",
+      "label": "Monai River mouth",
+      "lon": 139.42361111111111,
+      "lat": 42.108055555555559,
+      "xts": 0.036611111111113814,
+      "yts": 0.1053888888888892
+    }
+  ],
+  "files": {
+    "config": "config.json",
+    "bathy": "bathy.txt",
+    "waves": "waves.txt",
+    "initial_condition": "IC.txt",
+    "eta_initial_condition": "etaInitCond.txt",
+    "ts_west_file": "gridB_time_series_bc_west.txt",
+    "ts_east_file": "gridB_time_series_bc_east.txt",
+    "ts_south_file": "gridB_time_series_bc_south.txt",
+    "ts_north_file": "gridB_time_series_bc_north.txt"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "benchmark": "BP01",
+  "variant": "pilot_solitary_disturbance",
+  "status": "generated_by_matlab",
+  "generator": "benchmarks/nthmp/matlab/nthmp_generate.m",
+  "files": {
+    "config": "config.json",
+    "bathy": "bathy.txt",
+    "waves": "waves.txt"
+  }
+}

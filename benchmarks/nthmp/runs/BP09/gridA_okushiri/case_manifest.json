@@ -1,0 +1,113 @@
+{
+  "benchmark": "BP09",
+  "variant": "gridA_okushiri",
+  "grid_key": "grid_a",
+  "grid_label": "A",
+  "status": "generated",
+  "setup_style": "MATLAB Pearl Harbor master_nested_config.m style",
+  "grid": {
+    "base_refinement": 4,
+    "grid_refinement": 1,
+    "cumulative_refinement": 1,
+    "width": 1513,
+    "height": 2745,
+    "dx_degrees": 0.0013558201058287978,
+    "dy_degrees": 0.0010143343051538523,
+    "dx_m_approx": 112.19799992914035,
+    "dy_m_approx": 112.78882865464205,
+    "spacing_m_approx": 112.4934142918912,
+    "lon_ll": 138.5,
+    "lat_ll": 40.516666666666666,
+    "lon_ur": 140.55,
+    "lat_ur": 43.3,
+    "requested_bounds": {
+      "lon_min": 138.5,
+      "lat_min": 40.516666666666666,
+      "lon_max": 140.55,
+      "lat_max": 43.3
+    },
+    "base_depth_m": 3663.8,
+    "bottom_min_m": -3663.8,
+    "bottom_max_m": 500
+  },
+  "parent": "",
+  "boundary_prefix": "",
+  "children": [
+    "grid_b"
+  ],
+  "pmel_link": {
+    "parent": "",
+    "i": null,
+    "j": null,
+    "base": "1-based west-south"
+  },
+  "nested_output_rectangles": {
+    "enabled": 1,
+    "name": "gridB_south_okushiri",
+    "file_prefix": "gridB",
+    "i0": 654,
+    "j0": 1465,
+    "i1": 860,
+    "j1": 1742,
+    "start_time": 0,
+    "end_time": 3600,
+    "dt": 10,
+    "max_samples": 8192,
+    "eta_threshold": 0.01,
+    "target_grid": "grid_b",
+    "target_variant": "gridB_south_okushiri",
+    "target_lon_min": 139.387,
+    "target_lat_min": 42.00266666666667,
+    "target_lon_max": 139.66666666666666,
+    "target_lat_max": 42.283333333333331
+  },
+  "source_priority": [
+    "pmel_a"
+  ],
+  "bathy_source_coverage": {
+    "source": "pmel_a",
+    "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D379-687-450m.txt",
+    "covered_cells": 4.153185E+6,
+    "available_cells": 4.153185E+6
+  },
+  "initial_condition_source": "pmel_i_a",
+  "initial_condition_coverage": {
+    "source": "pmel_i_a",
+    "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I379-687-450m-17a.txt",
+    "covered_cells": 4.153185E+6,
+    "available_cells": 4.153185E+6
+  },
+  "gauges": [
+    {
+      "id": "iwanai",
+      "label": "Iwanai",
+      "lon": 140.5,
+      "lat": 42.98,
+      "xts": 2,
+      "yts": 2.4633333333333312
+    },
+    {
+      "id": "esashi",
+      "label": "Esashi",
+      "lon": 140.133333,
+      "lat": 41.866667,
+      "xts": 1.6333329999999933,
+      "yts": 1.3500003333333339
+    },
+    {
+      "id": "aonae",
+      "label": "Aonae",
+      "lon": 139.44916666666668,
+      "lat": 42.0625,
+      "xts": 0.94916666666668448,
+      "yts": 1.5458333333333343
+    }
+  ],
+  "files": {
+    "config": "config.json",
+    "bathy": "bathy.txt",
+    "waves": "waves.txt",
+    "initial_condition": "IC.txt",
+    "eta_initial_condition": "etaInitCond.txt"
+  }
+}

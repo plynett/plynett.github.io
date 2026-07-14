@@ -1,0 +1,536 @@
+{
+  "benchmark_set": "NTHMP required tsunami inundation benchmarks for Celeris-WebGPU",
+  "created_utc": "2026-07-13",
+  "status": "planning",
+  "authoritative_sources": [
+    {
+      "title": "Summary of NTHMP Tsunami Inundation Benchmark Problems",
+      "url": "https://www.weather.gov/media/nthmp/MMS/Benchmarking/TsunamiInundationBenchmarkProblemsSummary.pdf",
+      "role": "Required case list, checklists, and acceptance targets"
+    },
+    {
+      "title": "NTHMP Mapping and Modeling Subcommittee benchmarking page",
+      "url": "https://www.weather.gov/nthmp/SubMapModel",
+      "role": "Criteria, process, benchmark problem, and workshop links"
+    },
+    {
+      "title": "NOAA Center for Tsunami Research benchmark pages",
+      "url": "https://nctr.pmel.noaa.gov/benchmark/",
+      "role": "PMEL-135 descriptions and direct benchmark data links"
+    },
+    {
+      "title": "2011 NTHMP workshop benchmark repository",
+      "url": "https://github.com/rjleveque/nthmp-benchmark-problems",
+      "role": "Workshop descriptions, reference data, observations, and figures"
+    },
+    {
+      "title": "SCHISM Benchmarking Report for Review",
+      "url": "https://www.weather.gov/media/nthmp/MMS/Benchmarking/Report-SCHISM-Jan2025.pdf",
+      "role": "Recent report-format reference"
+    }
+  ],
+  "local_layout": {
+    "reference_data": "benchmarks/nthmp/reference_data",
+    "runs": "benchmarks/nthmp/runs",
+    "report": "benchmarks/nthmp/report"
+  },
+  "celeris_workflow": {
+    "inputs": [
+      "config.json",
+      "bathy.txt",
+      "waves.txt",
+      "optional etaInitCond.txt for gridded initial free-surface fields",
+      "optional side-specific boundary time-series text files"
+    ],
+    "execution": [
+      "Serve repository with python -m http.server 8000",
+      "Run in a WebGPU-enabled Chromium browser",
+      "Use Selenium automation where repeatable browser execution is needed",
+      "Prefer per-benchmark runner scripts run_bp01.py, run_bp04.py, run_bp06.py, run_bp07.py, and run_bp09.py for generated benchmark cases"
+    ],
+    "outputs": [
+      "time_series_data.txt",
+      "time_series_locations.txt",
+      "bathytopo.bin",
+      "elev_*.bin",
+      "xflux_*.bin",
+      "yflux_*.bin",
+      "max free-surface or wave-height surfaces when triggered",
+      "benchmark-local metrics JSON/CSV and figures generated from browser downloads"
+    ]
+  },
+  "benchmarks": [
+    {
+      "id": "BP01",
+      "title": "Single wave on simple beach",
+      "class": "analytical",
+      "required": true,
+      "priority": 1,
+      "summary_case": "H/d = 0.019",
+      "acceptance_targets": [
+        "Maximum runup of the nonbreaking solitary wave within 5% of analytical solution",
+        "Numerical experiments over a range of depths compared to each other and the analytical solution"
+      ],
+      "checklist": [
+        "Compute maximum runup",
+        "Compute eta/d at t = 25, 35, 45, 55, and 65 sqrt(d/g)",
+        "Compute eta/d time series at x/d = 0.25 and x/d = 9.95",
+        "Demonstrate scalability"
+      ],
+      "reference_files": [
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP01-DmitryN-Single_wave_on_simple_beach/canonical_profiles.txt",
+          "path": "BP01/canonical_profiles.txt",
+          "size_bytes": 16723,
+          "role": "Analytical eta/d profiles"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP01-DmitryN-Single_wave_on_simple_beach/canonical_ts.txt",
+          "path": "BP01/canonical_ts.txt",
+          "size_bytes": 29472,
+          "role": "Analytical eta/d time series"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP01-DmitryN-Single_wave_on_simple_beach/description.pdf",
+          "path": "BP01/description.pdf",
+          "size_bytes": 69827,
+          "role": "Workshop problem description"
+        }
+      ],
+      "celeris_setup_plan": [
+        "Generate a canonical sloping-beach bathymetry with a narrow 2D flume width",
+        "Run NLSW first, with reflective sidewalls and the benchmark shoreline geometry",
+        "Represent the benchmark initial wave with Celeris native Add Disturbance by setting add_Disturbance = 1 and disturbanceType = 1, so eta and momentum are applied before the first timestep",
+        "Sample model eta at x/d = 0.25 and x/d = 9.95",
+        "Extract maximum runup from max free-surface over initially dry beach cells"
+      ],
+      "outputs_to_generate": [
+        "Profiles at requested nondimensional times",
+        "Gauge time-series comparison plot",
+        "Maximum runup table",
+        "Scalability table for at least two grid resolutions",
+        "bp01_metrics.json from matlab/nthmp_process.m"
+      ],
+      "status": "input_and_processor_ready"
+    },
+    {
+      "id": "BP04",
+      "title": "Single wave on simple beach",
+      "class": "laboratory",
+      "required": true,
+      "priority": 2,
+      "summary_cases": [
+        "Case A H/d = 0.0185",
+        "Case C H/d = 0.3",
+        "Case B optional per workshop summary"
+      ],
+      "acceptance_targets": [
+        "Nonbreaking maximum runup within 5% of laboratory measurements",
+        "Breaking-wave predictions within 10% of laboratory measurements",
+        "Consistent prediction of R/d versus H/d variation"
+      ],
+      "checklist": [
+        "Compute eta/d profiles at t = 25, 35, 45, 55, and 65 sqrt(d/g) for Case A",
+        "Compute eta/d profiles at t = 10, 15, 20, 25, and 30 sqrt(d/g) for Case C",
+        "Compute maximum runup for Case A and Case C",
+        "Compute maximum runup R/d versus H/d"
+      ],
+      "reference_files": [
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP04-JosephZ-Single_wave_on_simple_beach/Benchmark4_description.pdf",
+          "path": "BP04/Benchmark4_description.pdf",
+          "size_bytes": 770718,
+          "role": "Workshop problem description"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP04-JosephZ-Single_wave_on_simple_beach/Lab_runup.txt",
+          "path": "BP04/Lab_runup.txt",
+          "size_bytes": 1499,
+          "role": "Laboratory runup measurements"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP04-JosephZ-Single_wave_on_simple_beach/profs.tgz",
+          "path": "BP04/profs.tgz",
+          "size_bytes": 3258,
+          "role": "Reference profile data archive"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Laboratory/Laboratory_CanonicalBathymetry/CanonicalBathymetry_H_0.0185.xls",
+          "path": "BP04/CanonicalBathymetry_H_0.0185.xls",
+          "size_bytes": 35328,
+          "role": "PMEL Case A experimental profile data"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Laboratory/Laboratory_CanonicalBathymetry/CanonicalBathymetry_H_0.03.xls",
+          "path": "BP04/CanonicalBathymetry_H_0.03.xls",
+          "role": "PMEL Case C experimental profile data"
+        }
+      ],
+      "celeris_setup_plan": [
+        "Generate the 1:19.85 canonical beach and constant-depth flume region",
+        "Use NLSW mode first; run breaking-model sensitivity for Case C",
+        "Use Celeris native Add Disturbance solitary-wave initialization for Case A and Case C rather than an initial free-surface file",
+        "Generate Case A with d = 0.30 m and Case C with d = 0.15 m, matching the approximate depths stated in the benchmark description",
+        "Sample centerline eta profiles at requested nondimensional times",
+        "Extract maximum runup using one documented wet/dry threshold"
+      ],
+      "outputs_to_generate": [
+        "Case A and Case C profile overlays",
+        "Maximum runup table with percent error",
+        "R/d versus H/d summary plot",
+        "bp04_metrics.json from matlab/nthmp_process.m"
+      ],
+      "status": "input_and_processor_ready"
+    },
+    {
+      "id": "BP06",
+      "title": "Solitary wave on a conical island",
+      "class": "laboratory",
+      "required": true,
+      "priority": 3,
+      "summary_cases": [
+        "Case B d = 32.0 cm, H/d = 0.096",
+        "Case C d = 32.0 cm, H/d = 0.181",
+        "Case A optional per workshop summary"
+      ],
+      "acceptance_targets": [
+        "Stable splitting of wave fronts in front of island and collision behind it",
+        "Back-island collision runup within 20% of laboratory measurements"
+      ],
+      "checklist": [
+        "Show wave-front splitting and back-island collision",
+        "Compute eta/d time series at gauges 9, 16, and 22",
+        "Compute runup R/d around the island"
+      ],
+      "reference_files": [
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/Description.pdf",
+          "path": "BP06/Description.pdf",
+          "size_bytes": 1289023,
+          "role": "Workshop problem description"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/fdbk2abc.txt",
+          "path": "BP06/fdbk2abc.txt",
+          "size_bytes": 11312,
+          "role": "Feedback and case metadata"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/run2a.txt",
+          "path": "BP06/run2a.txt",
+          "size_bytes": 1171,
+          "role": "Runup observations for Case A"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/run2b.txt",
+          "path": "BP06/run2b.txt",
+          "size_bytes": 1171,
+          "role": "Runup observations for Case B"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/run2c.txt",
+          "path": "BP06/run2c.txt",
+          "size_bytes": 1168,
+          "role": "Runup observations for Case C"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/ts2a.txt",
+          "path": "BP06/ts2a.txt",
+          "size_bytes": 204425,
+          "role": "Gauge observations for Case A"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/ts2b.txt",
+          "path": "BP06/ts2b.txt",
+          "size_bytes": 207898,
+          "role": "Gauge observations for Case B"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP06-FrankG-Solitary_wave_on_a_conical_island/ts2cnew1.txt",
+          "path": "BP06/ts2cnew1.txt",
+          "size_bytes": 207502,
+          "role": "Gauge observations for Case C"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Laboratory/Laboratory_ConicalIsland/tsunami2_runup.zip",
+          "path": "BP06/tsunami2_runup.zip",
+          "size_bytes": 93932,
+          "role": "PMEL conical-island runup archive"
+        }
+      ],
+      "celeris_setup_plan": [
+        "Generate analytic conical-island bathymetry in a 30 m by 25 m laboratory basin",
+        "Use d = 0.32 m water depth and 1:4 island slope geometry",
+        "Use Celeris native Add Disturbance solitary-wave initialization from the generator side for Cases B and C",
+        "Use the official basin coordinate system with island center at (12.96, 13.80) m and toe radius 3.55 m inferred from the gauge-depth table",
+        "Place output gauges at the official gauge coordinates",
+        "Extract runup around the island perimeter by angular station"
+      ],
+      "outputs_to_generate": [
+        "Gauge 9, 16, and 22 overlays for Cases B and C",
+        "Runup R/d polar plot around the island",
+        "Snapshot figure showing split and collision",
+        "bp06_metrics.json from matlab/nthmp_process.m"
+      ],
+      "status": "input_and_processor_ready"
+    },
+    {
+      "id": "BP07",
+      "title": "Tsunami runup onto a complex three-dimensional model of Monai Valley beach",
+      "class": "laboratory",
+      "required": true,
+      "priority": 4,
+      "summary_case": "1/400 Monai Valley laboratory model",
+      "acceptance_targets": [
+        "Rapid withdrawal and runup sequence represented",
+        "Maximum runup in the narrow valley within 10% of laboratory/reference results"
+      ],
+      "checklist": [
+        "Compute snapshots corresponding to movie frames 10, 25, 40, 55, and 70 at 0.5 s frame spacing",
+        "Compute eta at gauges 1, 2, and 3",
+        "Compute maximum runup in the narrow valley"
+      ],
+      "reference_files": [
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Benchmark_2_Bathymetry.txt",
+          "path": "BP07/Benchmark_2_Bathymetry.txt",
+          "size_bytes": 3931609,
+          "role": "Workshop Monai bathymetry"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Benchmark_2_input.txt",
+          "path": "BP07/Benchmark_2_input.txt",
+          "size_bytes": 11083,
+          "role": "Workshop input wave"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/output_ch5-7-9.xls",
+          "path": "BP07/output_ch5-7-9.xls",
+          "size_bytes": 313856,
+          "role": "Gauge observations"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/OBS_RUNUP.txt",
+          "path": "BP07/OBS_RUNUP.txt",
+          "size_bytes": 995,
+          "role": "Observed runup"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Frame_10_line.bmp",
+          "path": "BP07/Frame_10_line.bmp",
+          "size_bytes": 1506654,
+          "role": "Reference snapshot frame 10"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Frame_25_line.bmp",
+          "path": "BP07/Frame_25_line.bmp",
+          "size_bytes": 1506654,
+          "role": "Reference snapshot frame 25"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Frame_40_line.bmp",
+          "path": "BP07/Frame_40_line.bmp",
+          "size_bytes": 1506654,
+          "role": "Reference snapshot frame 40"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Frame_55_line.bmp",
+          "path": "BP07/Frame_55_line.bmp",
+          "size_bytes": 1506654,
+          "role": "Reference snapshot frame 55"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/Frame_70_line.bmp",
+          "path": "BP07/Frame_70_line.bmp",
+          "size_bytes": 1506654,
+          "role": "Reference snapshot frame 70"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP07-DmitryN-Monai_valley_beach/description.pdf",
+          "path": "BP07/description.pdf",
+          "size_bytes": 1599993,
+          "role": "Workshop problem description"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Laboratory/Laboratory_MonaiValley/MonaiValley_Bathymetry.txt",
+          "path": "BP07/MonaiValley_Bathymetry.txt",
+          "size_bytes": 4027503,
+          "role": "PMEL Monai bathymetry"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Laboratory/Laboratory_MonaiValley/MonaiValley_InputWave.txt",
+          "path": "BP07/MonaiValley_InputWave.txt",
+          "size_bytes": 11542,
+          "role": "PMEL Monai input wave"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Laboratory/Laboratory_MonaiValley/MonaiValley_WaveGages.xls",
+          "path": "BP07/MonaiValley_WaveGages.xls",
+          "role": "PMEL Monai gauge data"
+        }
+      ],
+      "celeris_setup_plan": [
+        "Convert official bathymetry to Celeris bathy.txt preserving 1.4 cm recommended spacing where feasible",
+        "Use reflective sidewalls at y = 0 and y = 3.5 m",
+        "Convert measured incident wave to a west boundary type-5 eta/hu/hv time-series forcing file",
+        "Place gauges 5, 7, and 9 at (4.521, 1.196), (4.521, 1.696), and (4.521, 2.196) m",
+        "Extract maximum runup in the Monai valley zone"
+      ],
+      "outputs_to_generate": [
+        "Snapshot panel for frames 10, 25, 40, 55, and 70",
+        "Gauge 1-3 time-series overlays",
+        "Maximum runup metric and inundation/runup map",
+        "bp07_metrics.json from matlab/nthmp_process.m"
+      ],
+      "status": "input_and_processor_ready"
+    },
+    {
+      "id": "BP09",
+      "title": "Okushiri Island tsunami",
+      "class": "field",
+      "required": true,
+      "priority": 5,
+      "summary_case": "1993 Hokkaido-Nansei-Oki tsunami around Okushiri Island",
+      "acceptance_targets": [
+        "Maximum runup at Aonae within 20% of measurements",
+        "First arrival at Aonae about 5 minutes after earthquake",
+        "Two waves at Aonae about 10 minutes apart with west/east arrival behavior",
+        "Tide-gauge and runup distributions reproduce key observations"
+      ],
+      "checklist": [
+        "Compute runup around Aonae",
+        "Compute arrival of first wave to Aonae",
+        "Show two waves at Aonae approximately 10 minutes apart",
+        "Compute water level at Iwanai and Esashi tide gauges",
+        "Compute maximum modeled runup distribution around Okushiri Island",
+        "Compute modeled runup at Hamatsumae",
+        "Compute modeled runup at the valley north of Monai"
+      ],
+      "reference_files": [
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/Description.pdf",
+          "path": "BP09/Description.pdf",
+          "size_bytes": 7486379,
+          "role": "Workshop problem description"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/FieldData.xlsx",
+          "path": "BP09/FieldData.xlsx",
+          "size_bytes": 31426,
+          "role": "Field gauge and runup data"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/AO15.xyz",
+          "path": "BP09/BathyTopoSource/AO15.xyz",
+          "size_bytes": 2541839,
+          "role": "Bathymetry/topography source"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/HNO1993.xyz",
+          "path": "BP09/BathyTopoSource/HNO1993.xyz",
+          "size_bytes": 8852682,
+          "role": "Bathymetry/topography source"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/MB05.xyz",
+          "path": "BP09/BathyTopoSource/MB05.xyz",
+          "size_bytes": 2184840,
+          "role": "Bathymetry/topography source"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/MO01.xyz",
+          "path": "BP09/BathyTopoSource/MO01.xyz",
+          "size_bytes": 844560,
+          "role": "Bathymetry/topography source"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/OK03.xyz",
+          "path": "BP09/BathyTopoSource/OK03.xyz",
+          "size_bytes": 4705056,
+          "role": "Bathymetry/topography source"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/OK08.xyz",
+          "path": "BP09/BathyTopoSource/OK08.xyz",
+          "size_bytes": 39301415,
+          "role": "Bathymetry/topography source",
+          "large": true
+        },
+        {
+          "url": "https://raw.githubusercontent.com/rjleveque/nthmp-benchmark-problems/master/BP09-FrankG-Okushiri_island/BathyTopoSource/OK24.xyz",
+          "path": "BP09/BathyTopoSource/OK24.xyz",
+          "size_bytes": 14484000,
+          "role": "Bathymetry/topography source",
+          "large": true
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/BATHYMETRY/README.txt",
+          "path": "BP09/PMEL/BATHYMETRY/README.txt",
+          "role": "PMEL bathymetry README"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/INITIAL-WAVE/README.txt",
+          "path": "BP09/PMEL/INITIAL-WAVE/README.txt",
+          "role": "PMEL initial-wave README"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/BATHYMETRY/D379-687-450m.txt",
+          "path": "BP09/PMEL/BATHYMETRY/D379-687-450m.txt",
+          "role": "PMEL Region A bathymetry/topography, 379 by 687 at 450 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/INITIAL-WAVE/I379-687-450m-17a.txt",
+          "path": "BP09/PMEL/INITIAL-WAVE/I379-687-450m-17a.txt",
+          "role": "PMEL Region A DCRC-17a initial free-surface, 379 by 687 at 450 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/BATHYMETRY/D154-124-150m.txt",
+          "path": "BP09/PMEL/BATHYMETRY/D154-124-150m.txt",
+          "role": "PMEL Region B1 south Okushiri bathymetry/topography, 154 by 124 at 150 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/INITIAL-WAVE/I154-124-150m-17a.txt",
+          "path": "BP09/PMEL/INITIAL-WAVE/I154-124-150m-17a.txt",
+          "role": "PMEL Region B1 DCRC-17a initial free-surface, 154 by 124 at 150 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/BATHYMETRY/D112-94-50m.txt",
+          "path": "BP09/PMEL/BATHYMETRY/D112-94-50m.txt",
+          "role": "PMEL Region C1 Aonae bathymetry/topography, 112 by 94 at 50 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/INITIAL-WAVE/I112-94-50m-17a.txt",
+          "path": "BP09/PMEL/INITIAL-WAVE/I112-94-50m-17a.txt",
+          "role": "PMEL Region C1 Aonae DCRC-17a initial free-surface, 112 by 94 at 50 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/BATHYMETRY/D40-202-50m.txt",
+          "path": "BP09/PMEL/BATHYMETRY/D40-202-50m.txt",
+          "role": "PMEL Region C23 Monai bathymetry/topography, 40 by 202 at 50 m spacing"
+        },
+        {
+          "url": "https://nctr.pmel.noaa.gov/benchmark/Field/Field_Okushiri/OKUSHIRI-BATHY-INITIAL-WAVE/INITIAL-WAVE/I40-202-50m-17a.txt",
+          "path": "BP09/PMEL/INITIAL-WAVE/I40-202-50m-17a.txt",
+          "role": "PMEL Region C23 Monai DCRC-17a initial free-surface, 40 by 202 at 50 m spacing"
+        }
+      ],
+      "celeris_setup_plan": [
+        "Follow the Pearl Harbor master_nested_config.m pattern: define a master table of grid bounds, per-child refinement factors, grid_type = 2 spherical NLSW, and parent-child nesting relationships",
+        "Use a default A-grid base refinement of 4x relative to PMEL Region A spacing and a default 4x child-grid refinement at each nesting level",
+        "Run one-way nested grids: Grid A parent, Grid B south Okushiri child, branched Grid C/D Aonae child nests, and Grid C/D/E Monai child nests",
+        "Interpolate HNO1993 ocean-bottom deformation to etaInitCond.txt on Grid A only; child grids start from still water and are driven by parent-generated type-5 boundary files",
+        "Use source-priority bathymetry interpolation: PMEL A/B/C fallbacks plus OK03 around Okushiri, AO15 around Aonae, MO01 around Monai, and MB05 for the final Monai grid",
+        "Use Celeris nestedGridOutput_rectangles on parent grids to write boundary type 5 eta/hu/hv files for each child grid with child-specific file prefixes",
+        "Place tide gauges at Iwanai and Esashi plus Aonae and Monai diagnostics",
+        "Extract runup distribution from maximum free surface and compare with FieldData.xlsx"
+      ],
+      "outputs_to_generate": [
+        "Aonae arrival and two-wave diagnostic plot",
+        "Iwanai and Esashi gauge overlays",
+        "Runup distribution around Okushiri",
+        "Hamatsumae and north-of-Monai runup table"
+      ],
+      "status": "nested_input_and_processor_ready"
+    }
+  ]
+}

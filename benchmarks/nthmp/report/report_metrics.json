@@ -1,0 +1,776 @@
+{
+  "bp01": {
+    "runup": {
+      "Celeris R/d": "0.089749",
+      "Celeris runup x/d": "-1.725000",
+      "Celeris bed elevation at runup z/d": "0.086902",
+      "Benchmark R/d": "0.090900",
+      "Percent error": "-1.27"
+    },
+    "gauges": [
+      {
+        "gauge_label": "x/d = 0.25",
+        "rmse": 0.0010671672303517,
+        "mean_abs_error": 0.0004932291187268,
+        "max_abs_error": 0.0055295526592731,
+        "bias": -0.0001830158105013
+      },
+      {
+        "gauge_label": "x/d = 9.95",
+        "rmse": 0.0003986161801972,
+        "mean_abs_error": 0.0002331833363935,
+        "max_abs_error": 0.0015913458164274,
+        "bias": 7.94144539646675e-06
+      }
+    ],
+    "profiles": [
+      {
+        "target_t_over_tau": 35,
+        "model_t_over_tau": 34.9275,
+        "model_frame": 108,
+        "rmse": 0.0003631493226958,
+        "mean_abs_error": 0.0002835425953369,
+        "max_abs_error": 0.0008590285795927
+      },
+      {
+        "target_t_over_tau": 40,
+        "model_t_over_tau": 40.035,
+        "model_frame": 124,
+        "rmse": 0.0002279838740329,
+        "mean_abs_error": 0.0001431831775668,
+        "max_abs_error": 0.0007750446999072
+      },
+      {
+        "target_t_over_tau": 45,
+        "model_t_over_tau": 45.14625,
+        "model_frame": 140,
+        "rmse": 0.0001290540986052,
+        "mean_abs_error": 7.67716480711998e-05,
+        "max_abs_error": 0.0005216025567054
+      },
+      {
+        "target_t_over_tau": 50,
+        "model_t_over_tau": 49.9275,
+        "model_frame": 155,
+        "rmse": 0.0002054303746859,
+        "mean_abs_error": 9.11727481909871e-05,
+        "max_abs_error": 0.0016210308313369
+      },
+      {
+        "target_t_over_tau": 55,
+        "model_t_over_tau": 55.0425,
+        "model_frame": 171,
+        "rmse": 0.000103667542744,
+        "mean_abs_error": 5.8541778026295e-05,
+        "max_abs_error": 0.0008490761375427
+      },
+      {
+        "target_t_over_tau": 60,
+        "model_t_over_tau": 60.15375,
+        "model_frame": 187,
+        "rmse": 0.0001366179494333,
+        "mean_abs_error": 8.68993996459743e-05,
+        "max_abs_error": 0.0006671121656894
+      },
+      {
+        "target_t_over_tau": 65,
+        "model_t_over_tau": 64.9425,
+        "model_frame": 202,
+        "rmse": 0.0002648093563527,
+        "mean_abs_error": 0.0001268821376709,
+        "max_abs_error": 0.0019182505229115
+      },
+      {
+        "target_t_over_tau": 70,
+        "model_t_over_tau": 70.04625,
+        "model_frame": 218,
+        "rmse": 0.0008814602026287,
+        "mean_abs_error": 0.0003021000172631,
+        "max_abs_error": 0.0045633659368753
+      }
+    ]
+  },
+  "bp04": {
+    "case_a_runup": {
+      "Celeris R/d": "0.078086",
+      "Celeris max FS/d on wetted beach": "0.082747",
+      "Celeris runup x/d": "-1.550000",
+      "Celeris bed elevation at runup z/d": "0.078086",
+      "Wet-depth threshold (m)": "0.001000",
+      "Benchmark R/d, mean of nearest 5 lab points": "0.078000",
+      "Percent error": "0.11"
+    },
+    "case_a_profiles": [
+      {
+        "target_t": 30,
+        "model_t": 30.1875,
+        "model_frame": 55,
+        "rmse": 0.0023641209466589,
+        "mean_abs_error": 0.0021053858921447,
+        "max_abs_error": 0.0051557850537697
+      },
+      {
+        "target_t": 40,
+        "model_t": 40.26,
+        "model_frame": 74,
+        "rmse": 0.0026482174145355,
+        "mean_abs_error": 0.0022709061248369,
+        "max_abs_error": 0.0055744686371088
+      },
+      {
+        "target_t": 50,
+        "model_t": 50.175,
+        "model_frame": 93,
+        "rmse": 0.0031287673066047,
+        "mean_abs_error": 0.0023074692005562,
+        "max_abs_error": 0.0128376395495733
+      },
+      {
+        "target_t": 60,
+        "model_t": 60.15,
+        "model_frame": 112,
+        "rmse": 0.0024348373857555,
+        "mean_abs_error": 0.0017851875669905,
+        "max_abs_error": 0.0091444902431964
+      },
+      {
+        "target_t": 70,
+        "model_t": 70.08,
+        "model_frame": 131,
+        "rmse": 0.0060398252405044,
+        "mean_abs_error": 0.0042056007968677,
+        "max_abs_error": 0.0244431654573977
+      }
+    ],
+    "case_c_runup": {
+      "Celeris R/d": "0.550798",
+      "Celeris max FS/d on wetted beach": "0.574087",
+      "Celeris runup x/d": "-10.933333",
+      "Celeris bed elevation at runup z/d": "0.550798",
+      "Wet-depth threshold (m)": "0.001000",
+      "Benchmark R/d, mean of nearest 5 lab points": "0.551000",
+      "Percent error": "-0.04"
+    },
+    "case_c_profiles": [
+      {
+        "target_t": 15,
+        "model_t": 14.75,
+        "model_frame": 26,
+        "rmse": 0.009157395275257,
+        "mean_abs_error": 0.0056300151525892,
+        "max_abs_error": 0.0286053787533444
+      },
+      {
+        "target_t": 20,
+        "model_t": 19.93,
+        "model_frame": 36,
+        "rmse": 0.0185699240742497,
+        "mean_abs_error": 0.0121742527013395,
+        "max_abs_error": 0.0771033571266135
+      },
+      {
+        "target_t": 25,
+        "model_t": 24.79,
+        "model_frame": 45,
+        "rmse": 0.0145683329758279,
+        "mean_abs_error": 0.0104207055684981,
+        "max_abs_error": 0.0633818902222316
+      },
+      {
+        "target_t": 30,
+        "model_t": 29.73,
+        "model_frame": 54,
+        "rmse": 0.0130301192642527,
+        "mean_abs_error": 0.010382296875223,
+        "max_abs_error": 0.0378535628630717
+      }
+    ]
+  },
+  "bp06": {
+    "case_b_gauges_aligned": [
+      {
+        "gauge_id": 9,
+        "rmse_m": 0.005903634437263394,
+        "mean_abs_error_m": 0.004146483401236088,
+        "max_abs_error_m": 0.01675750750447547,
+        "sample_count": 145
+      },
+      {
+        "gauge_id": 16,
+        "rmse_m": 0.003078964195279201,
+        "mean_abs_error_m": 0.0025054637188439157,
+        "max_abs_error_m": 0.007544988325621282,
+        "sample_count": 145
+      },
+      {
+        "gauge_id": 22,
+        "rmse_m": 0.005016090408985832,
+        "mean_abs_error_m": 0.0038627414349714857,
+        "max_abs_error_m": 0.013852567401522364,
+        "sample_count": 145
+      }
+    ],
+    "case_b_runup": [
+      {
+        "rad": 0.0,
+        "deg": 0.0,
+        "reference_runup_cm": 5.18,
+        "reference_runup_over_depth": 0.16,
+        "model_runup_over_depth": 0.171832123305649,
+        "percent_error": 7.39507706603035,
+        "selected_cell_count": 134
+      },
+      {
+        "rad": 0.39,
+        "deg": 22.5,
+        "reference_runup_cm": 4.53,
+        "reference_runup_over_depth": 0.14,
+        "model_runup_over_depth": 0.165864930022508,
+        "percent_error": 18.4749500160771,
+        "selected_cell_count": 129
+      },
+      {
+        "rad": 0.79,
+        "deg": 45.0,
+        "reference_runup_cm": 4.04,
+        "reference_runup_over_depth": 0.13,
+        "model_runup_over_depth": 0.157887872774154,
+        "percent_error": 21.4522098262723,
+        "selected_cell_count": 119
+      },
+      {
+        "rad": 1.18,
+        "deg": 67.5,
+        "reference_runup_cm": 3.73,
+        "reference_runup_over_depth": 0.12,
+        "model_runup_over_depth": 0.12951873941347,
+        "percent_error": 7.93228284455836,
+        "selected_cell_count": 95
+      },
+      {
+        "rad": 1.31,
+        "deg": 75.0,
+        "reference_runup_cm": 3.43,
+        "reference_runup_over_depth": 0.11,
+        "model_runup_over_depth": 0.114550115540624,
+        "percent_error": 4.13646867329424,
+        "selected_cell_count": 91
+      },
+      {
+        "rad": 1.4,
+        "deg": 80.0,
+        "reference_runup_cm": 4.99,
+        "reference_runup_over_depth": 0.16,
+        "model_runup_over_depth": 0.271109794266522,
+        "percent_error": 69.4436214165762,
+        "selected_cell_count": 123
+      },
+      {
+        "rad": 1.48,
+        "deg": 85.0,
+        "reference_runup_cm": 7.62,
+        "reference_runup_over_depth": 0.24,
+        "model_runup_over_depth": 0.276833889074624,
+        "percent_error": 15.3474537810932,
+        "selected_cell_count": 190
+      },
+      {
+        "rad": 1.53,
+        "deg": 87.5,
+        "reference_runup_cm": 8.57,
+        "reference_runup_over_depth": 0.27,
+        "model_runup_over_depth": 0.276833889074624,
+        "percent_error": 2.53107002763836,
+        "selected_cell_count": 207
+      },
+      {
+        "rad": 1.57,
+        "deg": 90.0,
+        "reference_runup_cm": 8.61,
+        "reference_runup_over_depth": 0.27,
+        "model_runup_over_depth": 0.276833889074624,
+        "percent_error": 2.53107002763836,
+        "selected_cell_count": 211
+      },
+      {
+        "rad": 1.61,
+        "deg": 92.5,
+        "reference_runup_cm": 8.84,
+        "reference_runup_over_depth": 0.28,
+        "model_runup_over_depth": 0.276833889074624,
+        "percent_error": -1.13075390192016,
+        "selected_cell_count": 203
+      },
+      {
+        "rad": 1.66,
+        "deg": 95.0,
+        "reference_runup_cm": 8.04,
+        "reference_runup_over_depth": 0.25,
+        "model_runup_over_depth": 0.276196794584394,
+        "percent_error": 10.4787178337574,
+        "selected_cell_count": 185
+      },
+      {
+        "rad": 1.75,
+        "deg": 100.0,
+        "reference_runup_cm": 4.65,
+        "reference_runup_over_depth": 0.15,
+        "model_runup_over_depth": 0.271109794266522,
+        "percent_error": 80.739862844348,
+        "selected_cell_count": 118
+      },
+      {
+        "rad": 1.83,
+        "deg": 105.0,
+        "reference_runup_cm": 3.51,
+        "reference_runup_over_depth": 0.11,
+        "model_runup_over_depth": 0.119340105447918,
+        "percent_error": 8.49100495265289,
+        "selected_cell_count": 91
+      },
+      {
+        "rad": 1.96,
+        "deg": 112.5,
+        "reference_runup_cm": 3.96,
+        "reference_runup_over_depth": 0.12,
+        "model_runup_over_depth": 0.12951873941347,
+        "percent_error": 7.93228284455836,
+        "selected_cell_count": 99
+      },
+      {
+        "rad": 2.36,
+        "deg": 135.0,
+        "reference_runup_cm": 4.11,
+        "reference_runup_over_depth": 0.13,
+        "model_runup_over_depth": 0.16138629289344,
+        "percent_error": 24.1433022257227,
+        "selected_cell_count": 121
+      },
+      {
+        "rad": 2.75,
+        "deg": 157.5,
+        "reference_runup_cm": 4.27,
+        "reference_runup_over_depth": 0.13,
+        "model_runup_over_depth": 0.170046777930111,
+        "percent_error": 30.8052137923928,
+        "selected_cell_count": 132
+      },
+      {
+        "rad": 3.14,
+        "deg": 180.0,
+        "reference_runup_cm": 5.49,
+        "reference_runup_over_depth": 0.17,
+        "model_runup_over_depth": 0.171189173124731,
+        "percent_error": 0.699513602782691,
+        "selected_cell_count": 129
+      },
+      {
+        "rad": 3.53,
+        "deg": 202.5,
+        "reference_runup_cm": 5.83,
+        "reference_runup_over_depth": 0.18,
+        "model_runup_over_depth": 0.206407927908003,
+        "percent_error": 14.6710710600019,
+        "selected_cell_count": 154
+      },
+      {
+        "rad": 3.93,
+        "deg": 225.0,
+        "reference_runup_cm": 6.55,
+        "reference_runup_over_depth": 0.2,
+        "model_runup_over_depth": 0.234211422502995,
+        "percent_error": 17.1057112514973,
+        "selected_cell_count": 174
+      },
+      {
+        "rad": 4.32,
+        "deg": 247.5,
+        "reference_runup_cm": 7.47,
+        "reference_runup_over_depth": 0.23,
+        "model_runup_over_depth": 0.245928904041648,
+        "percent_error": 6.92561045289039,
+        "selected_cell_count": 184
+      },
+      {
+        "rad": 4.71,
+        "deg": 270.0,
+        "reference_runup_cm": 7.35,
+        "reference_runup_over_depth": 0.23,
+        "model_runup_over_depth": 0.242187501862645,
+        "percent_error": 5.29891385332397,
+        "selected_cell_count": 185
+      },
+      {
+        "rad": 5.11,
+        "deg": 292.5,
+        "reference_runup_cm": 7.09,
+        "reference_runup_over_depth": 0.22,
+        "model_runup_over_depth": 0.242785504087806,
+        "percent_error": 10.357047312639,
+        "selected_cell_count": 183
+      },
+      {
+        "rad": 5.5,
+        "deg": 315.0,
+        "reference_runup_cm": 6.78,
+        "reference_runup_over_depth": 0.21,
+        "model_runup_over_depth": 0.234211422502995,
+        "percent_error": 11.5292488109498,
+        "selected_cell_count": 174
+      },
+      {
+        "rad": 5.89,
+        "deg": 337.5,
+        "reference_runup_cm": 5.6,
+        "reference_runup_over_depth": 0.18,
+        "model_runup_over_depth": 0.197692844085395,
+        "percent_error": 9.82935782521963,
+        "selected_cell_count": 152
+      }
+    ],
+    "case_c_gauges_aligned": [
+      {
+        "gauge_id": 9,
+        "rmse_m": 0.009942776286561499,
+        "mean_abs_error_m": 0.007073759945421559,
+        "max_abs_error_m": 0.025974026555145538,
+        "sample_count": 142
+      },
+      {
+        "gauge_id": 16,
+        "rmse_m": 0.005435201173865762,
+        "mean_abs_error_m": 0.004161386236155425,
+        "max_abs_error_m": 0.014064059290620864,
+        "sample_count": 142
+      },
+      {
+        "gauge_id": 22,
+        "rmse_m": 0.008115418166835404,
+        "mean_abs_error_m": 0.0052669278445799895,
+        "max_abs_error_m": 0.036048169812823404,
+        "sample_count": 142
+      }
+    ],
+    "case_c_runup": [
+      {
+        "rad": 0.0,
+        "deg": 0.0,
+        "reference_runup_cm": 10.4,
+        "reference_runup_over_depth": 0.33,
+        "model_runup_over_depth": 0.32428193371743,
+        "percent_error": -1.73274735835466,
+        "selected_cell_count": 235
+      },
+      {
+        "rad": 0.39,
+        "deg": 22.5,
+        "reference_runup_cm": 6.71,
+        "reference_runup_over_depth": 0.21,
+        "model_runup_over_depth": 0.250355619937181,
+        "percent_error": 19.2169618748483,
+        "selected_cell_count": 182
+      },
+      {
+        "rad": 0.79,
+        "deg": 45.0,
+        "reference_runup_cm": 3.92,
+        "reference_runup_over_depth": 0.12,
+        "model_runup_over_depth": 0.172713631764054,
+        "percent_error": 43.9280264700453,
+        "selected_cell_count": 126
+      },
+      {
+        "rad": 1.18,
+        "deg": 67.5,
+        "reference_runup_cm": 3.35,
+        "reference_runup_over_depth": 0.1,
+        "model_runup_over_depth": 0.123195967171341,
+        "percent_error": 23.1959671713412,
+        "selected_cell_count": 96
+      },
+      {
+        "rad": 1.31,
+        "deg": 75.0,
+        "reference_runup_cm": 5.91,
+        "reference_runup_over_depth": 0.18,
+        "model_runup_over_depth": 0.252561247907579,
+        "percent_error": 40.3118043930994,
+        "selected_cell_count": 133
+      },
+      {
+        "rad": 1.4,
+        "deg": 80.0,
+        "reference_runup_cm": 10.02,
+        "reference_runup_over_depth": 0.31,
+        "model_runup_over_depth": 0.310005876235664,
+        "percent_error": 0.0018955598915784,
+        "selected_cell_count": 197
+      },
+      {
+        "rad": 1.48,
+        "deg": 85.0,
+        "reference_runup_cm": 10.9,
+        "reference_runup_over_depth": 0.34,
+        "model_runup_over_depth": 0.315228570252657,
+        "percent_error": -7.2857146315715,
+        "selected_cell_count": 237
+      },
+      {
+        "rad": 1.53,
+        "deg": 87.5,
+        "reference_runup_cm": 11.13,
+        "reference_runup_over_depth": 0.35,
+        "model_runup_over_depth": 0.315882707946002,
+        "percent_error": -9.74779772971357,
+        "selected_cell_count": 231
+      },
+      {
+        "rad": 1.57,
+        "deg": 90.0,
+        "reference_runup_cm": 10.9,
+        "reference_runup_over_depth": 0.34,
+        "model_runup_over_depth": 0.333816092461348,
+        "percent_error": -1.81879633489778,
+        "selected_cell_count": 236
+      },
+      {
+        "rad": 1.61,
+        "deg": 92.5,
+        "reference_runup_cm": 10.59,
+        "reference_runup_over_depth": 0.33,
+        "model_runup_over_depth": 0.333816092461348,
+        "percent_error": 1.15639165495381,
+        "selected_cell_count": 236
+      },
+      {
+        "rad": 1.66,
+        "deg": 95.0,
+        "reference_runup_cm": 10.48,
+        "reference_runup_over_depth": 0.33,
+        "model_runup_over_depth": 0.333816092461348,
+        "percent_error": 1.15639165495381,
+        "selected_cell_count": 243
+      },
+      {
+        "rad": 1.75,
+        "deg": 100.0,
+        "reference_runup_cm": 8.8,
+        "reference_runup_over_depth": 0.28,
+        "model_runup_over_depth": 0.329450564458966,
+        "percent_error": 17.6609158782022,
+        "selected_cell_count": 201
+      },
+      {
+        "rad": 1.83,
+        "deg": 105.0,
+        "reference_runup_cm": 5.41,
+        "reference_runup_over_depth": 0.17,
+        "model_runup_over_depth": 0.252561247907579,
+        "percent_error": 48.5654399456347,
+        "selected_cell_count": 137
+      },
+      {
+        "rad": 1.96,
+        "deg": 112.5,
+        "reference_runup_cm": 4.42,
+        "reference_runup_over_depth": 0.14,
+        "model_runup_over_depth": 0.125370302703232,
+        "percent_error": -10.449783783406,
+        "selected_cell_count": 96
+      },
+      {
+        "rad": 2.36,
+        "deg": 135.0,
+        "reference_runup_cm": 3.81,
+        "reference_runup_over_depth": 0.12,
+        "model_runup_over_depth": 0.185418350156397,
+        "percent_error": 54.5152917969972,
+        "selected_cell_count": 129
+      },
+      {
+        "rad": 2.75,
+        "deg": 157.5,
+        "reference_runup_cm": 6.02,
+        "reference_runup_over_depth": 0.19,
+        "model_runup_over_depth": 0.256403675302863,
+        "percent_error": 34.9493027909806,
+        "selected_cell_count": 184
+      },
+      {
+        "rad": 3.14,
+        "deg": 180.0,
+        "reference_runup_cm": 10.1,
+        "reference_runup_over_depth": 0.32,
+        "model_runup_over_depth": 0.32736505381763,
+        "percent_error": 2.30157931800931,
+        "selected_cell_count": 238
+      },
+      {
+        "rad": 3.53,
+        "deg": 202.5,
+        "reference_runup_cm": 12.95,
+        "reference_runup_over_depth": 0.4,
+        "model_runup_over_depth": 0.416056392714381,
+        "percent_error": 4.0140981785953,
+        "selected_cell_count": 291
+      },
+      {
+        "rad": 3.93,
+        "deg": 225.0,
+        "reference_runup_cm": 15.77,
+        "reference_runup_over_depth": 0.49,
+        "model_runup_over_depth": 0.481365947052836,
+        "percent_error": -1.76205162187012,
+        "selected_cell_count": 333
+      },
+      {
+        "rad": 4.32,
+        "deg": 247.5,
+        "reference_runup_cm": 17.41,
+        "reference_runup_over_depth": 0.54,
+        "model_runup_over_depth": 0.506017357110977,
+        "percent_error": -6.29308201648572,
+        "selected_cell_count": 353
+      },
+      {
+        "rad": 4.71,
+        "deg": 270.0,
+        "reference_runup_cm": 17.49,
+        "reference_runup_over_depth": 0.55,
+        "model_runup_over_depth": 0.514260958880186,
+        "percent_error": -6.49800747632981,
+        "selected_cell_count": 358
+      },
+      {
+        "rad": 5.11,
+        "deg": 292.5,
+        "reference_runup_cm": 16.88,
+        "reference_runup_over_depth": 0.53,
+        "model_runup_over_depth": 0.506017357110977,
+        "percent_error": -4.52502696019299,
+        "selected_cell_count": 353
+      },
+      {
+        "rad": 5.5,
+        "deg": 315.0,
+        "reference_runup_cm": 15.77,
+        "reference_runup_over_depth": 0.49,
+        "model_runup_over_depth": 0.481365947052836,
+        "percent_error": -1.76205162187012,
+        "selected_cell_count": 333
+      },
+      {
+        "rad": 5.89,
+        "deg": 337.5,
+        "reference_runup_cm": 13.41,
+        "reference_runup_over_depth": 0.42,
+        "model_runup_over_depth": 0.416056392714381,
+        "percent_error": -0.938954115623516,
+        "selected_cell_count": 290
+      }
+    ]
+  },
+  "bp07": {
+    "gauges": [
+      {
+        "gauge_id": 5,
+        "gauge_label": "gauge 1",
+        "gauge_x": 4.521,
+        "gauge_y": 1.196,
+        "rmse": 0.0042899675361487,
+        "mean_abs_error": 0.0035517680123494,
+        "max_abs_error": 0.0147492225602877,
+        "bias": -0.0007135553085744
+      },
+      {
+        "gauge_id": 7,
+        "gauge_label": "gauge 2",
+        "gauge_x": 4.521,
+        "gauge_y": 1.696,
+        "rmse": 0.0035060097956896,
+        "mean_abs_error": 0.0029010619867472,
+        "max_abs_error": 0.0145976630889248,
+        "bias": -0.0002408917671732
+      },
+      {
+        "gauge_id": 9,
+        "gauge_label": "gauge 3",
+        "gauge_x": 4.521,
+        "gauge_y": 2.196,
+        "rmse": 0.004281171117662,
+        "mean_abs_error": 0.0035834210500444,
+        "max_abs_error": 0.0098781234878855,
+        "bias": 3.61973595609361e-05
+      }
+    ],
+    "runup": [
+      {
+        "x_m": 5.1425,
+        "y_m": 1.88,
+        "benchmark_runup_m": 0.0895833333333333,
+        "model_runup_m": 0.0844045281410218,
+        "error_m": -0.0051788051923115
+      },
+      {
+        "x_m": 5.015,
+        "y_m": 2.2062,
+        "benchmark_runup_m": 0.0604166666666667,
+        "model_runup_m": 0.0426168040931161,
+        "error_m": -0.0177998625735506
+      },
+      {
+        "x_m": 4.9825,
+        "y_m": 2.32,
+        "benchmark_runup_m": 0.0558333333333333,
+        "model_runup_m": 0.0534000955522059,
+        "error_m": -0.0024332377811274
+      }
+    ]
+  },
+  "bp09": {
+    "tide_gauges": [
+      {
+        "gauge_label": "Iwanai",
+        "rmse": 0.809722375467963,
+        "mean_abs_error": 0.613098923525668,
+        "max_abs_error": 2.19147551125585
+      },
+      {
+        "gauge_label": "Esashi",
+        "rmse": 1.00867720721155,
+        "mean_abs_error": 0.652363012292541,
+        "max_abs_error": 2.7115806381185
+      }
+    ],
+    "runup_summary": [
+      {
+        "runup_grid": "gridA_okushiri",
+        "runup_max_m": 17.2878017425537,
+        "runup_lon": 139.434160052916,
+        "runup_lat": 42.0503401360593,
+        "runup_cell_count": 771
+      },
+      {
+        "runup_grid": "gridB_south_okushiri",
+        "runup_max_m": 21.7352256774902,
+        "runup_lon": 139.432763636362,
+        "runup_lat": 42.0779674796752,
+        "runup_cell_count": 5662
+      },
+      {
+        "runup_grid": "gridC_aonae",
+        "runup_max_m": 21.9652690887451,
+        "runup_lon": 139.495002117748,
+        "runup_lat": 42.079020801623,
+        "runup_cell_count": 27764
+      },
+      {
+        "runup_grid": "gridC_monai",
+        "runup_max_m": 22.396821975708,
+        "runup_lon": 139.431468926552,
+        "runup_lat": 42.0690122176119,
+        "runup_cell_count": 20378
+      }
+    ]
+  }
+}

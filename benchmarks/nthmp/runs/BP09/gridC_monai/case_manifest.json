@@ -1,0 +1,88 @@
+{
+  "benchmark": "BP09",
+  "variant": "gridC_monai",
+  "grid_key": "grid_c_monai",
+  "grid_label": "C_Monai",
+  "status": "generated",
+  "setup_style": "MATLAB Pearl Harbor master_nested_config.m style",
+  "grid": {
+    "base_refinement": 4,
+    "grid_refinement": 4,
+    "cumulative_refinement": 16,
+    "width": 296,
+    "height": 1447,
+    "dx_degrees": 8.4745762706006644E-5,
+    "dy_degrees": 6.3393268789013746E-5,
+    "dx_m_approx": 6.9904816424759471,
+    "dy_m_approx": 7.0490098727531789,
+    "spacing_m_approx": 7.0197457576145634,
+    "lon_ll": 139.40833333333333,
+    "lat_ll": 42.06666666666667,
+    "lon_ur": 139.43333333333334,
+    "lat_ur": 42.158333333333331,
+    "requested_bounds": {
+      "lon_min": 139.40833333333333,
+      "lat_min": 42.06666666666667,
+      "lon_max": 139.43333333333334,
+      "lat_max": 42.158333333333331
+    },
+    "base_depth_m": 37.073148603918106,
+    "bottom_min_m": -37.073148603918106,
+    "bottom_max_m": 50
+  },
+  "parent": "grid_b",
+  "boundary_prefix": "gridC_monai",
+  "children": [],
+  "pmel_link": {
+    "parent": "grid_b",
+    "i": 14,
+    "j": 49,
+    "base": "1-based west-south"
+  },
+  "nested_output_rectangles": [],
+  "source_priority": [
+    "pmel_c23"
+  ],
+  "bathy_source_coverage": {
+    "source": "pmel_c23",
+    "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D40-202-50m.txt",
+    "covered_cells": 428312,
+    "available_cells": 428312
+  },
+  "initial_condition_source": "pmel_i_c23",
+  "initial_condition_coverage": {
+    "source": "pmel_i_c23",
+    "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I40-202-50m-17a.txt",
+    "covered_cells": 428312,
+    "available_cells": 428312
+  },
+  "gauges": [
+    {
+      "id": "monai_camping",
+      "label": "Monai Camping Site",
+      "lon": 139.41972222222222,
+      "lat": 42.112222222222222,
+      "xts": 0.011388888888888005,
+      "yts": 0.045555555555552019
+    },
+    {
+      "id": "monai_river",
+      "label": "Monai River mouth",
+      "lon": 139.42361111111111,
+      "lat": 42.108055555555559,
+      "xts": 0.015277777777782831,
+      "yts": 0.041388888888889142
+    }
+  ],
+  "files": {
+    "config": "config.json",
+    "bathy": "bathy.txt",
+    "waves": "waves.txt",
+    "initial_condition": "IC.txt",
+    "eta_initial_condition": "etaInitCond.txt",
+    "ts_west_file": "gridC_monai_time_series_bc_west.txt",
+    "ts_east_file": "gridC_monai_time_series_bc_east.txt",
+    "ts_south_file": "gridC_monai_time_series_bc_south.txt",
+    "ts_north_file": "gridC_monai_time_series_bc_north.txt"
+  }
+}

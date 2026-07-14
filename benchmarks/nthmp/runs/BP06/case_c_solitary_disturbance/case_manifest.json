@@ -1,0 +1,11 @@
+{
+  "benchmark": "BP06",
+  "variant": "case_c",
+  "status": "generated_by_matlab",
+  "generator": "benchmarks/nthmp/matlab/nthmp_generate.m",
+  "files": {
+    "config": "config.json",
+    "bathy": "bathy.txt",
+    "waves": "waves.txt"
+  }
+}

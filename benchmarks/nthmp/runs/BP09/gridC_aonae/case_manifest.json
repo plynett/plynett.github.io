@@ -1,0 +1,88 @@
+{
+  "benchmark": "BP09",
+  "variant": "gridC_aonae",
+  "grid_key": "grid_c_aonae",
+  "grid_label": "C_Aonae",
+  "status": "generated",
+  "setup_style": "MATLAB Pearl Harbor master_nested_config.m style",
+  "grid": {
+    "base_refinement": 4,
+    "grid_refinement": 4,
+    "cumulative_refinement": 16,
+    "width": 788,
+    "height": 658,
+    "dx_degrees": 8.4709868701793312E-5,
+    "dy_degrees": 6.34195839666063E-5,
+    "dx_m_approx": 6.993030335796667,
+    "dy_m_approx": 7.051935986995221,
+    "spacing_m_approx": 7.022483161395944,
+    "lon_ll": 139.43333333333334,
+    "lat_ll": 42.041666666666664,
+    "lon_ur": 139.5,
+    "lat_ur": 42.083333333333336,
+    "requested_bounds": {
+      "lon_min": 139.43333333333334,
+      "lat_min": 42.041666666666664,
+      "lon_max": 139.5,
+      "lat_max": 42.083333333333336
+    },
+    "base_depth_m": 94.1,
+    "bottom_min_m": -94.1,
+    "bottom_max_m": 50
+  },
+  "parent": "grid_b",
+  "boundary_prefix": "gridC_aonae",
+  "children": [],
+  "pmel_link": {
+    "parent": "grid_b",
+    "i": 27,
+    "j": 30,
+    "base": "1-based west-south"
+  },
+  "nested_output_rectangles": [],
+  "source_priority": [
+    "pmel_c1"
+  ],
+  "bathy_source_coverage": {
+    "source": "pmel_c1",
+    "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\BATHYMETRY\\D112-94-50m.txt",
+    "covered_cells": 518504,
+    "available_cells": 518504
+  },
+  "initial_condition_source": "pmel_i_c1",
+  "initial_condition_coverage": {
+    "source": "pmel_i_c1",
+    "path": "C:\\Users\\plynett\\Documents\\GitHub\\plynett.github.io\\benchmarks\\nthmp\\reference_data\\BP09\\PMEL\\INITIAL-WAVE\\I112-94-50m-17a.txt",
+    "covered_cells": 518504,
+    "available_cells": 518504
+  },
+  "gauges": [
+    {
+      "id": "aonae",
+      "label": "Aonae",
+      "lon": 139.44916666666668,
+      "lat": 42.0625,
+      "xts": 0.015833333333347355,
+      "yts": 0.020833333333335702
+    },
+    {
+      "id": "aonae_lighthouse",
+      "label": "Aonae lighthouse",
+      "lon": 139.44944444444445,
+      "lat": 42.055833333333332,
+      "xts": 0.016111111111115406,
+      "yts": 0.014166666666667993
+    }
+  ],
+  "files": {
+    "config": "config.json",
+    "bathy": "bathy.txt",
+    "waves": "waves.txt",
+    "initial_condition": "IC.txt",
+    "eta_initial_condition": "etaInitCond.txt",
+    "ts_west_file": "gridC_aonae_time_series_bc_west.txt",
+    "ts_east_file": "gridC_aonae_time_series_bc_east.txt",
+    "ts_south_file": "gridC_aonae_time_series_bc_south.txt",
+    "ts_north_file": "gridC_aonae_time_series_bc_north.txt"
+  }
+}
