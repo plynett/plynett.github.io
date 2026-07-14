@@ -2,6 +2,7 @@ runs/**/output/
 runs/**/analysis/
 runs/**/chromedriver-win64/
 runs/BP09/**/*_time_series_bc_*.txt
+!runs/**/config.json
 report/rendered*/
 report/*_updated.*
 report/*.pdf
