@@ -1724,7 +1724,17 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
     let frame_count_time_series = 0;   // Counter for time series
     // let total_time_time_series = 0;          // duration for time series
     // Added by Codex: Point time-series timestamps follow the same shifted/global clock as total_time.
-    let total_time_time_series = calc_constants.start_time_shift;          // duration for time series
+    // let total_time_time_series = calc_constants.start_time_shift;          // duration for time series
+    // Added by Codex: Start ordinary point gauges retain their original zero-based
+    // clock; only type-5 nested simulations use the shifted/global clock.
+    const useNestedPointTimeSeriesClock = calc_constants.west_boundary_type == 5 ||
+        calc_constants.east_boundary_type == 5 || calc_constants.south_boundary_type == 5 ||
+        calc_constants.north_boundary_type == 5;
+    let total_time_time_series = useNestedPointTimeSeriesClock ? calc_constants.start_time_shift : 0.0;
+    calc_constants.timeSeriesChartStartTime = total_time_time_series;
+    calc_constants.timeSeriesDataEpoch = 0;
+    let chartDataUpdateResetHandled = 0;
+    // Added by Codex: End ordinary point gauges retain their original zero-based clock.
     let frame_count_find_render_step = 0;   // Counter to keep track of the number of rendered frames.
     let frame_count_output = 0;   // Counter to keep track of the number of frames saved to file
     let dt_since_last_write = 0.0 // tracks amount of time since last file write
@@ -3455,34 +3465,58 @@ async function initializeWebGPUApp(configContent, bathymetryContent, waveContent
         // end screen render    
 
         // for the tooltip & time series, extract pixel values
-        if(calc_constants.updateTimeSeriesTx == 1 || calc_constants.chartDataUpdate == 1) {  // update the time series locations texture, and reset plot
+        // if(calc_constants.updateTimeSeriesTx == 1 || calc_constants.chartDataUpdate == 1) {  // update the time series locations texture, and reset plot
+        // Added by Codex: Start point time-series reset and clock handling.
+        // Handle a chart-update request once while its UI flag
+        // waits for the one-second chart refresh callback to clear it.
+        if (calc_constants.chartDataUpdate == 0) {
+            chartDataUpdateResetHandled = 0;
+        }
+        const pointTimeSeriesResetRequested = calc_constants.updateTimeSeriesTx == 1 ||
+            (calc_constants.chartDataUpdate == 1 && chartDataUpdateResetHandled == 0);
+        if(pointTimeSeriesResetRequested) {  // update the time series locations texture, and reset plot
             copyTSlocsToTexture(calc_constants, device, txTimeSeries_Locations) 
             frame_count_time_series = 0; 
             // total_time_time_series = 0.0;
-            // Added by Codex: Reset displayed point-series timestamps to the shifted/global clock, not local zero.
-            total_time_time_series = total_time;
+            // Added by Codex: Reset ordinary gauges to zero and nested gauges
+            // to the current parent/global time.
+            total_time_time_series = useNestedPointTimeSeriesClock ? total_time : 0.0;
+            calc_constants.timeSeriesChartStartTime = total_time_time_series;
+            calc_constants.timeSeriesDataEpoch += 1;
+            resetTimeSeriesData();
             calc_constants.updateTimeSeriesTx = 0;
+            chartDataUpdateResetHandled = 1;
         }
 
         // total_time_time_series = frame_count_time_series * calc_constants.dt; // step up time series time vector
-        // Added by Codex: Point time-series output uses the shifted/global model clock.
-        total_time_time_series = total_time; // step up time series time vector
-        if(frame_count_time_series * calc_constants.dt > calc_constants.maxdurationTimeSeries ){  // reset display if greater than max time
+        // Added by Codex: Point-series output is locally elapsed for ordinary
+        // runs and follows total_time only for nested type-5 runs.
+        total_time_time_series = useNestedPointTimeSeriesClock
+            ? total_time
+            : frame_count_time_series * calc_constants.dt;
+        if(frame_count_time_series * calc_constants.dt >= calc_constants.maxdurationTimeSeries ){  // reset display if greater than max time
             if(calc_constants.NumberOfTimeSeries > 0) {
                 console.log('Reseting time series chart data, and saving time series to file')
                 downloadTimeSeriesData();
             }
             frame_count_time_series = 0; 
             // total_time_time_series = 0.0;
-            // Added by Codex: Keep point-series timestamps on the shifted/global clock after chunk rollover.
-            total_time_time_series = total_time;
+            // Added by Codex: Start the next ordinary chart at zero and the
+            // next nested chart at the current parent/global time.
+            total_time_time_series = useNestedPointTimeSeriesClock ? total_time : 0.0;
+            calc_constants.timeSeriesChartStartTime = total_time_time_series;
+            calc_constants.timeSeriesDataEpoch += 1;
+            resetTimeSeriesData();
         }
         
         ExtractTimeSeries_view.setInt32(16, calc_constants.mouse_current_canvas_indX, true);             // i32
         ExtractTimeSeries_view.setInt32(20, calc_constants.mouse_current_canvas_indY, true);             // i32
         ExtractTimeSeries_view.setFloat32(24,  total_time_time_series, true);             // f32, total_time
         runComputeShader(device, ExtractTimeSeries_uniformBuffer, ExtractTimeSeries_uniforms, ExtractTimeSeries_Pipeline, ExtractTimeSeries_BindGroup, calc_constants.NumberOfTimeSeries + 1, 1);  //extract tooltip and time series data into a 1D texture        
-        readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
+        // readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series);  //  read the tooltip / time series data and place into variables
+        // Added by Codex: Tag asynchronous readback with the active reset epoch.
+        readToolTipTextureData(device, txTimeSeries_Data, frame_count_time_series, calc_constants.timeSeriesDataEpoch);  //  read the tooltip / time series data and place into variables
+        // Added by Codex: End point time-series reset and clock handling.
 
         
         // store the current screen render as a texture, and then copy to a storage texture that will not be destroyed.  This is for creating jpgs, animations, only when not fullscreen
@@ -5433,7 +5467,12 @@ async function updateChartData() {
 
     // Always update the labels and x-axis limit to reflect any changes in the time vector or chart configuration
     timeseriesChart.data.labels = timeSeriesData[0].time;
-    timeseriesChart.options.scales.x.max = calc_constants.maxdurationTimeSeries;
+    // timeseriesChart.options.scales.x.max = calc_constants.maxdurationTimeSeries;
+    // Added by Codex: Start ordinary windows remain 0..duration; nested windows
+    // retain absolute parent/global timestamps and move after each reset.
+    timeseriesChart.options.scales.x.min = calc_constants.timeSeriesChartStartTime;
+    timeseriesChart.options.scales.x.max = calc_constants.timeSeriesChartStartTime + calc_constants.maxdurationTimeSeries;
+    // Added by Codex: End point time-series chart-window limits.
 
     // Dynamically adjust the stepSize if needed
     const desiredNumberOfTicks = 20; // Example: aim for 10 ticks

@@ -255,6 +255,10 @@ var calc_constants = {
     countTimeSeries: 0, // count of points stored in time series
     durationTimeSeries: 0., // current time series duration
     maxdurationTimeSeries: 120., // time series duration to plot, time series resets after this time.
+    // Added by Codex: Start point time-series reset state.
+    timeSeriesChartStartTime: 0.0, // current point-series chart-window start, zero normally and absolute time for nested runs
+    timeSeriesDataEpoch: 0, // invalidates asynchronous point-series readbacks issued before a chart reset
+    // Added by Codex: End point time-series reset state.
     maxNumberOfTimeSeries: 16, // max number of time series allowed, inlcuding tooltip, if greater than 16, need to update readToolTipTextureData bytesperrow.  SHould be 16*N time series
     NumberOfTimeSeries: 0, //  number of time series right now
     changethisTimeSeries: 1, // changing location of this time series

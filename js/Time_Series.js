@@ -55,7 +55,10 @@ export async function readCornerPixelData(device, texture) {
 
 
 // function to read the data from a 1D texture, and store into a variable
-export async function readToolTipTextureData(device, texture, frame_count_time_series) {
+// export async function readToolTipTextureData(device, texture, frame_count_time_series) {
+// Added by Codex: Start carry the reset epoch so stale asynchronous readbacks cannot refill a cleared chart.
+export async function readToolTipTextureData(device, texture, frame_count_time_series, timeSeriesDataEpoch = calc_constants.timeSeriesDataEpoch) {
+    // Added by Codex: End readback reset-epoch function signature.
     // For a single pixel, especially in an RGBA format
     const bytesPerPixel = 16; // RGBA: 4 channels per pixel, 32 bits per channel
     const bytesPerRow = 256; // WebGPU requires bytesPerRow to be at least 256
@@ -94,10 +97,20 @@ export async function readToolTipTextureData(device, texture, frame_count_time_s
 
     if (calc_constants.NumberOfTimeSeries > 0) {
         let time_c = bufferCopy[4]; // use only the time for the first time series - should be the same for all
-        if (frame_count_time_series == 0){  // after we have written the data to file, or there is a change in the chart, this value is set to 0
-            resetTimeSeriesData();
-            time_c = 0.0;
+        // if (frame_count_time_series == 0){  // after we have written the data to file, or there is a change in the chart, this value is set to 0
+        //     resetTimeSeriesData();
+        //     time_c = 0.0;
+        // }
+        // Added by Codex: Start reject stale asynchronous readbacks after a reset.
+        // Resets now occur synchronously in main.js. Drop any
+        // readback started before that reset and retain the shader timestamp,
+        // which is zero-based normally and absolute for nested runs.
+        if (timeSeriesDataEpoch != calc_constants.timeSeriesDataEpoch) {
+            buffer.unmap();
+            buffer.destroy();
+            return;
         }
+        // Added by Codex: End reject stale asynchronous readbacks after a reset.
         for (let i = 0; i < calc_constants.NumberOfTimeSeries; i += 1) {  // append data to existing structure
             timeSeriesData[i]['time'].push(time_c);
             timeSeriesData[i]['eta'].push(bufferCopy[(i + 1) * 4 + 1]);

@@ -60,7 +60,7 @@ faster-than-realtime ratio into `calc_constants.agent_total_time`,
 `calc_constants.agent_total_time_since_http_update`, and
 `calc_constants.agent_faster_than_realtime_ratio`. These are display/provenance values only; they do
 not drive solver behavior.
-When boundary type `5` files are loaded, `calc_constants.start_time_shift` is set from the first shared boundary-file time, and the render loop adds it directly to `total_time`. Boundary forcing, point time series, diagnostics, trigger checks, and nested outputs then all use the same parent/global clock.
+When boundary type `5` files are loaded, `calc_constants.start_time_shift` is set from the first shared boundary-file time, and the render loop adds it directly to `total_time`. Boundary forcing, nested-run point time series, diagnostics, trigger checks, and nested outputs then use the same parent/global clock. Ordinary point time series remain zero-based and restart at zero when a gauge changes or its configured duration rolls over. Nested point-series chart windows retain absolute timestamps and move their x-axis window at each reset.
 
 ## Main Simulation Loop
 
